@@ -10,11 +10,26 @@ Nguồn yêu cầu: [plan.md](../plan.md), đặc biệt mục 21.1. Bản đồ
 - [x] WP-01: runtime/dependencies, lockfiles và local install/lint/typecheck/test/build đã đạt; chờ CI remote đầu tiên sau push.
 - [x] M0: hoàn tất spike provider/MCP/checkpointer, seed spec và 30 evaluation cases.
 - [ ] WP-02: implementation đã đủ; chờ chạy lại PostgreSQL integration, frontend Docker checks và CI remote trước khi đóng WP.
+- [x] WP-03: Redis/Celery, durable run events, commit-then-enqueue, SSE và frontend reconnect đã đạt local; chờ CI remote sau push.
 
-WP-01 và compatibility M0 đã hoàn thành ở local; WP-02 đang ở bước verification,
-WP-03..WP-14 chưa hoàn thành. Responses
+WP-01, compatibility M0 và WP-03 đã hoàn thành ở local. Theo yêu cầu hiện tại, WP-02
+đã commit nhưng verification được tạm hoãn; WP-04..WP-14 chưa hoàn thành. Responses
 live, MCP stdio, PostgreSQL checkpointer, seed contract và 30 evaluation cases đều có bằng
 chứng. Paid/live checks vẫn là opt-in và không chạy trong CI.
+
+## Checklist WP-03
+
+- [x] P16: Redis development service pin image, AOF `everysec`, `noeviction`, healthcheck và typed settings.
+- [x] P17: Celery app với agent/background queues, scheduler, fake task và unit tests.
+- [x] P18: Run state machine, terminal states, persistent ordered events và idempotency.
+- [x] P19: Commit-then-enqueue, enqueue failure record/reconcile và duplicate worker claim.
+- [x] P20: Owner-scoped run snapshot/SSE, event cursor, heartbeat và reconnect không tạo run.
+- [x] P21: Frontend typed SSE client, bounded reconnect, status/error UI và tests.
+- [x] P22: CI PostgreSQL/Redis services, required integration targets và tài liệu vận hành.
+
+Bằng chứng local ngày 2026-09-16: Ruff/mypy đạt; 14 unit tests WP-03 và 5 integration
+tests PostgreSQL/Redis đạt; frontend lint/typecheck, 9 tests và production build đạt.
+GitHub Actions chỉ được xác nhận remote sau khi push.
 
 ## Cách dùng kế hoạch
 

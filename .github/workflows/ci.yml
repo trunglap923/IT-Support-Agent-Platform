@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   backend:
-    name: Backend · Python 3.12
+    name: Backend · Python 3.12 + services
     runs-on: ubuntu-latest
     timeout-minutes: 10
     services:
@@ -32,10 +32,23 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 12
+      redis:
+        image: redis:7.4.8-bookworm@sha256:3e0669e42d4fe421c9dea0ba5fbc04d336b80b4f32a6c7d25bee3a1d089288a1
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 12
     env:
       APP_ENV: test
       AI_PROVIDER: fake
       TEST_DATABASE_ADMIN_URL: postgresql+psycopg://it_support_agent_test:ci-only-password@127.0.0.1:5432/it_support_agent_test
+      REDIS_URL: redis://127.0.0.1:6379/0
+      TEST_REDIS_URL: redis://127.0.0.1:6379/15
+      REQUIRE_DATABASE_TESTS: "1"
+      REQUIRE_REDIS_TESTS: "1"
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7

@@ -1,6 +1,6 @@
 # HTTP API và SSE
 
-Trạng thái: auth HTTP contract WP-02 đã triển khai; conversation/run/SSE và các feature API thuộc WP sau.
+Trạng thái: auth HTTP WP-02 và owner-scoped run snapshot/SSE WP-03 đã triển khai; feature API còn lại thuộc WP sau.
 Work packages: WP-02, WP-03, WP-08, WP-11, WP-12.
 Nguồn: [kế hoạch tổng](../../../plan.md), mục 14; [thứ tự triển khai](../../../docs/implementation-roadmap.md).
 
@@ -38,7 +38,7 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 ## Các bước triển khai
 
 - [x] API-01a: Khai báo schemas/OpenAPI cho login, logout và current session.
-- [ ] API-01b: Khai báo schemas/OpenAPI cho conversation/run ở WP-03.
+- [x] API-01b: Khai báo response schema/OpenAPI cho run snapshot và event stream ở WP-03.
 - [x] API-02a: Implement auth routes mỏng; kiểm tra Origin/CSRF với logout.
 - [ ] API-02b: Implement các feature routes cùng CSRF/policy tương ứng.
 - [x] API-03: Tạo GET run snapshot/events hỗ trợ Last-Event-ID/after_sequence, heartbeat và ownership.

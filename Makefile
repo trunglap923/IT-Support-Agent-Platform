@@ -19,7 +19,8 @@ FRONTEND_DOCKER = docker run --rm --user $(PROJECT_UID):$(PROJECT_GID) -e npm_co
 	dev-backend dev-frontend dev-frontend-docker dev-stop spike-openai-live \
 	spike-mcp-stdio spike-langgraph-postgres eval-validate \
 	db-up db-down db-status redis-up redis-down redis-status services-up services-down \
-	migrate seed-demo-user backend-integration-check wp02-check \
+	migrate seed-demo-user wp02-integration-check wp03-integration-check \
+	backend-integration-check wp02-check wp03-check \
 	worker-agent worker-background scheduler
 
 help:
@@ -50,8 +51,11 @@ help:
 	@echo "  make scheduler              Run the single development Celery beat scheduler"
 	@echo "  make migrate                Upgrade the configured application database"
 	@echo "  make seed-demo-user         Create the minimal hashed demo login account"
-	@echo "  make backend-integration-check  Run DB/migration/auth/ownership tests in isolated databases"
+	@echo "  make wp02-integration-check  Run DB/migration/auth/ownership tests in isolated databases"
+	@echo "  make wp03-integration-check  Run run-state/enqueue/SSE/Redis service integration tests"
+	@echo "  make backend-integration-check  Run all service integration tests"
 	@echo "  make wp02-check             Run all WP-02 backend and frontend checks"
+	@echo "  make wp03-check             Run all WP-03 backend, service and frontend checks"
 
 bootstrap: backend-sync frontend-install
 
@@ -70,10 +74,17 @@ backend-check:
 	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --directory backend --frozen mypy app
 	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --directory backend --frozen pytest
 
-backend-integration-check:
+wp02-integration-check:
 	REQUIRE_DATABASE_TESTS=1 UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --directory backend --frozen --env-file $(COMPOSE_ENV_FILE) pytest tests/integration/test_migrations.py tests/integration/test_user_repository.py tests/integration/test_auth_api.py tests/integration/test_conversation_ownership.py
 
-wp02-check: backend-check backend-integration-check frontend-check-docker
+wp03-integration-check:
+	REDIS_URL=$(or $(TEST_REDIS_URL),redis://127.0.0.1:6379/15) TEST_REDIS_URL=$(or $(TEST_REDIS_URL),redis://127.0.0.1:6379/15) REQUIRE_DATABASE_TESTS=1 REQUIRE_REDIS_TESTS=1 UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --directory backend --frozen --env-file $(COMPOSE_ENV_FILE) pytest tests/integration/test_run_state_store.py tests/integration/test_run_enqueue.py tests/integration/test_sse_api.py tests/integration/test_redis_dispatch.py
+
+backend-integration-check: wp02-integration-check wp03-integration-check
+
+wp02-check: backend-check wp02-integration-check frontend-check-docker
+
+wp03-check: backend-check wp03-integration-check frontend-check-docker
 
 frontend-install:
 	$(NPM) --prefix frontend ci

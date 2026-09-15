@@ -6,17 +6,16 @@ Portfolio trợ lý IT: trả lời có nguồn, kiểm tra dịch vụ mô ph�
 
 Đã khởi tạo cây thư mục và **57 kế hoạch module**. Mỗi `PLAN.md` có phạm vi, hợp đồng, tệp cần viết, phần phụ thuộc, checklist có mã và điều kiện hoàn thành.
 
-WP-01 và compatibility M0 đã hoàn thành ở local. WP-02 hiện đã có PostgreSQL/pgvector,
-Alembic, user/password Argon2, session-cookie authentication, CSRF/RBAC, persistence
-conversation/run/event và giao diện login/logout có route protection. Chat/RAG và queue
-bắt đầu từ WP-03 trở đi theo roadmap.
+WP-01, compatibility M0 và WP-03 đã hoàn thành ở local. WP-02 đã được triển khai và
+commit gồm PostgreSQL/pgvector, Alembic, Argon2, session-cookie, CSRF/RBAC,
+conversation/run persistence và login UI; việc chạy lại gate WP-02 đang được tạm hoãn.
 
-Kết quả gần nhất ngày 2026-09-15: backend Ruff/mypy của WP-02 đạt. Migration/user
-foundation đã chạy đạt với PostgreSQL 17; auth/conversation integration mới phải được
-chạy lại bằng `make backend-integration-check` trước khi đánh dấu WP-02 hoàn tất.
-Frontend WP-02 có test login lỗi, route protection và logout/CSRF; cần chạy lại bộ Node
-checks trong Docker. Dataset M0 có 30/30 case hợp lệ và Responses live đã đạt cả ba
-contract. Workflow GitHub Actions chỉ được xác nhận remote sau khi push commit.
+WP-03 bổ sung Redis AOF/noeviction, Celery agent/background workers, durable run state và
+event store, commit-then-enqueue/reconcile, owner-scoped SSE cùng màn hình theo dõi run có
+bounded reconnect. Kết quả ngày 2026-09-16: Ruff/mypy đạt, 14 unit tests WP-03 và 5
+PostgreSQL/Redis integration tests đạt; frontend lint/typecheck, 9 tests và production
+build đạt. Dataset M0 có 30/30 case hợp lệ và Responses live đạt cả ba contract. Workflow
+GitHub Actions chỉ được xác nhận remote sau khi push.
 
 ## Chạy development
 
@@ -56,17 +55,23 @@ cp .env.example .env
 make backend-sync
 make backend-check
 make frontend-check-docker
-make backend-integration-check
+make wp03-integration-check
 ~~~
 
-`backend-integration-check` tạo database tạm có tên ngẫu nhiên cho từng test và xóa sau
-khi chạy; nó không migrate hay reset database demo. Chạy toàn bộ gate WP-02 bằng
-`make wp02-check` sau khi `make db-up` đã báo healthy.
+`wp02-integration-check` và `wp03-integration-check` tạo database PostgreSQL tạm có tên
+ngẫu nhiên rồi xóa sau test. WP-03 dùng `TEST_REDIS_URL` ở database 15 và chỉ cleanup
+queue test; các lệnh không migrate/reset database demo. `backend-integration-check` chạy
+cả hai nhóm. Chạy `make wp02-check` hoặc `make wp03-check` khi các service tương ứng đã
+healthy.
 
 Celery có hai worker riêng và một beat scheduler. Sau `make services-up`, có thể mở ba
 terminal khác nhau để chạy `make worker-agent`, `make worker-background` và
 `make scheduler`. Chỉ chạy một scheduler cho một environment; queue payload chỉ chứa ID,
 còn PostgreSQL là nguồn trạng thái.
+
+Sau khi đăng nhập, route `/chat?run_id=<UUID>` hiển thị snapshot và event SSE của một run
+đã tồn tại. UI tạo conversation/message và final answer sẽ được nối ở WP-06; màn hình
+WP-03 hiện chỉ kiểm chứng luồng theo dõi/reconnect, không tự tạo run mới.
 
 Chạy hai terminal để xem giao diện. Backend development bind vào `0.0.0.0` để
 frontend trong Docker có thể gọi API qua Docker host gateway; frontend chỉ được
