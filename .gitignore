@@ -1,0 +1,46 @@
+# Local secrets; keep the documented template.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python environments and generated files.
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+*.egg-info/
+build/
+
+# Frontend dependencies and generated artifacts.
+node_modules/
+dist/
+.vite/
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+
+# Runtime data, local dumps and unreviewed logs.
+.runtime/
+.storage/
+volumes/
+backups/
+*.log
+reports/raw/
+reports/tmp/
+
+# Editor/OS scratch files.
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Keep source fixtures, self-authored PDFs, reviewed reports and lockfiles tracked.
