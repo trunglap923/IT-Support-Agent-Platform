@@ -1,6 +1,6 @@
 # LangGraph runtime
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: spike checkpoint/recovery M0 đã đạt; graph nghiệp vụ vẫn chưa triển khai.
 Work packages: WP-06, WP-08, WP-10, WP-12.
 Nguồn: [kế hoạch tổng](../../../plan.md), mục 9, 11, 12; [thứ tự triển khai](../../../docs/implementation-roadmap.md).
 
@@ -45,3 +45,12 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [ ] UC-01/02/03/04/09 hoạt động đúng và graph kết thúc khi hết budget.
 - [ ] Restart/resume dùng đúng checkpoint; không có write trước interrupt.
 - [ ] Graph replay không tạo thêm ticket và không dùng quyền từ state cũ.
+
+## Bằng chứng spike M0
+
+- `checkpoint_spike.py` chạy pause và resume trong hai Python process khác nhau, dùng cùng
+  `thread_id=run_id` và PostgreSQL checkpointer thật.
+- Integration test chỉ chạy khi có `CHECKPOINT_DATABASE_URL`; CI mặc định skip và không
+  tự kết nối database bên ngoài.
+- Spike chỉ chứng minh checkpoint recovery. Receipt/idempotency, approval business record,
+  run locking và authorization recheck vẫn thuộc WP-08/WP-10.

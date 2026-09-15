@@ -14,7 +14,7 @@ FRONTEND_DOCKER = docker run --rm --user $(PROJECT_UID):$(PROJECT_GID) -e npm_co
 .PHONY: help bootstrap check backend-sync backend-format backend-check \
 	frontend-install frontend-check frontend-install-docker frontend-check-docker \
 	dev-backend dev-frontend dev-frontend-docker dev-stop spike-openai-live \
-	spike-mcp-stdio
+	spike-mcp-stdio spike-langgraph-postgres
 
 help:
 	@echo "WP-01 commands:"
@@ -29,6 +29,7 @@ help:
 	@echo "  make dev-stop               Stop and remove the frontend development container"
 	@echo "  make spike-openai-live      Run three small paid Responses API probes (opt-in)"
 	@echo "  make spike-mcp-stdio        Verify MCP stdio discovery/call and actor isolation"
+	@echo "  make spike-langgraph-postgres  Verify pause/restart/resume (requires CHECKPOINT_DATABASE_URL)"
 
 bootstrap: backend-sync frontend-install
 
@@ -106,3 +107,7 @@ spike-openai-live:
 
 spike-mcp-stdio:
 	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --directory backend --frozen python -m app.mcp_server.stdio_spike
+
+spike-langgraph-postgres:
+	@test -n "$(CHECKPOINT_DATABASE_URL)" || (echo "Set CHECKPOINT_DATABASE_URL to an isolated PostgreSQL database."; exit 1)
+	UV_CACHE_DIR=$(UV_CACHE_DIR) LANGGRAPH_STRICT_MSGPACK=true CHECKPOINT_DATABASE_URL="$(CHECKPOINT_DATABASE_URL)" $(UV) --system-certs run --directory backend --frozen python -m app.agent.checkpoint_spike

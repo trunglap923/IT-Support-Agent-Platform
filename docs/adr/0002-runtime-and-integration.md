@@ -80,3 +80,17 @@ database ownership recheck hoặc ba business tools sẽ viết ở WP-07.
 
 API được đối chiếu với [MCP Python SDK chính thức](https://github.com/modelcontextprotocol/python-sdk)
 và tài liệu [stdio client/discovery/call](https://py.sdk.modelcontextprotocol.io/client/).
+
+### Spike LangGraph PostgreSQL checkpointer
+
+Ngày 2026-09-15, LangGraph 1.2.11 và `langgraph-checkpoint-postgres` 3.1.2 được
+khóa cùng Psycopg 3.3.5. Probe gọi `interrupt`, lưu checkpoint vào PostgreSQL thật,
+kết thúc process pause, rồi mở process mới với cùng `thread_id=run_id` và resume bằng
+`Command(resume=True)`. Kết quả cuối là `approved`; PID của hai phase khác nhau.
+
+`make spike-langgraph-postgres` yêu cầu `CHECKPOINT_DATABASE_URL` trỏ tới database
+test cô lập. Integration test tự skip nếu biến này không có, nên CI thường không phụ
+thuộc database bên ngoài. Serializer bật strict msgpack theo khuyến cáo bảo mật hiện hành.
+
+API được đối chiếu với tài liệu chính thức về [interrupt/resume](https://docs.langchain.com/oss/python/langgraph/interrupts)
+và [PostgreSQL checkpointer](https://reference.langchain.com/python/langgraph/checkpoint.postgres).
