@@ -45,4 +45,24 @@ GitHub Actions chưa thể chạy trước khi commit được push; lần CI re
 
 WP-01 chỉ tạo foundation. Không coi plain text provider là agent, không coi fake test là đánh giá model. Chưa cài LangGraph, MCP, PostgreSQL, Redis, Celery hoặc Langfuse cho tới khi WP tương ứng sử dụng chúng.
 
-M0 còn phải thử Responses structured tools bằng account thật có quota, MCP stdio actor isolation và PostgreSQL checkpointer pause/resume; kết quả sẽ bổ sung hoặc thay thế ADR này nếu cần.
+### Spike Responses API
+
+Ngày 2026-09-15, contract offline đã kiểm chứng với OpenAI Python SDK 2.54.0:
+
+- plain text dùng `responses.create`;
+- typed output dùng `responses.parse(..., text_format=<Pydantic model>)`;
+- function tool dùng schema strict, `additionalProperties=false`, một tool call và giữ
+  `call_id` để orchestration sử dụng ở bước tiếp theo;
+- cả ba request đặt `store=false`, timeout SDK 20 giây, không retry và tổng trần output
+  là 160 token.
+
+`make spike-openai-live` là lệnh riêng, yêu cầu đồng thời API key và
+`RUN_OPENAI_LIVE_SPIKE=1`. CI không gọi target này. Live model/account access chưa chạy,
+vì chưa có opt-in trả phí trong bằng chứng của ADR; do đó chưa đánh dấu điều kiện live M0.
+
+Tài liệu contract được đối chiếu với [Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs),
+[Function Calling](https://developers.openai.com/api/docs/guides/function-calling) và
+[GPT-4.1 mini](https://developers.openai.com/api/docs/models/gpt-4.1-mini) chính thức.
+
+M0 còn phải chạy live Responses bằng account có quota, MCP stdio actor isolation và
+PostgreSQL checkpointer pause/resume; kết quả sẽ bổ sung hoặc thay thế ADR này nếu cần.

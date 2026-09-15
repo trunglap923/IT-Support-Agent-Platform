@@ -13,7 +13,7 @@ FRONTEND_DOCKER = docker run --rm --user $(PROJECT_UID):$(PROJECT_GID) -e npm_co
 
 .PHONY: help bootstrap check backend-sync backend-format backend-check \
 	frontend-install frontend-check frontend-install-docker frontend-check-docker \
-	dev-backend dev-frontend dev-frontend-docker dev-stop
+	dev-backend dev-frontend dev-frontend-docker dev-stop spike-openai-live
 
 help:
 	@echo "WP-01 commands:"
@@ -26,6 +26,7 @@ help:
 	@echo "  make dev-frontend           Run Vite at http://127.0.0.1:5173"
 	@echo "  make dev-frontend-docker    Run Vite in the managed development container"
 	@echo "  make dev-stop               Stop and remove the frontend development container"
+	@echo "  make spike-openai-live      Run three small paid Responses API probes (opt-in)"
 
 bootstrap: backend-sync frontend-install
 
@@ -97,3 +98,6 @@ dev-stop:
 	else \
 		echo "Frontend development container is not running."; \
 	fi
+
+spike-openai-live:
+	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --directory backend --frozen --env-file $(CURDIR)/.env python -m app.providers.openai_responses_spike
