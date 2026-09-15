@@ -7,8 +7,8 @@ Bản kế hoạch ban đầu: [docs/archive/plan-original.md](docs/archive/plan
 
 Bộ khung thư mục và WP-01 đã được triển khai, kiểm tra local. Xem [README](README.md),
 [roadmap và mục lục các PLAN.md](docs/implementation-roadmap.md) để chạy code và bắt đầu
-WP-02. Các spike MCP/checkpointer, seed spec và 30 evaluation cases đã đạt; M0 vẫn mở vì
-Responses live cần chủ dự án opt-in bằng account có quota.
+WP-02. Compatibility M0 đã hoàn thành: Responses live, MCP stdio, PostgreSQL checkpointer,
+seed spec và 30 evaluation cases đều có bằng chứng; paid checks vẫn chỉ chạy opt-in.
 
 ## 1. Mục tiêu và những lựa chọn đã chốt
 

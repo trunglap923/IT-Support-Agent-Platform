@@ -8,11 +8,11 @@ Nguồn yêu cầu: [plan.md](../plan.md), đặc biệt mục 21.1. Bản đồ
 - [x] Mỗi module có hợp đồng, tệp cần viết, liên kết phối hợp, checklist và điều kiện hoàn thành.
 - [x] Có README, bản đồ kiến trúc, ADR cấu trúc, kịch bản demo và cấu hình mẫu không chứa secret.
 - [x] WP-01: runtime/dependencies, lockfiles và local install/lint/typecheck/test/build đã đạt; chờ CI remote đầu tiên sau push.
-- [ ] M0: hoàn tất spike provider/MCP/checkpointer, seed spec và 30 evaluation cases.
+- [x] M0: hoàn tất spike provider/MCP/checkpointer, seed spec và 30 evaluation cases.
 
-WP-01 hoàn thành ở local; WP-02..WP-14 chưa hoàn thành. MCP stdio, PostgreSQL
-checkpointer, seed contract và 30 evaluation cases đã đạt. M0 chỉ còn Responses live cần
-chủ động opt-in bằng account có quota; vì vậy chưa đánh dấu M0 hoàn thành.
+WP-01 và compatibility M0 đã hoàn thành ở local; WP-02..WP-14 chưa hoàn thành. Responses
+live, MCP stdio, PostgreSQL checkpointer, seed contract và 30 evaluation cases đều có bằng
+chứng. Paid/live checks vẫn là opt-in và không chạy trong CI.
 
 ## Cách dùng kế hoạch
 
@@ -32,7 +32,7 @@ chủ động opt-in bằng account có quota; vì vậy chưa đánh dấu M0 h
 - [x] Thiết kế fake-provider config để tests không cần paid keys; OpenAI mode fail rõ khi thiếu key và chưa được gọi từ API.
 - [ ] Trước paid embedding/chat đầu tiên, bắt buộc nối DB/budget guard; phần này thuộc WP-04/WP-06.
 - [x] Kiểm chứng Responses plain/structured/tool contract offline với strict schema và token cap.
-- [ ] Chạy Responses live bằng target opt-in; CI không có key và không chạy paid spike.
+- [x] Chạy Responses live bằng target opt-in; CI không có key và không chạy paid spike.
 - [x] Smoke-test MCP stdio discovery/call và actor isolation qua hai subprocess.
 - [x] Smoke-test PostgreSQL checkpointer pause/restart/resume qua hai process.
 - [x] Viết seed spec và 30 evaluation cases đầu. Đây là công việc M0, không đợi tới WP-13 mới thiết kế cách chấm.

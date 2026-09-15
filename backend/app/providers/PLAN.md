@@ -42,4 +42,4 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 - [x] Fake mode không cần secret/mạng và không bị tính là live evaluation.
 - [x] Không phát sinh tool side effect trong provider adapter.
-- [ ] Live smoke/model-access check là công việc M0 còn phải chạy; không suy từ việc có tài liệu.
+- [x] Live smoke/model-access M0 đạt với snapshot đã cấu hình; paid check vẫn chỉ chạy opt-in.

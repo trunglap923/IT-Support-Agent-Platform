@@ -1,7 +1,7 @@
 # ADR-0002 — Runtime foundation và compatibility M0
 
 Ngày: 2026-09-15  
-Trạng thái: chấp nhận có điều kiện; chỉ còn live Responses cần opt-in trước khi đóng M0.
+Trạng thái: chấp nhận; compatibility M0 đã hoàn thành.
 
 ## Bối cảnh
 
@@ -67,14 +67,15 @@ Ngày 2026-09-15, contract offline đã kiểm chứng với OpenAI Python SDK 2
   là 160 token.
 
 `make spike-openai-live` là lệnh riêng, yêu cầu đồng thời API key và
-`RUN_OPENAI_LIVE_SPIKE=1`. CI không gọi target này. Live model/account access chưa chạy,
-vì chưa có opt-in trả phí trong bằng chứng của ADR; do đó chưa đánh dấu điều kiện live M0.
+`RUN_OPENAI_LIVE_SPIKE=1`. CI không gọi target này. Ngày 2026-09-15, chủ dự án đã chạy
+target bằng model snapshot `gpt-4.1-mini-2025-04-14`: cả ba request trả response thành
+công. Structured output có `category=registry`; tool output gọi đúng
+`check_service_status` với `service=registry`; tổng trần output vẫn là 160 token.
+Response ID và tool call ID chỉ dùng để quan sát lần chạy, không lưu vào ADR.
 
 Tài liệu contract được đối chiếu với [Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs),
 [Function Calling](https://developers.openai.com/api/docs/guides/function-calling) và
 [GPT-4.1 mini](https://developers.openai.com/api/docs/models/gpt-4.1-mini) chính thức.
-
-M0 còn phải chạy live Responses bằng account có quota; kết quả sẽ bổ sung ADR này nếu cần.
 
 ### Spike MCP stdio và actor isolation
 
@@ -108,12 +109,12 @@ và [PostgreSQL checkpointer](https://reference.langchain.com/python/langgraph/c
 
 | Hạng mục | Kết quả | Quyết định |
 |---|---|---|
-| Responses plain/structured/tool contract | Offline đạt; live chưa chạy | Giữ SDK 2.54.0 và target live opt-in; chưa đóng M0 |
+| Responses plain/structured/tool contract | Offline và live đều đạt | Giữ SDK 2.54.0, model snapshot đã kiểm chứng và target live opt-in |
 | MCP stdio discovery/call/actor isolation | Đạt với hai subprocess | Giữ MCP SDK 2.2.0; actor/run chỉ truyền qua trusted process boundary |
 | LangGraph PostgreSQL checkpoint recovery | Đạt qua hai process và PostgreSQL 17 | Giữ LangGraph 1.2.11/checkpointer 3.1.2; `thread_id=run_id` |
 | Seed contract | Schema/spec đã chốt | Stable keys trong source, UUID được map khi seed ở WP-04 |
 | Evaluation M0 | 30/30 case hợp lệ | Development-only; chưa phải baseline chất lượng model |
 
-Do live Responses có thể phát sinh phí và phụ thuộc quota của tài khoản, bước này không chạy
-tự động trong local check hoặc CI. M0 tổng thể vẫn mở cho đến khi chủ dự án chủ động chạy
-`RUN_OPENAI_LIVE_SPIKE=1 make spike-openai-live` và ghi kết quả.
+Do live Responses có thể phát sinh phí và phụ thuộc quota của tài khoản, bước này vẫn không
+chạy tự động trong local check hoặc CI. Với bằng chứng live nói trên, toàn bộ compatibility
+M0 đã đạt; điều này chưa phải kết quả quality evaluation trên dataset.

@@ -6,12 +6,16 @@ Portfolio trợ lý IT: trả lời có nguồn, kiểm tra dịch vụ mô ph�
 
 Đã khởi tạo cây thư mục và **57 kế hoạch module**. Mỗi `PLAN.md` có phạm vi, hợp đồng, tệp cần viết, phần phụ thuộc, checklist có mã và điều kiện hoàn thành.
 
-WP-01 đã được triển khai và kiểm tra local: FastAPI có health endpoint, cấu hình fake/OpenAI rõ ràng, frontend React có shell/router/login placeholder, hai lockfile và CI fake-mode. Compatibility M0 đã kiểm chứng MCP stdio và LangGraph/PostgreSQL checkpoint recovery; seed contract và 30 evaluation cases cũng đã có. Chưa có database nghiệp vụ, auth thật, chat/RAG, queue hoặc Docker Compose; các phần đó bắt đầu từ WP-02 theo roadmap.
+WP-01 và compatibility M0 đã hoàn thành ở local: FastAPI/frontend foundation, Responses
+API live, MCP stdio, LangGraph/PostgreSQL checkpoint recovery, seed contract và 30
+evaluation cases đều có bằng chứng. Chưa có database nghiệp vụ, auth thật, chat/RAG,
+queue hoặc Docker Compose; các phần đó bắt đầu từ WP-02 theo roadmap.
 
 Kết quả local ngày 2026-09-15: backend Ruff/mypy đạt; suite mặc định có 10 test đạt,
 một PostgreSQL integration test skip. Khi cấp PostgreSQL 17 tạm thời, cả 11 test đạt.
 Frontend ESLint/TypeScript, 1 Vitest và production build đều đạt. Dataset M0 có 30/30
-case hợp lệ. Workflow GitHub Actions chỉ được xác nhận remote sau khi push commit.
+case hợp lệ. Responses live với `gpt-4.1-mini-2025-04-14` đã đạt text, structured output
+và tool calling. Workflow GitHub Actions chỉ được xác nhận remote sau khi push commit.
 
 ## Chạy WP-01
 

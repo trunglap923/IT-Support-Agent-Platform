@@ -1,6 +1,6 @@
 # ADR — quyết định kiến trúc và kết quả thử tích hợp
 
-Trạng thái: ADR-0001 và ADR-0002 compatibility M0 đã có; live Responses và các quyết định nghiệp vụ sau vẫn mở.
+Trạng thái: ADR-0001 và ADR-0002 compatibility M0 đã hoàn thành; các quyết định nghiệp vụ sau vẫn mở.
 Work packages: WP-01, WP-06, WP-08, WP-12, WP-14.
 Nguồn: [kế hoạch tổng](../../plan.md), mục 5, 9, 10, 11, 12, 20; [thứ tự triển khai](../implementation-roadmap.md).
 
@@ -34,11 +34,11 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 - [x] ADR-01: Ghi ADR cấu trúc repo và quy tắc dependency direction.
 - [x] ADR-02a: Ghi contract Responses offline, MCP stdio/actor isolation và PostgreSQL checkpoint/resume cùng phiên bản đã kiểm tra.
-- [ ] ADR-02b: Chạy Responses live bằng opt-in/account có quota và bổ sung kết quả.
+- [x] ADR-02b: Chạy Responses live bằng opt-in/account có quota và bổ sung kết quả.
 - [ ] ADR-03: Ghi ADR transaction/receipt/lock boundary trước hoàn tất WP-08.
 - [ ] ADR-04: Ghi ADR consent/epoch/retention trước hoàn tất WP-12; đánh dấu quyết định cũ superseded nếu thay.
 
 ## Điều kiện hoàn thành
 
-- [ ] Các spike nền tảng có kết quả thật trước khi đánh dấu M0 hoàn thành.
+- [x] Các spike nền tảng có kết quả thật trước khi đánh dấu M0 hoàn thành.
 - [ ] Mỗi thay đổi ảnh hưởng nhiều module có nguồn quyết định duy nhất.
