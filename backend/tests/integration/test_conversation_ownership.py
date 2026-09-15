@@ -61,7 +61,13 @@ def test_conversation_run_and_events_are_owner_scoped(migrated_database_url: str
                 )
                 session.add(run)
                 await session.flush()
-                event = RunEvent(run_id=run.id, sequence=1, type="queued", safe_payload={})
+                event = RunEvent(
+                    run_id=run.id,
+                    sequence=1,
+                    type="queued",
+                    dedupe_key="queued-initial",
+                    safe_payload={},
+                )
                 session.add(event)
                 alice_id, bob_id = alice.id, bob.id
                 conversation_id, run_id = conversation.id, run.id

@@ -35,7 +35,8 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 - [ ] CONV-01: Implement create/list conversation và owner-filtered message history.
 - [ ] CONV-02: Tạo message+queued run cùng transaction, trả run cũ cho request replay hợp lệ.
-- [ ] CONV-03: Tạo claim/status/version/lease transitions và event sequence.
+- [x] CONV-03a: Tạo validated status/version transitions, terminal states và idempotent event sequence.
+- [ ] CONV-03b: Thêm worker lease/heartbeat và stale recovery ở P19/WP-10.
 - [ ] CONV-04: Implement finalized message/outcome và liên kết source/feedback.
 - [ ] CONV-05: Cancel chỉ queued/waiting_approval; chốt expiry để không giữ conversation kẹt mãi.
 

@@ -44,7 +44,7 @@ class RunStatus(StrEnum):
     RUNNING = "running"
     WAITING_APPROVAL = "waiting_approval"
     RESUME_QUEUED = "resume_queued"
-    SUCCEEDED = "succeeded"
+    COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
 
@@ -146,6 +146,10 @@ class AgentRun(Base):
             ondelete="CASCADE",
         ),
         UniqueConstraint("actor_id", "client_request_id", name="uq_agent_runs_actor_request"),
+        CheckConstraint(
+            "(status IN ('completed', 'failed', 'cancelled')) = (finished_at IS NOT NULL)",
+            name="terminal_run_has_finished_at",
+        ),
         Index(
             "uq_agent_runs_active_conversation",
             "conversation_id",
@@ -180,13 +184,17 @@ class AgentRun(Base):
 
 class RunEvent(Base):
     __tablename__ = "run_events"
-    __table_args__ = (UniqueConstraint("run_id", "sequence", name="uq_run_events_run_sequence"),)
+    __table_args__ = (
+        UniqueConstraint("run_id", "sequence", name="uq_run_events_run_sequence"),
+        UniqueConstraint("run_id", "dedupe_key", name="uq_run_events_run_dedupe_key"),
+    )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     run_id: Mapped[UUID] = mapped_column(
         ForeignKey("agent_runs.id", ondelete="CASCADE"), index=True
     )
     sequence: Mapped[int] = mapped_column(Integer)
+    dedupe_key: Mapped[str | None] = mapped_column(String(120))
     type: Mapped[str] = mapped_column(String(80))
     safe_payload: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, server_default="{}")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
