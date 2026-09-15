@@ -21,6 +21,18 @@ và tool calling. Workflow GitHub Actions chỉ được xác nhận remote sau 
 
 Yêu cầu: Python 3.12, uv 0.11.x và Docker; hoặc Node 22.23.2 + npm trên host.
 
+PostgreSQL development dùng image PostgreSQL 17 + pgvector đã pin digest, chỉ publish
+trên loopback. Nếu `.env` được tạo trước WP-02, bổ sung các biến `POSTGRES_*`,
+`DATABASE_URL` và `MIGRATION_DATABASE_URL` từ `.env.example`, rồi chạy:
+
+~~~bash
+make db-up
+make db-status
+~~~
+
+`make db-down` dừng container nhưng giữ named volume. Không dùng password development
+cho môi trường khác và không commit `.env`.
+
 ~~~bash
 cp .env.example .env
 make backend-sync

@@ -7,6 +7,9 @@ BACKEND_DEV_HOST ?= 0.0.0.0
 BACKEND_DEV_PORT ?= 8000
 FRONTEND_DEV_PORT ?= 5173
 FRONTEND_DEV_CONTAINER ?= it-support-agent-frontend-dev
+COMPOSE ?= docker compose
+COMPOSE_FILE ?= $(CURDIR)/infra/compose.yaml
+COMPOSE_ENV_FILE ?= $(CURDIR)/.env
 PROJECT_UID := $(shell id -u)
 PROJECT_GID := $(shell id -g)
 FRONTEND_DOCKER = docker run --rm --user $(PROJECT_UID):$(PROJECT_GID) -e npm_config_cache=/tmp/npm-cache -v $(CURDIR)/frontend:/app -w /app $(NODE_IMAGE)
@@ -14,7 +17,8 @@ FRONTEND_DOCKER = docker run --rm --user $(PROJECT_UID):$(PROJECT_GID) -e npm_co
 .PHONY: help bootstrap check backend-sync backend-format backend-check \
 	frontend-install frontend-check frontend-install-docker frontend-check-docker \
 	dev-backend dev-frontend dev-frontend-docker dev-stop spike-openai-live \
-	spike-mcp-stdio spike-langgraph-postgres eval-validate
+	spike-mcp-stdio spike-langgraph-postgres eval-validate \
+	db-up db-down db-status
 
 help:
 	@echo "WP-01 commands:"
@@ -31,6 +35,9 @@ help:
 	@echo "  make spike-mcp-stdio        Verify MCP stdio discovery/call and actor isolation"
 	@echo "  make spike-langgraph-postgres  Verify pause/restart/resume (requires CHECKPOINT_DATABASE_URL)"
 	@echo "  make eval-validate           Validate the 30 offline M0 evaluation cases"
+	@echo "  make db-up                  Start local PostgreSQL/pgvector and wait until healthy"
+	@echo "  make db-down                Stop containers; preserve the PostgreSQL volume"
+	@echo "  make db-status              Show local Compose service status"
 
 bootstrap: backend-sync frontend-install
 
@@ -115,3 +122,12 @@ spike-langgraph-postgres:
 
 eval-validate:
 	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --project backend --frozen python -m evals.runner.validate_cases
+
+db-up:
+	$(COMPOSE) --file $(COMPOSE_FILE) --env-file $(COMPOSE_ENV_FILE) up --detach --wait postgres
+
+db-down:
+	$(COMPOSE) --file $(COMPOSE_FILE) --env-file $(COMPOSE_ENV_FILE) down
+
+db-status:
+	$(COMPOSE) --file $(COMPOSE_FILE) --env-file $(COMPOSE_ENV_FILE) ps

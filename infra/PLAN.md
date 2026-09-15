@@ -1,6 +1,6 @@
 # Infrastructure — môi trường local và vận hành
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: PostgreSQL/pgvector development service đã có; các service còn lại chưa triển khai.
 Work packages: WP-01, WP-02, WP-03, WP-10, WP-14.
 Nguồn: [kế hoạch tổng](../plan.md), mục 15, 17, 20; [thứ tự triển khai](../docs/implementation-roadmap.md).
 
@@ -36,7 +36,8 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] INFRA-01: Khóa base images/versions sau compatibility spike và tạo healthcheck không gọi model.
+- [x] INFRA-01a: Khóa PostgreSQL 17/pgvector image và tạo healthcheck không gọi model.
+- [ ] INFRA-01b: Khóa images/healthchecks cho các service còn lại.
 - [ ] INFRA-02: Thiết lập role env cho API/worker/migration, DB users tối thiểu và document storage quyền hợp lý.
 - [ ] INFRA-03: Proxy SPA + /api cùng origin; tắt buffering và đặt timeout thích hợp cho SSE.
 - [ ] INFRA-04: Nối Celery queues: agent concurrency=2, background=1 xử lý maintenance, chỉ một scheduler.

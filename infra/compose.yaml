@@ -1,0 +1,24 @@
+name: it-support-agent-platform
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.2-pg17-bookworm@sha256:feb68f4f15446397d8cac7f4fe48fe4586de83160d1fc48b46283312d1a33966
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-it_support_agent}
+      POSTGRES_USER: ${POSTGRES_USER:-it_support_agent}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the local .env file}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+    shm_size: 256mb
+    stop_grace_period: 10s
+
+volumes:
+  postgres_data:
