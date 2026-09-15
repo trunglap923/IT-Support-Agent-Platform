@@ -1,0 +1,448 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/it-support-agent/seed.schema.json",
+  "title": "IT Support Agent demo seed manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "company",
+    "departments",
+    "users",
+    "devices",
+    "documents",
+    "service_states",
+    "tickets",
+    "conversations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "company": {
+      "$ref": "#/$defs/company"
+    },
+    "departments": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "$ref": "#/$defs/department"
+      }
+    },
+    "users": {
+      "type": "array",
+      "minItems": 6,
+      "items": {
+        "$ref": "#/$defs/user"
+      }
+    },
+    "devices": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/device"
+      }
+    },
+    "documents": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/document"
+      }
+    },
+    "service_states": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "$ref": "#/$defs/serviceState"
+      }
+    },
+    "tickets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ticket"
+      }
+    },
+    "conversations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/conversation"
+      }
+    }
+  },
+  "$defs": {
+    "stableKey": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+      "minLength": 3,
+      "maxLength": 80
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "company": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["company_key", "name"],
+      "properties": {
+        "company_key": {
+          "$ref": "#/$defs/stableKey"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        }
+      }
+    },
+    "department": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["department_key", "name"],
+      "properties": {
+        "department_key": {
+          "$ref": "#/$defs/stableKey"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        }
+      }
+    },
+    "user": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "user_key",
+        "email",
+        "display_name",
+        "role",
+        "department_key",
+        "active",
+        "memory_enabled"
+      ],
+      "properties": {
+        "user_key": {
+          "$ref": "#/$defs/stableKey"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 254
+        },
+        "display_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "role": {
+          "enum": ["employee", "it", "admin"]
+        },
+        "department_key": {
+          "$ref": "#/$defs/stableKey"
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "memory_enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "device": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["device_key", "owner_key", "label", "platform", "active"],
+      "properties": {
+        "device_key": {
+          "$ref": "#/$defs/stableKey"
+        },
+        "owner_key": {
+          "$ref": "#/$defs/stableKey"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "platform": {
+          "enum": ["ubuntu", "windows", "macos"]
+        },
+        "active": {
+          "type": "boolean"
+        }
+      }
+    },
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "document_key",
+        "version_label",
+        "title",
+        "authority",
+        "language",
+        "visibility",
+        "department_key",
+        "source_path",
+        "source_checksum",
+        "effective_at"
+      ],
+      "properties": {
+        "document_key": {
+          "$ref": "#/$defs/stableKey"
+        },
+        "version_label": {
+          "type": "string",
+          "pattern": "^v[1-9][0-9]*$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "authority": {
+          "enum": ["policy", "runbook", "faq"]
+        },
+        "language": {
+          "enum": ["vi", "en"]
+        },
+        "visibility": {
+          "enum": ["company", "department", "it_only"]
+        },
+        "department_key": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/stableKey"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source_path": {
+          "type": "string",
+          "pattern": "^knowledge/",
+          "maxLength": 300
+        },
+        "source_checksum": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "effective_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "expires_at": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/timestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "license": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "visibility": {
+                "const": "department"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "department_key": {
+                "$ref": "#/$defs/stableKey"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "department_key": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "serviceState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["service_id", "status", "fault_mode", "source", "updated_at"],
+      "properties": {
+        "service_id": {
+          "enum": ["vpn", "docker_registry", "gitlab"]
+        },
+        "status": {
+          "enum": ["operational", "degraded", "outage"]
+        },
+        "fault_mode": {
+          "enum": ["normal", "timeout", "dependency_error"]
+        },
+        "source": {
+          "const": "simulated_monitor"
+        },
+        "updated_at": {
+          "$ref": "#/$defs/timestamp"
+        }
+      }
+    },
+    "ticket": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ticket_key",
+        "owner_key",
+        "department_key",
+        "device_key",
+        "title",
+        "description",
+        "issue_type",
+        "severity",
+        "status",
+        "created_at"
+      ],
+      "properties": {
+        "ticket_key": {
+          "$ref": "#/$defs/stableKey"
+        },
+        "owner_key": {
+          "$ref": "#/$defs/stableKey"
+        },
+        "department_key": {
+          "$ref": "#/$defs/stableKey"
+        },
+        "device_key": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/stableKey"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        "issue_type": {
+          "enum": ["vpn", "docker_registry", "gitlab", "device", "other"]
+        },
+        "severity": {
+          "enum": ["low", "medium", "high", "critical"]
+        },
+        "status": {
+          "enum": ["open", "in_progress", "resolved"]
+        },
+        "resolution_note": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "created_at": {
+          "$ref": "#/$defs/timestamp"
+        }
+      }
+    },
+    "message": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["message_key", "role", "content", "created_at"],
+      "properties": {
+        "message_key": {
+          "$ref": "#/$defs/stableKey"
+        },
+        "role": {
+          "enum": ["user", "assistant"]
+        },
+        "content": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8000
+        },
+        "outcome": {
+          "enum": ["answered", "no_answer", "waiting_approval", "ticket_created"]
+        },
+        "source_document_keys": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/stableKey"
+          }
+        },
+        "created_at": {
+          "$ref": "#/$defs/timestamp"
+        }
+      }
+    },
+    "conversation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "conversation_key",
+        "owner_key",
+        "title",
+        "selected_device_key",
+        "messages",
+        "created_at"
+      ],
+      "properties": {
+        "conversation_key": {
+          "$ref": "#/$defs/stableKey"
+        },
+        "owner_key": {
+          "$ref": "#/$defs/stableKey"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "selected_device_key": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/stableKey"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "messages": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/message"
+          }
+        },
+        "created_at": {
+          "$ref": "#/$defs/timestamp"
+        }
+      }
+    }
+  }
+}

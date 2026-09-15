@@ -1,6 +1,6 @@
 # Seed — người dùng, thiết bị, ticket và dịch vụ
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: đặc tả/schema M0 đã có; fixture và seed command chưa triển khai.
 Work packages: WP-01, WP-02, WP-04, WP-07, WP-12.
 Nguồn: [kế hoạch tổng](../../plan.md), mục 3, 6, 13, 20.4; [thứ tự triển khai](../../docs/implementation-roadmap.md).
 
@@ -36,7 +36,8 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] SEED-01: Viết manifest seed schema và stable keys; map sang DB ids qua seed command ở backend.
+- [x] SEED-01a: Viết manifest seed schema và quy ước stable keys.
+- [ ] SEED-01b: Map stable keys sang DB ids qua seed command ở backend.
 - [ ] SEED-02: Tạo thiết bị laptop Ubuntu/desktop Windows cùng một user để kiểm thử memory isolation.
 - [ ] SEED-03: Chuẩn bị ticket open/in_progress/resolved và kịch bản reopen về trạng thái theo mục 11, không thêm enum reopened.
 - [ ] SEED-04: Tạo kịch bản hoạt động bình thường, VPN outage và lỗi phụ thuộc theo mode được backend cho phép.

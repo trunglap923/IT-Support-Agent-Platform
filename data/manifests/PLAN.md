@@ -1,6 +1,6 @@
 # Manifest — metadata, ACL và snapshot dữ liệu
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: có seed manifest schema M0; corpus snapshot/validator chưa triển khai.
 Work packages: WP-01, WP-04, WP-05, WP-13.
 Nguồn: [kế hoạch tổng](../../plan.md), mục 6.3, 8, 13, 19; [thứ tự triển khai](../../docs/implementation-roadmap.md).
 
