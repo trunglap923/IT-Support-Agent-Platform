@@ -36,13 +36,14 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 ## Các bước triển khai
 
 - [x] JOB-01: Route agent/background queues, JSON serialization, prefetch=1 và bounded time limits.
-- [ ] JOB-02: Commit queued record trước enqueue; xây periodic reconcile mỗi 30 giây.
-- [ ] JOB-03: Claim worker ownership, heartbeat và stale recovery; không chạy đồng thời cùng run.
+- [x] JOB-02: Commit queued record trước enqueue; periodic reconcile chạy mỗi 30 giây.
+- [x] JOB-03a: Claim worker bằng row lock + idempotency event; delivery trùng không chạy lại run.
+- [ ] JOB-03b: Thêm heartbeat/lease và stale recovery đầy đủ ở WP-10.
 - [ ] JOB-04: Nối checkpoint/receipt recovery và expire approval; job failures có safe error code.
 - [ ] JOB-05: Chạy cleanup theo retention/epoch, đóng clients/subprocess đúng vòng đời.
 
 ## Điều kiện hoàn thành
 
-- [ ] Mất Redis giữa commit/enqueue được reconcile sau phục hồi.
+- [x] Mất Redis giữa commit/enqueue giữ run queued và được reconcile sau phục hồi.
 - [ ] Duplicate delivery/crash không tạo thêm ticket hoặc active memory đã xóa.
 - [ ] OpenAI calls/retries còn chịu budget toàn run; job attempt tối đa 3.

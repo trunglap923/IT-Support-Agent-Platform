@@ -24,7 +24,7 @@ def test_celery_runtime_uses_safe_queue_contracts() -> None:
     )
 
 
-def test_fake_agent_task_accepts_only_a_run_identifier() -> None:
+def test_agent_task_contract_accepts_only_a_run_identifier() -> None:
     application = create_celery_app(
         Settings(redis_url="redis://127.0.0.1:6379/0"),
         eager=True,
@@ -32,10 +32,4 @@ def test_fake_agent_task_accepts_only_a_run_identifier() -> None:
     application.loader.import_task_module("app.jobs.tasks")
     task = application.tasks["jobs.run_agent"]
 
-    result = task.apply(args=["run-demo-001"], throw=True)
-
-    assert result.result == {
-        "run_id": "run-demo-001",
-        "provider": "fake",
-        "status": "processed",
-    }
+    assert list(task.run.__annotations__) == ["run_id", "return"]

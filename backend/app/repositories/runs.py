@@ -2,16 +2,37 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import cast
 from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import AgentRun, RunEvent
+from app.db.models import AgentRun, RunEvent, RunStatus
 
 
 class RunRepository:
+    async def get_for_update(self, session: AsyncSession, *, run_id: UUID) -> AgentRun | None:
+        statement = select(AgentRun).where(AgentRun.id == run_id).with_for_update()
+        return cast(AgentRun | None, await session.scalar(statement))
+
+    async def get_by_id(self, session: AsyncSession, *, run_id: UUID) -> AgentRun | None:
+        return await session.get(AgentRun, run_id)
+
+    async def get_by_client_request(
+        self,
+        session: AsyncSession,
+        *,
+        actor_id: UUID,
+        client_request_id: str,
+    ) -> AgentRun | None:
+        statement = select(AgentRun).where(
+            AgentRun.actor_id == actor_id,
+            AgentRun.client_request_id == client_request_id,
+        )
+        return cast(AgentRun | None, await session.scalar(statement))
+
     async def get_owned(
         self, session: AsyncSession, *, run_id: UUID, actor_id: UUID
     ) -> AgentRun | None:
@@ -66,6 +87,24 @@ class RunRepository:
         session.add(event)
         await session.flush()
         return event
+
+    async def list_queued_before(
+        self,
+        session: AsyncSession,
+        *,
+        before: datetime,
+        limit: int,
+    ) -> list[AgentRun]:
+        statement = (
+            select(AgentRun)
+            .where(
+                AgentRun.status == RunStatus.QUEUED,
+                AgentRun.created_at < before,
+            )
+            .order_by(AgentRun.created_at, AgentRun.id)
+            .limit(limit)
+        )
+        return list((await session.scalars(statement)).all())
 
     async def list_events_owned(
         self, session: AsyncSession, *, run_id: UUID, actor_id: UUID
