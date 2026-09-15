@@ -1,6 +1,6 @@
 # UI — chat, nguồn tham khảo và approval
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: run status/SSE monitor WP-03 đã có; chat message/citation/approval thuộc WP-06/WP-09.
 Work packages: WP-06, WP-09, WP-12.
 Nguồn: [kế hoạch tổng](../../../../plan.md), mục 4, 7, 9, 11, 12, 14; [thứ tự triển khai](../../../../docs/implementation-roadmap.md).
 
@@ -38,7 +38,8 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 ## Các bước triển khai
 
 - [ ] UICHAT-01: Xây danh sách conversation, tải lịch sử phân trang và gửi message với idempotency.
-- [ ] UICHAT-02: Hiển thị queued/running/waiting_approval/final/error và trạng thái hỏi thêm thông tin.
+- [x] UICHAT-02a: Hiển thị queued/running/waiting_approval/terminal, connection và retry error state.
+- [ ] UICHAT-02b: Hiển thị final answer/needs_input khi message API được triển khai WP-06.
 - [ ] UICHAT-03: Hiển thị citation với title/section/page, xử lý nguồn bị thu hồi bằng thông báo không còn quyền.
 - [ ] UICHAT-04: Thêm preview ticket, approve/reject/expired; sửa draft tạo luồng mới đúng API.
 - [ ] UICHAT-05: Phục hồi run/approval sau refresh và kết nối memory/device context được phép.

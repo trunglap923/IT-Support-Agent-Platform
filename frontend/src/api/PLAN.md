@@ -34,7 +34,7 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [ ] HTTPUI-01: Tạo fetch wrapper với abort timeout, error envelope và xử lý 401/403/409/429.
 - [ ] HTTPUI-02: Chuẩn hóa query keys theo user/scope để invalidate và xóa khi logout.
 - [ ] HTTPUI-03: Tạo run dùng client_request_id ổn định khi retry; đổi payload phải dùng id mới.
-- [ ] HTTPUI-04: Implement SSE với event id/Last-Event-ID và phương án lấy snapshot qua GET run khi cần.
+- [x] HTTPUI-04: Implement fetch SSE với event cursor/Last-Event-ID, bounded reconnect và GET run snapshot fallback.
 - [ ] HTTPUI-05: Sinh hoặc kiểm tra TypeScript DTO từ OpenAPI bằng bước lặp lại được.
 
 ## Điều kiện hoàn thành
