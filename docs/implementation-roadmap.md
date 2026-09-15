@@ -9,8 +9,10 @@ Nguồn yêu cầu: [plan.md](../plan.md), đặc biệt mục 21.1. Bản đồ
 - [x] Có README, bản đồ kiến trúc, ADR cấu trúc, kịch bản demo và cấu hình mẫu không chứa secret.
 - [x] WP-01: runtime/dependencies, lockfiles và local install/lint/typecheck/test/build đã đạt; chờ CI remote đầu tiên sau push.
 - [x] M0: hoàn tất spike provider/MCP/checkpointer, seed spec và 30 evaluation cases.
+- [ ] WP-02: implementation đã đủ; chờ chạy lại PostgreSQL integration, frontend Docker checks và CI remote trước khi đóng WP.
 
-WP-01 và compatibility M0 đã hoàn thành ở local; WP-02..WP-14 chưa hoàn thành. Responses
+WP-01 và compatibility M0 đã hoàn thành ở local; WP-02 đang ở bước verification,
+WP-03..WP-14 chưa hoàn thành. Responses
 live, MCP stdio, PostgreSQL checkpointer, seed contract và 30 evaluation cases đều có bằng
 chứng. Paid/live checks vẫn là opt-in và không chạy trong CI.
 

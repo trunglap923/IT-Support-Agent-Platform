@@ -1,6 +1,6 @@
 # UI — đăng nhập và phiên người dùng
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: login/session/logout và route protection WP-02 đã triển khai.
 Work packages: WP-02.
 Nguồn: [kế hoạch tổng](../../../../plan.md), mục 3, 7, 14, 17; [thứ tự triển khai](../../../../docs/implementation-roadmap.md).
 
@@ -31,12 +31,14 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] UIAUTH-01: Tạo form login và thông báo credential sai/rate limited.
-- [ ] UIAUTH-02: Bootstrap session + CSRF; hiển thị role/phòng ban để demo ACL.
-- [ ] UIAUTH-03: Đăng xuất và xóa toàn bộ cache chứa dữ liệu riêng.
-- [ ] UIAUTH-04: Xử lý session hết hạn khi đang chat hoặc xác nhận draft.
+- [x] UIAUTH-01a: Tạo form login và thông báo credential sai.
+- [ ] UIAUTH-01b: Hiển thị rate-limited sau khi backend có Redis limiter.
+- [x] UIAUTH-02: Bootstrap session + CSRF; hiển thị role/phòng ban để demo ACL.
+- [x] UIAUTH-03: Đăng xuất và xóa toàn bộ cache chứa dữ liệu riêng.
+- [x] UIAUTH-04a: Session hết hạn khi bootstrap chuyển về login.
+- [ ] UIAUTH-04b: Xử lý session hết hạn giữa chat/approval khi các feature đó tồn tại.
 
 ## Điều kiện hoàn thành
 
-- [ ] User chưa login không xem được trang riêng.
-- [ ] Logout rồi login user khác không hiện dữ liệu cũ; lỗi quyền không bị UI che thành thành công.
+- [x] User chưa login không xem được trang riêng qua `RequireAuth`.
+- [x] Logout xóa React Query cache và auth state; lỗi login/CSRF được hiển thị, không giả thành công.

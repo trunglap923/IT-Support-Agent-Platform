@@ -1,6 +1,6 @@
 # Integration và failure tests
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: migration, identity, auth/CSRF và conversation ownership tests WP-02 đã có; failure suites các WP sau chưa triển khai.
 Work packages: WP-02, WP-03, WP-05, WP-08, WP-10, WP-12.
 Nguồn: [kế hoạch tổng](../../../plan.md), mục 19.1, 19.4; [thứ tự triển khai](../../../docs/implementation-roadmap.md).
 
@@ -34,8 +34,9 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] INT-01: Upgrade migrations và seed minimal fixtures trước tests.
-- [ ] INT-02: Test ACL ở API, repository, source download, history và SSE.
+- [x] INT-01: Upgrade migrations trên database tạm và seed minimal identity fixtures.
+- [x] INT-02a: Test session/CSRF/RBAC và conversation/run ownership ở API/repository/DB.
+- [ ] INT-02b: Test ACL source download, history và SSE khi endpoints được triển khai.
 - [ ] INT-03: Test duplicate approve, worker crash sau commit và receipt recovery.
 - [ ] INT-04: Test Redis enqueue race, stale jobs, checkpoint resume.
 - [ ] INT-05: Test publish/ACL change trong run và delete memory trong extraction.

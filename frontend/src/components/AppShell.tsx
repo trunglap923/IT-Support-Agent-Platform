@@ -1,4 +1,7 @@
+import { useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
+
+import { useAuth } from "../features/auth/useAuth";
 
 const navItems = [
   { to: "/", label: "Tổng quan", end: true },
@@ -6,6 +9,22 @@ const navItems = [
 ];
 
 export function AppShell() {
+  const { user, logout } = useAuth();
+  const [logoutError, setLogoutError] = useState<string | null>(null);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  async function handleLogout() {
+    setLogoutError(null);
+    setIsLoggingOut(true);
+    try {
+      await logout();
+    } catch {
+      setLogoutError("Không thể đăng xuất. Hãy thử lại.");
+    } finally {
+      setIsLoggingOut(false);
+    }
+  }
+
   return (
     <div className="app-frame">
       <header className="topbar">
@@ -28,9 +47,19 @@ export function AppShell() {
             </NavLink>
           ))}
         </nav>
-        <NavLink className="ghost-button" to="/login">
-          Đăng nhập demo
-        </NavLink>
+        <div className="account-menu">
+          <span>{user?.display_name}</span>
+          <small>{user?.role} · {user?.department_key}</small>
+          <button
+            className="ghost-button"
+            disabled={isLoggingOut}
+            onClick={() => void handleLogout()}
+            type="button"
+          >
+            {isLoggingOut ? "Đang thoát…" : "Đăng xuất"}
+          </button>
+          {logoutError ? <small className="logout-error" role="alert">{logoutError}</small> : null}
+        </div>
       </header>
       <main className="page-shell">
         <Outlet />

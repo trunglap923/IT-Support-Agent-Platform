@@ -18,7 +18,7 @@ FRONTEND_DOCKER = docker run --rm --user $(PROJECT_UID):$(PROJECT_GID) -e npm_co
 	frontend-install frontend-check frontend-install-docker frontend-check-docker \
 	dev-backend dev-frontend dev-frontend-docker dev-stop spike-openai-live \
 	spike-mcp-stdio spike-langgraph-postgres eval-validate \
-	db-up db-down db-status migrate seed-demo-user
+	db-up db-down db-status migrate seed-demo-user backend-integration-check wp02-check
 
 help:
 	@echo "WP-01 commands:"
@@ -40,6 +40,8 @@ help:
 	@echo "  make db-status              Show local Compose service status"
 	@echo "  make migrate                Upgrade the configured application database"
 	@echo "  make seed-demo-user         Create the minimal hashed demo login account"
+	@echo "  make backend-integration-check  Run DB/migration/auth/ownership tests in isolated databases"
+	@echo "  make wp02-check             Run all WP-02 backend and frontend checks"
 
 bootstrap: backend-sync frontend-install
 
@@ -57,6 +59,11 @@ backend-check:
 	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --directory backend --frozen ruff check .
 	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --directory backend --frozen mypy app
 	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --directory backend --frozen pytest
+
+backend-integration-check:
+	REQUIRE_DATABASE_TESTS=1 UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --directory backend --frozen --env-file $(COMPOSE_ENV_FILE) pytest tests/integration/test_migrations.py tests/integration/test_user_repository.py tests/integration/test_auth_api.py tests/integration/test_conversation_ownership.py
+
+wp02-check: backend-check backend-integration-check frontend-check-docker
 
 frontend-install:
 	$(NPM) --prefix frontend ci

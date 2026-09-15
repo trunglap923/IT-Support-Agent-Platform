@@ -1,6 +1,6 @@
 # Backend Python
 
-Trạng thái: WP-01 đã triển khai và kiểm tra local; schema/nghiệp vụ WP-02 trở đi chưa triển khai.
+Trạng thái: WP-01 đã kiểm tra local; backend DB/auth/persistence WP-02 đã triển khai và chờ integration gate cuối.
 Work packages: WP-01, WP-02.
 Nguồn: [kế hoạch tổng](../plan.md), mục 5, 20, 21; [thứ tự triển khai](../docs/implementation-roadmap.md).
 
@@ -33,7 +33,8 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 - [x] BE-01: Tạo project metadata, nhóm runtime/dev dependencies và lock sau compatibility spike.
 - [x] BE-02: Tạo app factory, lifespan và config validation; phân biệt fake-provider và live modes.
-- [ ] BE-03: Nối các module theo dependency injection, tách migration role khỏi application role.
+- [x] BE-03a: Nối database/auth theo dependency injection và dùng migration URL riêng.
+- [ ] BE-03b: Nối worker/services các WP sau và tách DB roles production ở WP-14.
 - [x] BE-04: Cung cấp lệnh lint/type-check/test từ root khi toolchain đã cài.
 
 ## Điều kiện hoàn thành

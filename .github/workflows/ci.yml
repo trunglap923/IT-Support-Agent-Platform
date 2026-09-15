@@ -18,9 +18,24 @@ jobs:
     name: Backend · Python 3.12
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.2-pg17-bookworm@sha256:feb68f4f15446397d8cac7f4fe48fe4586de83160d1fc48b46283312d1a33966
+        env:
+          POSTGRES_DB: it_support_agent_test
+          POSTGRES_USER: it_support_agent_test
+          POSTGRES_PASSWORD: ci-only-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U it_support_agent_test -d it_support_agent_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
     env:
       APP_ENV: test
       AI_PROVIDER: fake
+      TEST_DATABASE_ADMIN_URL: postgresql+psycopg://it_support_agent_test:ci-only-password@127.0.0.1:5432/it_support_agent_test
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7

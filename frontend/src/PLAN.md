@@ -1,7 +1,7 @@
 # Frontend — composition và router
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
-Work packages: WP-01, WP-06, WP-09.
+Trạng thái: composition, auth bootstrap/guard và cache reset WP-02 đã có; navigation theo role và feature routes thuộc WP sau.
+Work packages: WP-01, WP-02, WP-06, WP-09.
 Nguồn: [kế hoạch tổng](../../plan.md), mục 7, 14, 20; [thứ tự triển khai](../../docs/implementation-roadmap.md).
 
 ## Mục tiêu
@@ -32,9 +32,10 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] WEB-01: Khởi tạo QueryClient, auth bootstrap từ /auth/me và error boundary.
+- [x] WEB-01a: Khởi tạo QueryClient và auth bootstrap từ /auth/me.
+- [ ] WEB-01b: Thêm application error boundary khi bắt đầu các feature bất đồng bộ WP-03.
 - [ ] WEB-02: Dựng navigation theo role, fallback 404 và loading ban đầu.
-- [ ] WEB-03: Reset query cache khi logout/đổi tài khoản để không giữ dữ liệu người trước.
+- [x] WEB-03: Reset query cache khi logout/đổi tài khoản để không giữ dữ liệu người trước.
 - [ ] WEB-04: Kết nối các page theo thứ tự roadmap, không thêm global store nếu chưa có nhu cầu.
 
 ## Điều kiện hoàn thành

@@ -1,9 +1,33 @@
-import type { FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { useState, type FormEvent } from "react";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
+
+import { useAuth } from "./useAuth";
 
 export function LoginPage() {
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  const { user, isLoading: isBootstrapping, login } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setError(null);
+    setIsSubmitting(true);
+    const form = new FormData(event.currentTarget);
+    try {
+      await login(String(form.get("email") ?? ""), String(form.get("password") ?? ""));
+      const destination = (location.state as { from?: string } | null)?.from ?? "/";
+      navigate(destination, { replace: true });
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Đăng nhập không thành công.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  if (!isBootstrapping && user) {
+    return <Navigate replace to="/" />;
   }
 
   return (
@@ -29,7 +53,7 @@ export function LoginPage() {
       <section className="login-card" aria-labelledby="login-title">
         <p className="eyebrow">DEMO ACCESS</p>
         <h2 id="login-title">Đăng nhập</h2>
-        <p>Form đã sẵn sàng cho API session ở WP-02.</p>
+        <p>Dùng tài khoản demo đã được seed trong PostgreSQL.</p>
         <form onSubmit={handleSubmit}>
           <label htmlFor="email">Email</label>
           <input
@@ -37,6 +61,7 @@ export function LoginPage() {
             id="email"
             name="email"
             placeholder="employee.engineering@example.com"
+            required
             type="email"
           />
           <label htmlFor="password">Mật khẩu</label>
@@ -45,10 +70,12 @@ export function LoginPage() {
             id="password"
             name="password"
             placeholder="••••••••"
+            required
             type="password"
           />
-          <button disabled type="submit">
-            Sẽ kết nối ở WP-02
+          {error ? <p className="form-error" role="alert">{error}</p> : null}
+          <button disabled={isSubmitting || isBootstrapping} type="submit">
+            {isSubmitting ? "Đang đăng nhập…" : "Đăng nhập"}
           </button>
         </form>
         <Link className="back-link" to="/">

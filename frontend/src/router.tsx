@@ -4,6 +4,7 @@ import { AppShell } from "./components/AppShell";
 import { ChatPlaceholderPage } from "./features/ChatPlaceholderPage";
 import { DashboardPage } from "./features/DashboardPage";
 import { LoginPage } from "./features/auth/LoginPage";
+import { RequireAuth } from "./features/auth/RequireAuth";
 
 export const router = createBrowserRouter([
   {
@@ -12,7 +13,11 @@ export const router = createBrowserRouter([
   },
   {
     path: "/",
-    element: <AppShell />,
+    element: (
+      <RequireAuth>
+        <AppShell />
+      </RequireAuth>
+    ),
     children: [
       { index: true, element: <DashboardPage /> },
       { path: "chat", element: <ChatPlaceholderPage /> },

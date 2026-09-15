@@ -47,6 +47,12 @@ class Settings(BaseSettings):
     redis_url: SecretStr | None = None
     document_storage_path: str = "/data/documents"
 
+    session_cookie_name: str = "it_support_session"
+    csrf_cookie_name: str = "it_support_csrf"
+    session_ttl_hours: int = Field(default=8, gt=0, le=24)
+    cookie_secure: bool = False
+    allowed_web_origin: str = "http://127.0.0.1:5173"
+
     langfuse_public_key: str | None = None
     langfuse_secret_key: SecretStr | None = None
     langfuse_base_url: str | None = None
@@ -61,6 +67,8 @@ class Settings(BaseSettings):
             key = self.openai_api_key
             if key is None or not key.get_secret_value().strip():
                 raise ValueError("OPENAI_API_KEY is required when AI_PROVIDER=openai")
+        if self.app_env is AppEnvironment.PRODUCTION and not self.cookie_secure:
+            raise ValueError("COOKIE_SECURE must be true in production")
         return self
 
     def public_summary(self) -> dict[str, str | bool]:

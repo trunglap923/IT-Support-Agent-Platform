@@ -1,7 +1,7 @@
 # Frontend — ứng dụng web demo
 
 Trạng thái: foundation WP-01 đã triển khai và kiểm tra; feature chat/ticket/docs/memory còn theo WP sau.
-Work packages: WP-01, WP-06, WP-09, WP-11, WP-12.
+Work packages: WP-01, WP-02, WP-06, WP-09, WP-11, WP-12.
 Nguồn: [kế hoạch tổng](../plan.md), mục 5, 7, 14, 20, 21; [thứ tự triển khai](../docs/implementation-roadmap.md).
 
 ## Mục tiêu

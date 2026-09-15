@@ -20,8 +20,13 @@ def sync_url(value: str) -> URL:
 
 @pytest.fixture
 def migrated_database_url() -> Iterator[str]:
-    configured_url = os.getenv("TEST_DATABASE_ADMIN_URL")
+    configured_url = os.getenv("TEST_DATABASE_ADMIN_URL") or os.getenv("MIGRATION_DATABASE_URL")
     if not configured_url:
+        if os.getenv("REQUIRE_DATABASE_TESTS") == "1":
+            pytest.fail(
+                "Set TEST_DATABASE_ADMIN_URL (or MIGRATION_DATABASE_URL) before the required "
+                "database integration gate"
+            )
         pytest.skip("TEST_DATABASE_ADMIN_URL is not configured")
 
     admin_url = sync_url(configured_url).set(database="postgres")

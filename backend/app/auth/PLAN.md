@@ -1,6 +1,6 @@
 # Đăng nhập và phân quyền
 
-Trạng thái: user/password foundation đã có; session, CSRF và policies đang được triển khai.
+Trạng thái: user/password, session, CSRF và role policies WP-02 đã triển khai; chờ integration gate.
 Work packages: WP-02, WP-05, WP-08.
 Nguồn: [kế hoạch tổng](../../../plan.md), mục 3, 14, 17; [thứ tự triển khai](../../../docs/implementation-roadmap.md).
 
@@ -33,14 +33,17 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] AUTH-01: Implement login/logout/me, secure cookie và session revocation.
-- [ ] AUTH-02: Tạo principal từ user/session DB; đọc lại trạng thái active và quyền khi thực thi.
-- [ ] AUTH-03: Tạo policies cho owner resources, IT ticket scope, document ACL và admin actions.
-- [ ] AUTH-04: Implement CSRF/Origin validation và Redis rate limiting theo mục 17.
+- [x] AUTH-01a: Implement login/logout/me, opaque cookie, expiry và session revocation.
+- [x] AUTH-01b: Hoàn thiện secure cookie/CSRF enforcement theo môi trường.
+- [x] AUTH-02: Tạo principal từ user/session DB; đọc lại trạng thái active và quyền khi thực thi.
+- [x] AUTH-03a: Tạo dependency role policy và deny role không phù hợp.
+- [ ] AUTH-03b: Tạo policies owner, IT ticket scope và document ACL ở WP tương ứng.
+- [x] AUTH-04a: Implement CSRF synchronizer token và Origin validation.
+- [ ] AUTH-04b: Implement Redis login/rate limiting ở WP-03.
 - [ ] AUTH-05: Dùng cùng policy ở read HTTP, source download, MCP calls và approval execution.
 
 ## Điều kiện hoàn thành
 
-- [ ] Hai user cùng phòng ban không đọc ticket/conversation/memory của nhau.
+- [x] Repository và DB constraint ngăn hai user đọc/tạo run trên conversation của nhau; ticket/memory kiểm tra ở WP tương ứng.
 - [ ] IT staff chỉ quản lý ticket đúng phòng ban; document ACL áp dụng ở retrieval.
 - [ ] Account inactive không thể resume write; credential errors không lộ account tồn tại.

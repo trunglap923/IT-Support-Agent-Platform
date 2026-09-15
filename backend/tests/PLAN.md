@@ -1,6 +1,6 @@
 # Chiến lược kiểm thử backend
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: unit/contract foundation và PostgreSQL integration WP-02 đã có; fixtures/failure suites mở rộng theo feature.
 Work packages: WP-01, WP-02, WP-03, WP-13.
 Nguồn: [kế hoạch tổng](../../plan.md), mục 19; [thứ tự triển khai](../../docs/implementation-roadmap.md).
 
@@ -32,10 +32,12 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] TEST-01: Tạo fixtures actor/department/device, clock, fake provider và fault injection.
-- [ ] TEST-02: Chia unit, integration và cross-boundary contract suites.
+- [x] TEST-01a: Tạo database tạm, identity/session và actor/department fixtures WP-02.
+- [ ] TEST-01b: Thêm device, clock và fault injection khi feature tiêu thụ tồn tại.
+- [x] TEST-02: Chia unit, integration và cross-boundary contract suites.
 - [ ] TEST-03: Gắn regression cases vào các gates G-01/G-02/G-03/G-08.
-- [ ] TEST-04: Cung cấp commands chọn suite; CI failures giữ artifacts đã redact.
+- [x] TEST-04a: Cung cấp command integration WP-02 bắt buộc DB và không pass giả do skip.
+- [ ] TEST-04b: Phân suite/giữ artifacts đã redact khi có E2E/eval reports.
 
 ## Điều kiện hoàn thành
 

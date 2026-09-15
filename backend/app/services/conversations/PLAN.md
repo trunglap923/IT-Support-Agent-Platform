@@ -1,6 +1,6 @@
 # Conversation, run và event store
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: persistence/repository nền tảng WP-02 đã có; service/API/SSE thuộc WP-03.
 Work packages: WP-02, WP-03, WP-06, WP-10.
 Nguồn: [kế hoạch tổng](../../../../plan.md), mục 9.1, 13, 14.3, 15; [thứ tự triển khai](../../../../docs/implementation-roadmap.md).
 

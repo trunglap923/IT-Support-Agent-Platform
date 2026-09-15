@@ -99,6 +99,39 @@ input {
 .ghost-button {
   border: 1px solid rgb(22 34 28 / 24%);
   color: #16221c;
+  background: transparent;
+  cursor: pointer;
+}
+
+.account-menu {
+  display: grid;
+  grid-template-columns: auto auto;
+  column-gap: 0.75rem;
+  align-items: center;
+}
+
+.account-menu span,
+.account-menu small {
+  grid-column: 1;
+}
+
+.account-menu span {
+  font-size: 0.88rem;
+  font-weight: 750;
+}
+
+.account-menu small {
+  color: #68766e;
+  font-size: 0.7rem;
+}
+
+.account-menu .logout-error {
+  color: #8e3d28;
+}
+
+.account-menu button {
+  grid-column: 2;
+  grid-row: 1 / 3;
 }
 
 .page-shell {
@@ -356,8 +389,27 @@ p {
   border-radius: 0.7rem;
   padding: 0.9rem;
   color: white;
-  background: #829086;
+  background: #173f2d;
   font-weight: 750;
+  cursor: pointer;
+}
+
+.login-card button:disabled {
+  background: #829086;
+  cursor: wait;
+}
+
+.form-error {
+  margin: 0.5rem 0 0;
+  color: #8e3d28;
+  font-size: 0.88rem;
+}
+
+.route-loading {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  color: #526057;
 }
 
 .back-link {
@@ -402,8 +454,18 @@ p {
 }
 
 @media (max-width: 520px) {
-  .ghost-button {
+  .topbar {
+    align-items: flex-start;
+  }
+
+  .account-menu span,
+  .account-menu small {
     display: none;
+  }
+
+  .account-menu button {
+    grid-column: 1;
+    grid-row: 1;
   }
 
   .page-shell {

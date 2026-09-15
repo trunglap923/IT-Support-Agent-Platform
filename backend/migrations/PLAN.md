@@ -32,8 +32,10 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 - [x] MIG-01: Cấu hình Alembic qua migration credential; tạo extension vector có kiểm tra quyền.
 - [x] MIG-02a: Tạo revision identity riêng cho department/user.
-- [ ] MIG-02b: Tiếp tục chia revision run/docs/ticket/approval/memory theo feature.
-- [ ] MIG-03: Thêm unique, FK, partial indexes và current-version integrity trong migrations.
+- [x] MIG-02b: Tạo revisions session và conversation/run/event theo feature WP-02.
+- [ ] MIG-02c: Tiếp tục chia revisions docs/ticket/approval/memory theo feature.
+- [x] MIG-03a: Thêm unique, ownership FK và partial active-run index cho WP-02.
+- [ ] MIG-03b: Thêm race/current-version constraints cho các schema ở WP sau.
 - [x] MIG-04a: Viết upgrade check từ PostgreSQL database trống.
 - [ ] MIG-04b: Bổ sung upgrade check từ revision trước khi có feature revision tiếp theo.
 - [ ] MIG-05: Ghi rollback/backup policy; restore drill dùng DB riêng.

@@ -19,8 +19,13 @@ def sync_url(value: str) -> URL:
 
 
 def test_alembic_upgrade_on_clean_database() -> None:
-    configured_url = os.getenv("TEST_DATABASE_ADMIN_URL")
+    configured_url = os.getenv("TEST_DATABASE_ADMIN_URL") or os.getenv("MIGRATION_DATABASE_URL")
     if not configured_url:
+        if os.getenv("REQUIRE_DATABASE_TESTS") == "1":
+            pytest.fail(
+                "Set TEST_DATABASE_ADMIN_URL (or MIGRATION_DATABASE_URL) before the required "
+                "database integration gate"
+            )
         pytest.skip("TEST_DATABASE_ADMIN_URL is not configured")
 
     admin_url = sync_url(configured_url).set(database="postgres")
@@ -52,7 +57,7 @@ def test_alembic_upgrade_on_clean_database() -> None:
                 vector_version = connection.execute(
                     text("SELECT extversion FROM pg_extension WHERE extname = 'vector'")
                 ).scalar_one()
-            assert revision == "0002_user_identity"
+            assert revision == "0004_conversation_runs"
             assert vector_version == "0.8.2"
         finally:
             target_engine.dispose()

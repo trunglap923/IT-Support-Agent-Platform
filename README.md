@@ -6,18 +6,19 @@ Portfolio trợ lý IT: trả lời có nguồn, kiểm tra dịch vụ mô ph�
 
 Đã khởi tạo cây thư mục và **57 kế hoạch module**. Mỗi `PLAN.md` có phạm vi, hợp đồng, tệp cần viết, phần phụ thuộc, checklist có mã và điều kiện hoàn thành.
 
-WP-01 và compatibility M0 đã hoàn thành ở local: FastAPI/frontend foundation, Responses
-API live, MCP stdio, LangGraph/PostgreSQL checkpoint recovery, seed contract và 30
-evaluation cases đều có bằng chứng. Chưa có database nghiệp vụ, auth thật, chat/RAG,
-queue hoặc Docker Compose; các phần đó bắt đầu từ WP-02 theo roadmap.
+WP-01 và compatibility M0 đã hoàn thành ở local. WP-02 hiện đã có PostgreSQL/pgvector,
+Alembic, user/password Argon2, session-cookie authentication, CSRF/RBAC, persistence
+conversation/run/event và giao diện login/logout có route protection. Chat/RAG và queue
+bắt đầu từ WP-03 trở đi theo roadmap.
 
-Kết quả local ngày 2026-09-15: backend Ruff/mypy đạt; suite mặc định có 10 test đạt,
-một PostgreSQL integration test skip. Khi cấp PostgreSQL 17 tạm thời, cả 11 test đạt.
-Frontend ESLint/TypeScript, 1 Vitest và production build đều đạt. Dataset M0 có 30/30
-case hợp lệ. Responses live với `gpt-4.1-mini-2025-04-14` đã đạt text, structured output
-và tool calling. Workflow GitHub Actions chỉ được xác nhận remote sau khi push commit.
+Kết quả gần nhất ngày 2026-09-15: backend Ruff/mypy của WP-02 đạt. Migration/user
+foundation đã chạy đạt với PostgreSQL 17; auth/conversation integration mới phải được
+chạy lại bằng `make backend-integration-check` trước khi đánh dấu WP-02 hoàn tất.
+Frontend WP-02 có test login lỗi, route protection và logout/CSRF; cần chạy lại bộ Node
+checks trong Docker. Dataset M0 có 30/30 case hợp lệ và Responses live đã đạt cả ba
+contract. Workflow GitHub Actions chỉ được xác nhận remote sau khi push commit.
 
-## Chạy WP-01
+## Chạy development
 
 Yêu cầu: Python 3.12, uv 0.11.x và Docker; hoặc Node 22.23.2 + npm trên host.
 
@@ -43,12 +44,21 @@ Demo identity tối thiểu dùng email `employee.engineering@example.com`. Lệ
 password từ `DEMO_SEED_PASSWORD`, lưu Argon2 hash và không ghi password vào source/log.
 Chạy lại lệnh không nhân đôi user.
 
+Sau khi migrate và seed, mở http://127.0.0.1:5173 rồi đăng nhập bằng email trên và đúng
+password bạn đã đặt ở `DEMO_SEED_PASSWORD`. Trình duyệt phải dùng đúng host
+`127.0.0.1` để khớp `ALLOWED_WEB_ORIGIN`; nếu đổi host/cổng, cập nhật biến đó.
+
 ~~~bash
 cp .env.example .env
 make backend-sync
 make backend-check
 make frontend-check-docker
+make backend-integration-check
 ~~~
+
+`backend-integration-check` tạo database tạm có tên ngẫu nhiên cho từng test và xóa sau
+khi chạy; nó không migrate hay reset database demo. Chạy toàn bộ gate WP-02 bằng
+`make wp02-check` sau khi `make db-up` đã báo healthy.
 
 Chạy hai terminal để xem giao diện. Backend development bind vào `0.0.0.0` để
 frontend trong Docker có thể gọi API qua Docker host gateway; frontend chỉ được

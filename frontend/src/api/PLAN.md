@@ -1,6 +1,6 @@
 # Frontend — HTTP client và sự kiện run
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: auth client tối thiểu WP-02 đã có; client dùng chung và run events thuộc WP-03.
 Work packages: WP-02, WP-03, WP-06, WP-09.
 Nguồn: [kế hoạch tổng](../../../plan.md), mục 7, 9, 14, 15; [thứ tự triển khai](../../../docs/implementation-roadmap.md).
 
