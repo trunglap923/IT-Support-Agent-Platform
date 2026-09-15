@@ -29,6 +29,7 @@ trên loopback. Nếu `.env` được tạo trước WP-02, bổ sung các biế
 make db-up
 make db-status
 make migrate
+make seed-demo-user
 ~~~
 
 `make db-down` dừng container nhưng giữ named volume. Không dùng password development
@@ -37,6 +38,10 @@ cho môi trường khác và không commit `.env`.
 Alembic dùng riêng `MIGRATION_DATABASE_URL` với driver `postgresql+psycopg`; ứng dụng dùng
 `DATABASE_URL` với `postgresql+asyncpg`. Migration test tạo và xóa một database cô lập,
 không reset database development đang dùng.
+
+Demo identity tối thiểu dùng email `employee.engineering@example.com`. Lệnh seed đọc
+password từ `DEMO_SEED_PASSWORD`, lưu Argon2 hash và không ghi password vào source/log.
+Chạy lại lệnh không nhân đôi user.
 
 ~~~bash
 cp .env.example .env

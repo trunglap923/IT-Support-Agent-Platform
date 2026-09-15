@@ -1,6 +1,6 @@
 # Queries và data access
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: user identity repository đã có; scoped resource repositories đang được bổ sung.
 Work packages: WP-02, WP-05, WP-07, WP-11, WP-12.
 Nguồn: [kế hoạch tổng](../../../plan.md), mục 5.3, 13; [thứ tự triển khai](../../../docs/implementation-roadmap.md).
 

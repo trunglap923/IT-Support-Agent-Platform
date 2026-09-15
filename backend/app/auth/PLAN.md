@@ -1,6 +1,6 @@
 # Đăng nhập và phân quyền
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: user/password foundation đã có; session, CSRF và policies đang được triển khai.
 Work packages: WP-02, WP-05, WP-08.
 Nguồn: [kế hoạch tổng](../../../plan.md), mục 3, 14, 17; [thứ tự triển khai](../../../docs/implementation-roadmap.md).
 

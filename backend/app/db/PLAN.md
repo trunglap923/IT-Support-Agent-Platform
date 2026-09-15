@@ -31,7 +31,8 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] DB-01: Tạo identity/device/conversation/run/event models trước.
+- [x] DB-01a: Tạo department/user identity models với UUID, role và password hash.
+- [ ] DB-01b: Tạo device/conversation/run/event models.
 - [ ] DB-02: Thêm document/version/chunk với vector(1536), ownership và composite version constraint.
 - [ ] DB-03: Thêm usage ledger trước paid call WP-04; ticket/service_states/audit ở WP-07, approval constraints WP-08 và memory/jobs WP-12; system_state cùng document versioning.
 - [ ] DB-04: Định nghĩa unique/partial indexes cho active run, action, receipt, memory và ingestion.

@@ -31,7 +31,8 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 ## Các bước triển khai
 
 - [x] MIG-01: Cấu hình Alembic qua migration credential; tạo extension vector có kiểm tra quyền.
-- [ ] MIG-02: Chia revision theo feature: identity/run → docs/usage ledger WP-04 → ticket/service_states WP-07 → approval/write constraints WP-08 → memory WP-12.
+- [x] MIG-02a: Tạo revision identity riêng cho department/user.
+- [ ] MIG-02b: Tiếp tục chia revision run/docs/ticket/approval/memory theo feature.
 - [ ] MIG-03: Thêm unique, FK, partial indexes và current-version integrity trong migrations.
 - [x] MIG-04a: Viết upgrade check từ PostgreSQL database trống.
 - [ ] MIG-04b: Bổ sung upgrade check từ revision trước khi có feature revision tiếp theo.

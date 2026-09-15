@@ -43,6 +43,7 @@ class Settings(BaseSettings):
 
     database_url: SecretStr | None = None
     migration_database_url: SecretStr | None = None
+    demo_seed_password: SecretStr | None = None
     redis_url: SecretStr | None = None
     document_storage_path: str = "/data/documents"
 
