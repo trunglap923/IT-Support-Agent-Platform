@@ -1,6 +1,6 @@
 # Model và embedding adapters
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: WP-01 có text provider boundary/fake/OpenAI adapter; generate tools, embedding và budget còn theo WP-04/WP-06.
 Work packages: WP-01, WP-04, WP-06, WP-12, WP-13.
 Nguồn: [kế hoạch tổng](../../../plan.md), mục 16; [thứ tự triển khai](../../../docs/implementation-roadmap.md).
 
@@ -40,6 +40,6 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Điều kiện hoàn thành
 
-- [ ] Fake mode không cần secret/mạng và không bị tính là live evaluation.
-- [ ] Không phát sinh tool side effect trong provider adapter.
+- [x] Fake mode không cần secret/mạng và không bị tính là live evaluation.
+- [x] Không phát sinh tool side effect trong provider adapter.
 - [ ] Live smoke/model-access check là công việc M0 còn phải chạy; không suy từ việc có tài liệu.

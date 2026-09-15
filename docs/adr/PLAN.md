@@ -1,6 +1,6 @@
 # ADR — quyết định kiến trúc và kết quả thử tích hợp
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: ADR-0001 và phần runtime WP-01 của ADR-0002 đã có; các spike M0 và quyết định nghiệp vụ sau vẫn mở.
 Work packages: WP-01, WP-06, WP-08, WP-12, WP-14.
 Nguồn: [kế hoạch tổng](../../plan.md), mục 5, 9, 10, 11, 12, 20; [thứ tự triển khai](../implementation-roadmap.md).
 
@@ -32,7 +32,7 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] ADR-01: Ghi ADR cấu trúc repo và quy tắc dependency direction.
+- [x] ADR-01: Ghi ADR cấu trúc repo và quy tắc dependency direction.
 - [ ] ADR-02: Ở M0 thử model structured tools, MCP stdio/actor isolation và PostgreSQL checkpoint/resume rồi ghi phiên bản đã kiểm tra.
 - [ ] ADR-03: Ghi ADR transaction/receipt/lock boundary trước hoàn tất WP-08.
 - [ ] ADR-04: Ghi ADR consent/epoch/retention trước hoàn tất WP-12; đánh dấu quyết định cũ superseded nếu thay.

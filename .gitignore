@@ -6,6 +6,7 @@
 *.key
 
 # Python environments and generated files.
+.cache/
 .venv/
 venv/
 __pycache__/

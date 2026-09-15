@@ -1,6 +1,6 @@
 # CI — kiểm tra chất lượng không cần API trả phí
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: CI foundation WP-01 đã có; integration/E2E/eval jobs được bổ sung theo các WP sau.
 Work packages: WP-01, WP-03, WP-09, WP-13, WP-14.
 Nguồn: [kế hoạch tổng](../../plan.md), mục 19, 20, 22; [thứ tự triển khai](../../docs/implementation-roadmap.md).
 
@@ -11,7 +11,7 @@ Chặn lỗi cơ bản, contract và các đường an toàn trước khi gộp 
 ## Hợp đồng và trách nhiệm
 
 - CI mặc định fake provider, PostgreSQL/pgvector + Redis test riêng; không có OpenAI/Langfuse key.
-- Backend install từ uv.lock; frontend npm ci từ package-lock.json sau khi các file này được tạo.
+- Backend install từ uv.lock; frontend npm ci từ package-lock.json.
 - Live model eval là thao tác opt-in có quota, không chạy tự động ở PR không tin cậy.
 
 ## Tệp dự kiến khi viết code
@@ -29,7 +29,7 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] CI-01: Thêm lint/typecheck/format checks backend và frontend sau WP-01.
+- [x] CI-01: Thêm lint/typecheck/format checks backend và frontend sau WP-01.
 - [ ] CI-02: Chạy unit + API/MCP contract, migration upgrade và integration với service containers.
 - [ ] CI-03: Thêm browser E2E khi có UI, phân nhóm job để lỗi dễ xác định.
 - [ ] CI-04: Kiểm tra liên kết kế hoạch, schema seed/eval và secret scanning phù hợp.

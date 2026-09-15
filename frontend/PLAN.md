@@ -1,6 +1,6 @@
 # Frontend — ứng dụng web demo
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: foundation WP-01 đã triển khai và kiểm tra; feature chat/ticket/docs/memory còn theo WP sau.
 Work packages: WP-01, WP-06, WP-09, WP-11, WP-12.
 Nguồn: [kế hoạch tổng](../plan.md), mục 5, 7, 14, 20, 21; [thứ tự triển khai](../docs/implementation-roadmap.md).
 
@@ -32,12 +32,12 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] FE-01: Chốt Node LTS và bộ dependency tương thích, khóa bằng package-lock.json.
-- [ ] FE-02: Thiết lập dev/build/typecheck/lint và proxy /api; phân biệt cấu hình dev/production.
-- [ ] FE-03: Dựng shell/router và màn hình đăng nhập; tích hợp từng feature khi backend tương ứng sẵn sàng.
-- [ ] FE-04: Thêm trạng thái loading/empty/error, bàn phím và bố cục dùng được trên laptop/mobile.
+- [x] FE-01: Chốt Node LTS và bộ dependency tương thích, khóa bằng package-lock.json.
+- [x] FE-02: Thiết lập dev/build/typecheck/lint và proxy /api; phân biệt cấu hình dev/production.
+- [x] FE-03: Dựng shell/router và màn hình đăng nhập; tích hợp từng feature khi backend tương ứng sẵn sàng.
+- [x] FE-04: Thêm trạng thái loading/empty/error, bàn phím và bố cục dùng được trên laptop/mobile.
 
 ## Điều kiện hoàn thành
 
-- [ ] Cài lại bằng npm ci, typecheck/lint/build thành công khi triển khai WP-01.
+- [x] Cài lại bằng npm ci, typecheck/lint/build thành công khi triển khai WP-01.
 - [ ] Không có secret trong bundle; refresh đường dẫn SPA và SSE qua proxy hoạt động.

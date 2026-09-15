@@ -7,10 +7,10 @@ Nguồn yêu cầu: [plan.md](../plan.md), đặc biệt mục 21.1. Bản đồ
 - [x] Tạo cây thư mục kiến trúc và 57 file `PLAN.md`.
 - [x] Mỗi module có hợp đồng, tệp cần viết, liên kết phối hợp, checklist và điều kiện hoàn thành.
 - [x] Có README, bản đồ kiến trúc, ADR cấu trúc, kịch bản demo và cấu hình mẫu không chứa secret.
-- [ ] WP-01: khởi tạo runtime/dependencies, lock và kiểm chứng install/build.
+- [x] WP-01: runtime/dependencies, lockfiles và local install/lint/typecheck/test/build đã đạt; chờ CI remote đầu tiên sau push.
 - [ ] M0: hoàn tất spike provider/MCP/checkpointer, seed spec và 30 evaluation cases.
 
-Các WP-01..WP-14 đều chưa được đánh dấu hoàn thành. Cây thư mục là kết quả của bước chuẩn bị; không có nghĩa M0 hay tính năng V1 đã chạy.
+WP-01 hoàn thành ở local; WP-02..WP-14 chưa hoàn thành. M0 vẫn còn các spike tích hợp và dữ liệu evaluation, nên chưa coi nền tảng AI/MCP/checkpointer đã được chứng minh.
 
 ## Cách dùng kế hoạch
 
@@ -24,13 +24,14 @@ Các WP-01..WP-14 đều chưa được đánh dấu hoàn thành. Cây thư m�
 
 ## Điểm bắt đầu: WP-01 và M0
 
-- [ ] Kiểm tra Python 3.12/uv, Node LTS/npm và Docker Compose; ghi phiên bản thực tế. Không giả định máy đã có đủ công cụ.
-- [ ] Khởi tạo `backend/pyproject.toml` và `frontend/package.json`, chọn phiên bản tương thích rồi tạo lockfiles bằng package manager.
-- [ ] Tạo backend app factory/config/health tối thiểu và frontend shell/router; chưa thêm nghiệp vụ chưa dùng.
-- [ ] Thiết kế fake-provider config để tests không cần paid keys; live mode fail rõ khi thiếu key/DB/budget config.
+- [x] Kiểm tra Python 3.12/uv, Node LTS/npm và Docker Compose; phiên bản thực tế được ghi trong ADR-0002.
+- [x] Khởi tạo `backend/pyproject.toml` và `frontend/package.json`, chọn phiên bản tương thích rồi tạo lockfiles bằng package manager.
+- [x] Tạo backend app factory/config/health tối thiểu và frontend shell/router; chưa thêm nghiệp vụ chưa dùng.
+- [x] Thiết kế fake-provider config để tests không cần paid keys; OpenAI mode fail rõ khi thiếu key và chưa được gọi từ API.
+- [ ] Trước paid embedding/chat đầu tiên, bắt buộc nối DB/budget guard; phần này thuộc WP-04/WP-06.
 - [ ] Smoke-test Responses tool/structured output, MCP stdio/actor isolation và PostgreSQL checkpointer pause/resume; ghi kết quả trong ADR runtime.
 - [ ] Viết seed spec và 30 evaluation cases đầu. Đây là công việc M0, không đợi tới WP-13 mới thiết kế cách chấm.
-- [ ] Cung cấp lint/typecheck/test/build commands có thực thi, CI fake-mode ban đầu; ghi cách chạy đã kiểm chứng vào README.
+- [x] Cung cấp lint/typecheck/test/build commands có thực thi, CI fake-mode ban đầu; cách chạy và kết quả local đã ghi trong README/ADR-0002.
 
 Không tự chạy paid evaluation hoặc kết nối dịch vụ doanh nghiệp thật từ lệnh bootstrap.
 

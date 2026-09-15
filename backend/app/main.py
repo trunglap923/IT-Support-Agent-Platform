@@ -1,0 +1,40 @@
+"""FastAPI application composition root."""
+
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+
+from app.api.health import router as health_router
+from app.config import Settings
+from app.providers import TextGenerationProvider, create_provider
+from app.request_id import RequestIdMiddleware
+
+
+def create_app(
+    settings: Settings | None = None,
+    provider: TextGenerationProvider | None = None,
+) -> FastAPI:
+    resolved_settings = settings or Settings()
+
+    @asynccontextmanager
+    async def lifespan(application: FastAPI) -> AsyncIterator[None]:
+        resolved_provider = provider or create_provider(resolved_settings)
+        application.state.provider = resolved_provider
+        try:
+            yield
+        finally:
+            await resolved_provider.close()
+
+    application = FastAPI(
+        title=resolved_settings.app_name,
+        version=resolved_settings.app_version,
+        lifespan=lifespan,
+    )
+    application.state.settings = resolved_settings
+    application.add_middleware(RequestIdMiddleware)
+    application.include_router(health_router, prefix="/api/v1")
+    return application
+
+
+app = create_app()

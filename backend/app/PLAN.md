@@ -1,6 +1,6 @@
 # Composition root và cấu hình
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: composition/config nền tảng WP-01 đã có; DB/Redis/auth/jobs chưa nối.
 Work packages: WP-01, WP-02, WP-03.
 Nguồn: [kế hoạch tổng](../../plan.md), mục 5, 14, 20; [thứ tự triển khai](../../docs/implementation-roadmap.md).
 
@@ -30,13 +30,13 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] APP-01: Định nghĩa settings cho DB, Redis, provider, observability và limits theo kế hoạch tổng.
+- [x] APP-01: Định nghĩa settings cho DB, Redis, provider, observability và limits theo kế hoạch tổng.
 - [ ] APP-02: Tạo dependency factories và lifecycle đóng HTTP/DB/Redis clients.
 - [ ] APP-03: Gắn error envelope, logging middleware, auth context và health routes.
 - [ ] APP-04: Tách composition của API, job và MCP để service không import entrypoint.
 
 ## Điều kiện hoàn thành
 
-- [ ] Import module không có side effects.
+- [x] Import module không có side effects.
 - [ ] Health/live chỉ đo process; health/ready kiểm tra DB/Redis, không gọi LLM.
-- [ ] Có thể dựng app với fake dependencies trong tests.
+- [x] Có thể dựng app với fake dependencies trong tests.

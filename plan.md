@@ -5,7 +5,7 @@ Ngày chốt thiết kế: 2026-09-15
 Trạng thái: đặc tả để bắt đầu viết code; các con số chất lượng là mục tiêu cần đo.  
 Bản kế hoạch ban đầu: [docs/archive/plan-original.md](docs/archive/plan-original.md).
 
-Bộ khung thư mục đã được khởi tạo với kế hoạch theo từng module. Xem [README](README.md), [roadmap và mục lục các PLAN.md](docs/implementation-roadmap.md) để bắt đầu code. Hiện chưa có runtime/dependency lockfiles; chưa đánh dấu M0 hoặc WP-01 hoàn thành.
+Bộ khung thư mục và WP-01 đã được triển khai, kiểm tra local. Xem [README](README.md), [roadmap và mục lục các PLAN.md](docs/implementation-roadmap.md) để chạy code và bắt đầu WP-02. M0 vẫn chưa hoàn thành vì còn các spike OpenAI/MCP/checkpointer, seed spec và evaluation cases.
 
 ## 1. Mục tiêu và những lựa chọn đã chốt
 
@@ -1002,7 +1002,7 @@ README.md
 plan.md
 ```
 
-Cây trên là cấu trúc đích. Các thư mục kiến trúc đã được tạo cùng `PLAN.md`, gồm các phần con của RAG, context và business services; xem [mục lục đầy đủ](docs/implementation-roadmap.md). Các tệp runtime, lockfile, migration, Compose và Makefile trong cây là đầu ra còn phải triển khai theo WP, không phải tệp đã có. Code trong từng module được thêm cùng tính năng sử dụng nó.
+Cây trên là cấu trúc đích. Các thư mục kiến trúc đã được tạo cùng `PLAN.md`; WP-01 đã bổ sung backend/frontend runtime, hai lockfile, Makefile và CI workflow. Migration, Compose, seed/evaluation data và code nghiệp vụ vẫn là đầu ra của các WP sau. Xem [mục lục đầy đủ](docs/implementation-roadmap.md).
 
 ### 20.2. Compose
 

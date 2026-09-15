@@ -1,6 +1,6 @@
 # Backend Python
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: WP-01 đã triển khai và kiểm tra local; schema/nghiệp vụ WP-02 trở đi chưa triển khai.
 Work packages: WP-01, WP-02.
 Nguồn: [kế hoạch tổng](../plan.md), mục 5, 20, 21; [thứ tự triển khai](../docs/implementation-roadmap.md).
 
@@ -31,13 +31,13 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] BE-01: Tạo project metadata, nhóm runtime/dev dependencies và lock sau compatibility spike.
-- [ ] BE-02: Tạo app factory, lifespan và config validation; phân biệt fake-provider và live modes.
+- [x] BE-01: Tạo project metadata, nhóm runtime/dev dependencies và lock sau compatibility spike.
+- [x] BE-02: Tạo app factory, lifespan và config validation; phân biệt fake-provider và live modes.
 - [ ] BE-03: Nối các module theo dependency injection, tách migration role khỏi application role.
-- [ ] BE-04: Cung cấp lệnh lint/type-check/test từ root khi toolchain đã cài.
+- [x] BE-04: Cung cấp lệnh lint/type-check/test từ root khi toolchain đã cài.
 
 ## Điều kiện hoàn thành
 
-- [ ] Import package không gọi mạng, không connect DB và không spawn MCP.
-- [ ] Fresh install dùng lockfile tái lập được; config sai có thông báo rõ.
+- [x] Import package không gọi mạng, không connect DB và không spawn MCP.
+- [x] Fresh install dùng lockfile tái lập được; config sai có thông báo rõ.
 - [ ] Chỉ đánh dấu WP-01 xong sau khi frontend/backend install/build và CI smoke tests đạt.

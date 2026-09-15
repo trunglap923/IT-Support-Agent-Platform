@@ -6,7 +6,31 @@ Portfolio trợ lý IT: trả lời có nguồn, kiểm tra dịch vụ mô ph�
 
 Đã khởi tạo cây thư mục và **57 kế hoạch module**. Mỗi `PLAN.md` có phạm vi, hợp đồng, tệp cần viết, phần phụ thuộc, checklist có mã và điều kiện hoàn thành.
 
-Đây là bộ khung chuẩn bị code, **chưa phải ứng dụng chạy được**. Chưa có runtime, dependency lockfiles, migrations, Docker Compose hay test suite thực thi. Các tệp được liệt kê ở mục “Tệp dự kiến khi viết code” là đầu việc cần tạo, không phải tệp đã tồn tại.
+WP-01 đã được triển khai và kiểm tra local: FastAPI có health endpoint, cấu hình fake/OpenAI rõ ràng, frontend React có shell/router/login placeholder, hai lockfile và CI fake-mode. Chưa có database, auth thật, chat/RAG, queue hoặc Docker Compose; các phần đó bắt đầu từ WP-02 theo roadmap.
+
+Kết quả kiểm tra WP-01 ngày 2026-09-15: backend Ruff/mypy và 6 pytest đều đạt; frontend ESLint/TypeScript, 1 Vitest và production build đều đạt. Workflow GitHub Actions chỉ được xác nhận remote sau khi push commit.
+
+## Chạy WP-01
+
+Yêu cầu: Python 3.12, uv 0.11.x và Docker; hoặc Node 22.23.2 + npm trên host.
+
+~~~bash
+cp .env.example .env
+make backend-sync
+make backend-check
+make frontend-check-docker
+~~~
+
+Chạy hai terminal để xem giao diện:
+
+~~~bash
+make dev-backend
+make dev-frontend-docker
+~~~
+
+Mở http://127.0.0.1:5173. Health API ở http://127.0.0.1:8000/api/v1/health/live. Chế độ mặc định dùng fake provider và không gọi OpenAI.
+
+Nếu host đã có đúng Node/npm, thay hai target Docker bằng `make frontend-install`, `make frontend-check` và `make dev-frontend`.
 
 ## Bắt đầu từ đâu?
 
@@ -58,10 +82,10 @@ Ký hiệu `{...}` trong cây rút gọn đại diện cho các thư mục con r
 
 ## Quy ước và cấu hình
 
-- Định hướng stack: Python/FastAPI, React/TypeScript, PostgreSQL/pgvector, LangGraph, MCP, Celery/Redis và Langfuse. Phiên bản tương thích và lockfiles được kiểm chứng ở WP-01/M0.
-- [.env.example](.env.example) là mẫu cấu hình không có secret. Runtime validation và chế độ fake/live sẽ được triển khai ở WP-01; không gửi API key vào chat hoặc commit vào repo.
+- Định hướng stack: Python/FastAPI, React/TypeScript, PostgreSQL/pgvector, LangGraph, MCP, Celery/Redis và Langfuse. Backend/frontend foundation đã được khóa ở WP-01; các integration LangGraph/MCP/checkpointer vẫn thuộc M0.
+- [.env.example](.env.example) là mẫu không có secret. `AI_PROVIDER=fake` là mặc định; `AI_PROVIDER=openai` yêu cầu `OPENAI_API_KEY`. Không gửi API key vào chat hoặc commit vào repo.
 - [.python-version](.python-version), [.editorconfig](.editorconfig) và [.gitignore](.gitignore) thống nhất phiên bản Python dự kiến, định dạng và dữ liệu không commit.
-- Các lệnh `make up`, `make test`, `make eval` trong kế hoạch tổng là đầu ra tương lai; hiện chưa có Makefile để chạy chúng.
+- Makefile hiện cung cấp các lệnh WP-01. `make up`, migrations, seed, E2E và evaluation sẽ được thêm ở các WP tương ứng.
 - Dữ liệu mẫu phải là dữ liệu tự tạo/công khai có quyền sử dụng. Không kết nối VPN/GitLab/ticketing của doanh nghiệp thật trong V1.
 
 Xem [bản đồ kiến trúc](docs/architecture.md) và [kịch bản demo dự kiến](docs/demo-script.md). Chỉ báo cáo metric và tính năng đã chạy kiểm chứng.
