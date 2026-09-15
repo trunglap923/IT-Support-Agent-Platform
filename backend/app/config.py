@@ -1,8 +1,9 @@
 """Typed application settings with explicit fake and live provider modes."""
 
 from enum import StrEnum
+from urllib.parse import urlsplit
 
-from pydantic import Field, SecretStr, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -45,6 +46,7 @@ class Settings(BaseSettings):
     migration_database_url: SecretStr | None = None
     demo_seed_password: SecretStr | None = None
     redis_url: SecretStr | None = None
+    redis_socket_timeout_seconds: float = Field(default=2.0, gt=0, le=30)
     document_storage_path: str = "/data/documents"
 
     session_cookie_name: str = "it_support_session"
@@ -60,6 +62,17 @@ class Settings(BaseSettings):
 
     app_ai_daily_budget_usd: float = Field(default=1.0, gt=0)
     app_ai_monthly_budget_usd: float = Field(default=10.0, gt=0)
+
+    @field_validator("redis_url")
+    @classmethod
+    def validate_redis_url(cls, value: SecretStr | None) -> SecretStr | None:
+        if value is None:
+            return value
+        raw_value = value.get_secret_value().strip()
+        parsed = urlsplit(raw_value)
+        if parsed.scheme not in {"redis", "rediss"} or not parsed.hostname:
+            raise ValueError("REDIS_URL must use redis:// or rediss:// and include a host")
+        return SecretStr(raw_value)
 
     @model_validator(mode="after")
     def validate_provider_credentials(self) -> "Settings":

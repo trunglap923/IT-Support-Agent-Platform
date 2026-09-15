@@ -25,3 +25,14 @@ def test_openai_mode_accepts_non_empty_key() -> None:
 
     assert settings.openai_api_key is not None
     assert settings.openai_api_key.get_secret_value() == "test-only-placeholder"
+
+
+def test_redis_url_is_validated_and_kept_secret() -> None:
+    settings = Settings(redis_url="redis://127.0.0.1:6379/0")
+
+    assert settings.redis_url is not None
+    assert settings.redis_url.get_secret_value() == "redis://127.0.0.1:6379/0"
+    assert "127.0.0.1" not in repr(settings.redis_url)
+
+    with pytest.raises(ValidationError, match="REDIS_URL"):
+        Settings(redis_url="http://127.0.0.1:6379")

@@ -18,7 +18,8 @@ FRONTEND_DOCKER = docker run --rm --user $(PROJECT_UID):$(PROJECT_GID) -e npm_co
 	frontend-install frontend-check frontend-install-docker frontend-check-docker \
 	dev-backend dev-frontend dev-frontend-docker dev-stop spike-openai-live \
 	spike-mcp-stdio spike-langgraph-postgres eval-validate \
-	db-up db-down db-status migrate seed-demo-user backend-integration-check wp02-check
+	db-up db-down db-status redis-up redis-down redis-status services-up services-down \
+	migrate seed-demo-user backend-integration-check wp02-check
 
 help:
 	@echo "WP-01 commands:"
@@ -38,6 +39,11 @@ help:
 	@echo "  make db-up                  Start local PostgreSQL/pgvector and wait until healthy"
 	@echo "  make db-down                Stop containers; preserve the PostgreSQL volume"
 	@echo "  make db-status              Show local Compose service status"
+	@echo "  make redis-up               Start local Redis and wait until healthy"
+	@echo "  make redis-down             Stop local Redis; preserve its volume"
+	@echo "  make redis-status           Show local Redis service status"
+	@echo "  make services-up            Start PostgreSQL and Redis"
+	@echo "  make services-down          Stop all local Compose services; preserve volumes"
 	@echo "  make migrate                Upgrade the configured application database"
 	@echo "  make seed-demo-user         Create the minimal hashed demo login account"
 	@echo "  make backend-integration-check  Run DB/migration/auth/ownership tests in isolated databases"
@@ -136,10 +142,25 @@ db-up:
 	$(COMPOSE) --file $(COMPOSE_FILE) --env-file $(COMPOSE_ENV_FILE) up --detach --wait postgres
 
 db-down:
-	$(COMPOSE) --file $(COMPOSE_FILE) --env-file $(COMPOSE_ENV_FILE) down
+	$(COMPOSE) --file $(COMPOSE_FILE) --env-file $(COMPOSE_ENV_FILE) stop postgres
 
 db-status:
 	$(COMPOSE) --file $(COMPOSE_FILE) --env-file $(COMPOSE_ENV_FILE) ps
+
+redis-up:
+	$(COMPOSE) --file $(COMPOSE_FILE) --env-file $(COMPOSE_ENV_FILE) up --detach --wait redis
+
+redis-down:
+	$(COMPOSE) --file $(COMPOSE_FILE) --env-file $(COMPOSE_ENV_FILE) stop redis
+
+redis-status:
+	$(COMPOSE) --file $(COMPOSE_FILE) --env-file $(COMPOSE_ENV_FILE) ps redis
+
+services-up:
+	$(COMPOSE) --file $(COMPOSE_FILE) --env-file $(COMPOSE_ENV_FILE) up --detach --wait postgres redis
+
+services-down:
+	$(COMPOSE) --file $(COMPOSE_FILE) --env-file $(COMPOSE_ENV_FILE) down
 
 migrate:
 	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --directory backend --frozen --env-file $(COMPOSE_ENV_FILE) alembic -c alembic.ini upgrade head
