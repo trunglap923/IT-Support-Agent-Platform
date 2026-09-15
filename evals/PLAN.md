@@ -1,6 +1,6 @@
 # Evaluation — đo chất lượng và điều kiện release
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: schema và 30 case M0 đã có; chưa có live runner/baseline.
 Work packages: WP-01, WP-05, WP-06, WP-13.
 Nguồn: [kế hoạch tổng](../plan.md), mục 19, 21, 22; [thứ tự triển khai](../docs/implementation-roadmap.md).
 
@@ -31,7 +31,7 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] EVAL-01: Chốt case schema, nhóm tình huống và evidence ground truth trước tinh chỉnh prompt.
+- [x] EVAL-01: Chốt case schema, nhóm tình huống và evidence ground truth trước tinh chỉnh prompt.
 - [ ] EVAL-02: Xây baseline retrieval/no-answer từ M2, lưu cả thất bại.
 - [ ] EVAL-03: Nối runner tới các cấu hình ứng dụng và kiểm tra DB effects có scope.
 - [ ] EVAL-04: Chạy live agent cases ít nhất ba lần, báo số mẫu/biến động/cost.

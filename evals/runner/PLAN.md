@@ -1,6 +1,6 @@
 # Evaluation runner — chạy, chấm và lưu bằng chứng
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: có validator offline M0; chưa có execution/scoring runner.
 Work packages: WP-05, WP-06, WP-13.
 Nguồn: [kế hoạch tổng](../../plan.md), mục 16, 19, 20.4; [thứ tự triển khai](../../docs/implementation-roadmap.md).
 

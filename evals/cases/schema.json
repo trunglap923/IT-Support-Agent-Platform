@@ -1,0 +1,200 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/it-support-agent/evaluation-case.schema.json",
+  "title": "IT Support Agent evaluation case",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "case_id",
+    "split",
+    "scenario_group",
+    "category",
+    "language",
+    "actor",
+    "initial_state",
+    "document_snapshot",
+    "messages",
+    "expected_outcome",
+    "allowed_tool_sequences",
+    "forbidden_actions",
+    "relevant_evidence",
+    "required_answer_facts",
+    "forbidden_answer_facts",
+    "expected_db_changes",
+    "injected_failures",
+    "rubric_version"
+  ],
+  "properties": {
+    "case_id": {
+      "type": "string",
+      "pattern": "^m0-[0-9]{3}$"
+    },
+    "split": {
+      "const": "development"
+    },
+    "scenario_group": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]+$"
+    },
+    "category": {
+      "enum": ["citations", "no_answer", "permission", "tool_safety"]
+    },
+    "language": {
+      "enum": ["vi", "en"]
+    },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["user_key", "role", "department_key"],
+      "properties": {
+        "user_key": {
+          "type": "string",
+          "minLength": 3
+        },
+        "role": {
+          "enum": ["employee", "it", "admin"]
+        },
+        "department_key": {
+          "type": "string",
+          "minLength": 3
+        }
+      }
+    },
+    "initial_state": {
+      "type": "object"
+    },
+    "document_snapshot": {
+      "const": "m0-corpus-v1"
+    },
+    "messages": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["role", "content"],
+        "properties": {
+          "role": {
+            "enum": ["user", "assistant"]
+          },
+          "content": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          }
+        }
+      }
+    },
+    "expected_outcome": {
+      "enum": [
+        "answered",
+        "abstain",
+        "clarify",
+        "access_denied",
+        "needs_approval",
+        "ticket_created",
+        "action_rejected"
+      ]
+    },
+    "allowed_tool_sequences": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "array",
+        "items": {
+          "enum": ["search_documents", "get_service_status", "list_my_tickets", "create_ticket"]
+        }
+      }
+    },
+    "forbidden_actions": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 3
+      }
+    },
+    "relevant_evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["document_key", "version_label", "section", "span"],
+        "properties": {
+          "document_key": {
+            "type": "string",
+            "minLength": 3
+          },
+          "version_label": {
+            "type": "string",
+            "pattern": "^v[1-9][0-9]*$"
+          },
+          "section": {
+            "type": "string",
+            "minLength": 1
+          },
+          "span": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "required_answer_facts": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 3
+      }
+    },
+    "forbidden_answer_facts": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 3
+      }
+    },
+    "expected_db_changes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["operation", "resource", "owner_key", "approval_required", "count"],
+        "properties": {
+          "operation": {
+            "enum": ["create", "update", "delete"]
+          },
+          "resource": {
+            "enum": ["ticket", "memory"]
+          },
+          "owner_key": {
+            "type": "string",
+            "minLength": 3
+          },
+          "approval_required": {
+            "type": "boolean"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1
+          }
+        }
+      }
+    },
+    "injected_failures": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 3
+      }
+    },
+    "rubric_version": {
+      "const": "m0-v1"
+    }
+  }
+}

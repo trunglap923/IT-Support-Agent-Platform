@@ -1,6 +1,6 @@
 # Evaluation cases — dữ liệu kiểm thử có đáp án
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: 30 case development M0 đã có; chưa mở rộng đủ 120 case.
 Work packages: WP-01, WP-05, WP-06, WP-12, WP-13.
 Nguồn: [kế hoạch tổng](../../plan.md), mục 19.2, 19.4; [thứ tự triển khai](../../docs/implementation-roadmap.md).
 
@@ -31,8 +31,8 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] CASES-01: Viết 30 ca M0 gồm happy path, no-answer, sai quyền, approval và memory consent.
-- [ ] CASES-02: Gắn evidence bằng stable document key/version/section/span, không fixed chunk id.
+- [x] CASES-01: Viết 30 ca M0 gồm happy path, no-answer, sai quyền, approval và memory consent.
+- [x] CASES-02: Gắn evidence bằng stable document key/version/section/span, không fixed chunk id.
 - [ ] CASES-03: Tạo scripted interactions cho approve/reject/expire và hai conversation cùng/khác thiết bị.
 - [ ] CASES-04: Bổ sung fault injection Redis timeout, worker crash, OpenAI unknown usage và ACL revoke.
 - [ ] CASES-05: Validate đủ 120 ca, giữ 80/40 theo scenario_group; nếu dùng holdout để sửa thiết kế phải thay holdout.

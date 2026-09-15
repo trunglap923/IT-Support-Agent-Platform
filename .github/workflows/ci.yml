@@ -42,6 +42,8 @@ jobs:
         run: uv run --directory backend --frozen mypy app
       - name: Test
         run: uv run --directory backend --frozen pytest
+      - name: Validate evaluation dataset
+        run: uv run --project backend --frozen python -m evals.runner.validate_cases
 
   frontend:
     name: Frontend · Node 22
