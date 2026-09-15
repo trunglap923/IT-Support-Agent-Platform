@@ -1,6 +1,6 @@
 # Schema và DB sessions
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: async engine/session foundation đã có; WP-02 models đang được bổ sung.
 Work packages: WP-02, WP-03, WP-04, WP-07, WP-08, WP-12.
 Nguồn: [kế hoạch tổng](../../../plan.md), mục 13; [thứ tự triển khai](../../../docs/implementation-roadmap.md).
 
@@ -35,7 +35,8 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [ ] DB-02: Thêm document/version/chunk với vector(1536), ownership và composite version constraint.
 - [ ] DB-03: Thêm usage ledger trước paid call WP-04; ticket/service_states/audit ở WP-07, approval constraints WP-08 và memory/jobs WP-12; system_state cùng document versioning.
 - [ ] DB-04: Định nghĩa unique/partial indexes cho active run, action, receipt, memory và ingestion.
-- [ ] DB-05: Tạo async session factories theo process/event loop; quyết định delete/retain FK behavior theo retention.
+- [x] DB-05a: Tạo async engine/session factory theo process/event loop, không dùng global connection.
+- [ ] DB-05b: Quyết định delete/retain FK behavior theo retention khi thêm models.
 
 ## Điều kiện hoàn thành
 

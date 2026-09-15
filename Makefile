@@ -18,7 +18,7 @@ FRONTEND_DOCKER = docker run --rm --user $(PROJECT_UID):$(PROJECT_GID) -e npm_co
 	frontend-install frontend-check frontend-install-docker frontend-check-docker \
 	dev-backend dev-frontend dev-frontend-docker dev-stop spike-openai-live \
 	spike-mcp-stdio spike-langgraph-postgres eval-validate \
-	db-up db-down db-status
+	db-up db-down db-status migrate
 
 help:
 	@echo "WP-01 commands:"
@@ -38,6 +38,7 @@ help:
 	@echo "  make db-up                  Start local PostgreSQL/pgvector and wait until healthy"
 	@echo "  make db-down                Stop containers; preserve the PostgreSQL volume"
 	@echo "  make db-status              Show local Compose service status"
+	@echo "  make migrate                Upgrade the configured application database"
 
 bootstrap: backend-sync frontend-install
 
@@ -131,3 +132,6 @@ db-down:
 
 db-status:
 	$(COMPOSE) --file $(COMPOSE_FILE) --env-file $(COMPOSE_ENV_FILE) ps
+
+migrate:
+	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --directory backend --frozen --env-file $(COMPOSE_ENV_FILE) alembic -c alembic.ini upgrade head

@@ -1,6 +1,6 @@
 # Database migrations
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: Alembic và revision pgvector khởi đầu đã có; feature revisions đang được bổ sung.
 Work packages: WP-02, WP-04, WP-07, WP-08, WP-12, WP-14.
 Nguồn: [kế hoạch tổng](../../plan.md), mục 13, 20; [thứ tự triển khai](../../docs/implementation-roadmap.md).
 
@@ -30,10 +30,11 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] MIG-01: Cấu hình Alembic qua migration credential; tạo extension vector có kiểm tra quyền.
+- [x] MIG-01: Cấu hình Alembic qua migration credential; tạo extension vector có kiểm tra quyền.
 - [ ] MIG-02: Chia revision theo feature: identity/run → docs/usage ledger WP-04 → ticket/service_states WP-07 → approval/write constraints WP-08 → memory WP-12.
 - [ ] MIG-03: Thêm unique, FK, partial indexes và current-version integrity trong migrations.
-- [ ] MIG-04: Viết upgrade checks từ DB trống và từ revision trước.
+- [x] MIG-04a: Viết upgrade check từ PostgreSQL database trống.
+- [ ] MIG-04b: Bổ sung upgrade check từ revision trước khi có feature revision tiếp theo.
 - [ ] MIG-05: Ghi rollback/backup policy; restore drill dùng DB riêng.
 
 ## Điều kiện hoàn thành

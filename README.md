@@ -28,10 +28,15 @@ trên loopback. Nếu `.env` được tạo trước WP-02, bổ sung các biế
 ~~~bash
 make db-up
 make db-status
+make migrate
 ~~~
 
 `make db-down` dừng container nhưng giữ named volume. Không dùng password development
 cho môi trường khác và không commit `.env`.
+
+Alembic dùng riêng `MIGRATION_DATABASE_URL` với driver `postgresql+psycopg`; ứng dụng dùng
+`DATABASE_URL` với `postgresql+asyncpg`. Migration test tạo và xóa một database cô lập,
+không reset database development đang dùng.
 
 ~~~bash
 cp .env.example .env
