@@ -7,6 +7,7 @@ from fastapi import FastAPI
 
 from app.api.auth import router as auth_router
 from app.api.health import router as health_router
+from app.api.runs import router as runs_router
 from app.config import Settings
 from app.db import Database
 from app.providers import TextGenerationProvider, create_provider
@@ -44,6 +45,7 @@ def create_app(
     application.add_middleware(RequestIdMiddleware)
     application.include_router(health_router, prefix="/api/v1")
     application.include_router(auth_router, prefix="/api/v1")
+    application.include_router(runs_router, prefix="/api/v1")
     return application
 
 

@@ -41,12 +41,12 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [ ] API-01b: Khai báo schemas/OpenAPI cho conversation/run ở WP-03.
 - [x] API-02a: Implement auth routes mỏng; kiểm tra Origin/CSRF với logout.
 - [ ] API-02b: Implement các feature routes cùng CSRF/policy tương ứng.
-- [ ] API-03: Tạo GET events hỗ trợ Last-Event-ID/after_sequence, heartbeat và snapshot fallback.
+- [x] API-03: Tạo GET run snapshot/events hỗ trợ Last-Event-ID/after_sequence, heartbeat và ownership.
 - [ ] API-04: Bổ sung routes approval, ticket IT, document admin, memory và manual ticket draft theo từng WP.
 - [ ] API-05: Chuẩn hóa 401/403/404/409/410/413/422/429/503, cursor pagination và Retry-After.
 
 ## Điều kiện hoàn thành
 
 - [ ] Integration tests chứng minh đúng owner, CSRF, conflict và pagination.
-- [ ] Reconnect SSE không tạo run/job mới; event chỉ phát sau persist.
+- [x] Reconnect SSE chỉ đọc event đã persist và không tạo run/message/job mới.
 - [ ] Endpoint chưa triển khai không được mô tả là đang hoạt động trong README.

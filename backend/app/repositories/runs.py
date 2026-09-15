@@ -116,3 +116,25 @@ class RunRepository:
             .order_by(RunEvent.sequence)
         )
         return list((await session.scalars(statement)).all())
+
+    async def list_events_after_owned(
+        self,
+        session: AsyncSession,
+        *,
+        run_id: UUID,
+        actor_id: UUID,
+        after_sequence: int,
+        limit: int = 100,
+    ) -> list[RunEvent]:
+        statement = (
+            select(RunEvent)
+            .join(AgentRun, RunEvent.run_id == AgentRun.id)
+            .where(
+                RunEvent.run_id == run_id,
+                AgentRun.actor_id == actor_id,
+                RunEvent.sequence > after_sequence,
+            )
+            .order_by(RunEvent.sequence)
+            .limit(limit)
+        )
+        return list((await session.scalars(statement)).all())

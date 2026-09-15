@@ -43,5 +43,5 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 ## Điều kiện hoàn thành
 
 - [ ] Gửi cùng request hai lần chỉ có một run; race insert được unique constraint chặn.
-- [ ] SSE replay đọc events không gọi agent.
+- [x] SSE replay đọc events theo owner/cursor và không gọi agent.
 - [ ] Lịch sử trái ACL bị ẩn qua citation policy; worker lỗi vẫn truy được status.

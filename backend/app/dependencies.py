@@ -35,7 +35,7 @@ async def get_db_session(
 
 async def get_current_principal(
     request: Request,
-    session: Annotated[AsyncSession, Depends(get_db_session)],
+    session: Annotated[AsyncSession, Depends(get_db_session, scope="function")],
 ) -> Principal:
     settings = cast(Settings, request.app.state.settings)
     cookie_token = request.cookies.get(settings.session_cookie_name)
