@@ -21,16 +21,44 @@ make backend-check
 make frontend-check-docker
 ~~~
 
-Chạy hai terminal để xem giao diện:
+Chạy hai terminal để xem giao diện. Backend development bind vào `0.0.0.0` để
+frontend trong Docker có thể gọi API qua Docker host gateway; frontend chỉ được
+publish trên loopback của máy ở cổng `5173`.
 
 ~~~bash
+# Terminal 1
 make dev-backend
+
+# Terminal 2
 make dev-frontend-docker
 ~~~
 
 Mở http://127.0.0.1:5173. Health API ở http://127.0.0.1:8000/api/v1/health/live. Chế độ mặc định dùng fake provider và không gọi OpenAI.
 
 Nếu host đã có đúng Node/npm, thay hai target Docker bằng `make frontend-install`, `make frontend-check` và `make dev-frontend`.
+
+Nhấn `Ctrl+C` trong từng terminal để dừng tiến trình. Frontend container có tên
+cố định `it-support-agent-frontend-dev`, dùng `--rm` và thường tự xóa sau khi
+dừng. Nếu terminal đóng bất thường hoặc lần chạy sau báo container cũ, dọn đúng
+container development bằng:
+
+~~~bash
+make dev-stop
+~~~
+
+`make dev-stop` chỉ dừng/xóa frontend container do dự án quản lý; backend chạy
+trực tiếp trên host vẫn được dừng bằng `Ctrl+C`. Nếu cổng `5173` thuộc về một
+container khác, xác định nó trước khi dừng:
+
+~~~bash
+docker ps --filter publish=5173
+~~~
+
+Có thể đổi cổng frontend cho một lần chạy mà không dừng dự án khác:
+
+~~~bash
+make dev-frontend-docker FRONTEND_DEV_PORT=5174
+~~~
 
 ## Bắt đầu từ đâu?
 
