@@ -63,6 +63,11 @@ make backend-integration-check
 khi chạy; nó không migrate hay reset database demo. Chạy toàn bộ gate WP-02 bằng
 `make wp02-check` sau khi `make db-up` đã báo healthy.
 
+Celery có hai worker riêng và một beat scheduler. Sau `make services-up`, có thể mở ba
+terminal khác nhau để chạy `make worker-agent`, `make worker-background` và
+`make scheduler`. Chỉ chạy một scheduler cho một environment; queue payload chỉ chứa ID,
+còn PostgreSQL là nguồn trạng thái.
+
 Chạy hai terminal để xem giao diện. Backend development bind vào `0.0.0.0` để
 frontend trong Docker có thể gọi API qua Docker host gateway; frontend chỉ được
 publish trên loopback của máy ở cổng `5173`.

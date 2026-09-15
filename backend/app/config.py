@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     demo_seed_password: SecretStr | None = None
     redis_url: SecretStr | None = None
     redis_socket_timeout_seconds: float = Field(default=2.0, gt=0, le=30)
+    celery_agent_concurrency: int = Field(default=2, gt=0, le=8)
+    celery_background_concurrency: int = Field(default=1, gt=0, le=4)
+    celery_task_soft_time_limit_seconds: int = Field(default=300, gt=0)
+    celery_task_time_limit_seconds: int = Field(default=330, gt=0)
     document_storage_path: str = "/data/documents"
 
     session_cookie_name: str = "it_support_session"
@@ -82,6 +86,8 @@ class Settings(BaseSettings):
                 raise ValueError("OPENAI_API_KEY is required when AI_PROVIDER=openai")
         if self.app_env is AppEnvironment.PRODUCTION and not self.cookie_secure:
             raise ValueError("COOKIE_SECURE must be true in production")
+        if self.celery_task_time_limit_seconds <= self.celery_task_soft_time_limit_seconds:
+            raise ValueError("CELERY_TASK_TIME_LIMIT_SECONDS must exceed the soft time limit")
         return self
 
     def public_summary(self) -> dict[str, str | bool]:

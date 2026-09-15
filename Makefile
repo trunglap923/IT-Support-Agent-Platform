@@ -19,7 +19,8 @@ FRONTEND_DOCKER = docker run --rm --user $(PROJECT_UID):$(PROJECT_GID) -e npm_co
 	dev-backend dev-frontend dev-frontend-docker dev-stop spike-openai-live \
 	spike-mcp-stdio spike-langgraph-postgres eval-validate \
 	db-up db-down db-status redis-up redis-down redis-status services-up services-down \
-	migrate seed-demo-user backend-integration-check wp02-check
+	migrate seed-demo-user backend-integration-check wp02-check \
+	worker-agent worker-background scheduler
 
 help:
 	@echo "WP-01 commands:"
@@ -44,6 +45,9 @@ help:
 	@echo "  make redis-status           Show local Redis service status"
 	@echo "  make services-up            Start PostgreSQL and Redis"
 	@echo "  make services-down          Stop all local Compose services; preserve volumes"
+	@echo "  make worker-agent           Run the agent queue worker (concurrency 2 by default)"
+	@echo "  make worker-background      Run the background queue worker"
+	@echo "  make scheduler              Run the single development Celery beat scheduler"
 	@echo "  make migrate                Upgrade the configured application database"
 	@echo "  make seed-demo-user         Create the minimal hashed demo login account"
 	@echo "  make backend-integration-check  Run DB/migration/auth/ownership tests in isolated databases"
@@ -161,6 +165,15 @@ services-up:
 
 services-down:
 	$(COMPOSE) --file $(COMPOSE_FILE) --env-file $(COMPOSE_ENV_FILE) down
+
+worker-agent:
+	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --directory backend --frozen --env-file $(COMPOSE_ENV_FILE) celery -A app.jobs.celery_app:celery_app worker --queues agent --concurrency $${CELERY_AGENT_CONCURRENCY:-2} --loglevel INFO
+
+worker-background:
+	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --directory backend --frozen --env-file $(COMPOSE_ENV_FILE) celery -A app.jobs.celery_app:celery_app worker --queues background --concurrency $${CELERY_BACKGROUND_CONCURRENCY:-1} --loglevel INFO
+
+scheduler:
+	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --directory backend --frozen --env-file $(COMPOSE_ENV_FILE) celery -A app.jobs.celery_app:celery_app beat --loglevel INFO
 
 migrate:
 	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --directory backend --frozen --env-file $(COMPOSE_ENV_FILE) alembic -c alembic.ini upgrade head

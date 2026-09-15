@@ -1,6 +1,6 @@
 # Workers, scheduler và recovery
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: Celery queues/scheduler và fake task foundation đã có; DB claim/reconcile được bổ sung trong WP-03.
 Work packages: WP-03, WP-04, WP-08, WP-10, WP-12.
 Nguồn: [kế hoạch tổng](../../../plan.md), mục 15, 20.2; [thứ tự triển khai](../../../docs/implementation-roadmap.md).
 
@@ -35,7 +35,7 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] JOB-01: Route agent/background/maintenance queues, JSON serialization, prefetch=1.
+- [x] JOB-01: Route agent/background queues, JSON serialization, prefetch=1 và bounded time limits.
 - [ ] JOB-02: Commit queued record trước enqueue; xây periodic reconcile mỗi 30 giây.
 - [ ] JOB-03: Claim worker ownership, heartbeat và stale recovery; không chạy đồng thời cùng run.
 - [ ] JOB-04: Nối checkpoint/receipt recovery và expire approval; job failures có safe error code.
