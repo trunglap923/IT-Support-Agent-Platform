@@ -1,7 +1,7 @@
 # ADR-0002 — Runtime foundation của WP-01
 
 Ngày: 2026-09-15  
-Trạng thái: chấp nhận cho WP-01; các spike MCP/LangGraph/checkpointer vẫn đang chờ M0.
+Trạng thái: chấp nhận cho WP-01; live Responses và LangGraph/checkpointer vẫn đang chờ M0.
 
 ## Bối cảnh
 
@@ -64,5 +64,19 @@ Tài liệu contract được đối chiếu với [Structured Outputs](https://
 [Function Calling](https://developers.openai.com/api/docs/guides/function-calling) và
 [GPT-4.1 mini](https://developers.openai.com/api/docs/models/gpt-4.1-mini) chính thức.
 
-M0 còn phải chạy live Responses bằng account có quota, MCP stdio actor isolation và
-PostgreSQL checkpointer pause/resume; kết quả sẽ bổ sung hoặc thay thế ADR này nếu cần.
+M0 còn phải chạy live Responses bằng account có quota và PostgreSQL checkpointer
+pause/resume; kết quả sẽ bổ sung hoặc thay thế ADR này nếu cần.
+
+### Spike MCP stdio và actor isolation
+
+Ngày 2026-09-15, MCP Python SDK 2.2.0 đã được khóa và chạy kiểm chứng bằng transport
+stdio thật. Client chính thức khởi động hai server subprocess đồng thời, discovery đúng
+tool `current_actor`, gọi tool và nhận structured content đúng actor/run của từng process.
+
+Mỗi subprocess nhận environment allowlist chỉ gồm actor, run và cấu hình Python I/O.
+Contract test đặt OpenAI/Langfuse secrets giả ở process cha và xác nhận chúng không truyền
+sang server. Kết quả chứng minh boundary subprocess; nó không thay thế session auth,
+database ownership recheck hoặc ba business tools sẽ viết ở WP-07.
+
+API được đối chiếu với [MCP Python SDK chính thức](https://github.com/modelcontextprotocol/python-sdk)
+và tài liệu [stdio client/discovery/call](https://py.sdk.modelcontextprotocol.io/client/).

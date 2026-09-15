@@ -1,6 +1,6 @@
 # MCP server nội bộ
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: spike stdio/actor isolation M0 đã đạt; business tools vẫn thuộc WP-07.
 Work packages: WP-07, WP-08, WP-10.
 Nguồn: [kế hoạch tổng](../../../plan.md), mục 5.2, 10.3; [thứ tự triển khai](../../../docs/implementation-roadmap.md).
 
@@ -45,3 +45,12 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [ ] Discovery đúng ba tên/schema; contract test gọi thật qua stdio.
 - [ ] Thiếu actor/run hoặc sai run owner bị từ chối.
 - [ ] Subprocess không nhận OpenAI/Langfuse keys; crash-after-commit tra receipt trước retry.
+
+## Bằng chứng spike M0
+
+- MCP Python SDK 2.2.0 được khóa trong `uv.lock`; spike sử dụng trực tiếp `MCPServer`,
+  `Client` và `StdioServerParameters` của SDK hiện hành.
+- Contract test khởi động đồng thời hai subprocess stdio, discovery/call
+  `current_actor` và xác nhận actor/run khác nhau không bị trộn.
+- Subprocess nhận environment allowlist; OpenAI/Langfuse/database credentials của process
+  cha không xuất hiện. Đây chưa phải xác thực người dùng hoặc ba business tools WP-07.
