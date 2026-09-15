@@ -6,9 +6,12 @@ Portfolio trợ lý IT: trả lời có nguồn, kiểm tra dịch vụ mô ph�
 
 Đã khởi tạo cây thư mục và **57 kế hoạch module**. Mỗi `PLAN.md` có phạm vi, hợp đồng, tệp cần viết, phần phụ thuộc, checklist có mã và điều kiện hoàn thành.
 
-WP-01 đã được triển khai và kiểm tra local: FastAPI có health endpoint, cấu hình fake/OpenAI rõ ràng, frontend React có shell/router/login placeholder, hai lockfile và CI fake-mode. Chưa có database, auth thật, chat/RAG, queue hoặc Docker Compose; các phần đó bắt đầu từ WP-02 theo roadmap.
+WP-01 đã được triển khai và kiểm tra local: FastAPI có health endpoint, cấu hình fake/OpenAI rõ ràng, frontend React có shell/router/login placeholder, hai lockfile và CI fake-mode. Compatibility M0 đã kiểm chứng MCP stdio và LangGraph/PostgreSQL checkpoint recovery; seed contract và 30 evaluation cases cũng đã có. Chưa có database nghiệp vụ, auth thật, chat/RAG, queue hoặc Docker Compose; các phần đó bắt đầu từ WP-02 theo roadmap.
 
-Kết quả kiểm tra WP-01 ngày 2026-09-15: backend Ruff/mypy và 6 pytest đều đạt; frontend ESLint/TypeScript, 1 Vitest và production build đều đạt. Workflow GitHub Actions chỉ được xác nhận remote sau khi push commit.
+Kết quả local ngày 2026-09-15: backend Ruff/mypy đạt; suite mặc định có 10 test đạt,
+một PostgreSQL integration test skip. Khi cấp PostgreSQL 17 tạm thời, cả 11 test đạt.
+Frontend ESLint/TypeScript, 1 Vitest và production build đều đạt. Dataset M0 có 30/30
+case hợp lệ. Workflow GitHub Actions chỉ được xác nhận remote sau khi push commit.
 
 ## Chạy WP-01
 
@@ -60,6 +63,25 @@ Có thể đổi cổng frontend cho một lần chạy mà không dừng dự �
 make dev-frontend-docker FRONTEND_DEV_PORT=5174
 ~~~
 
+## Kiểm chứng compatibility M0
+
+Các kiểm tra không trả phí:
+
+~~~bash
+make spike-mcp-stdio
+make eval-validate
+CHECKPOINT_DATABASE_URL=postgresql://... make spike-langgraph-postgres
+~~~
+
+Responses live là lệnh riêng có thể phát sinh phí, không chạy trong CI và chỉ hoạt động khi
+đồng thời có `OPENAI_API_KEY` trong `.env` và opt-in rõ ràng:
+
+~~~bash
+RUN_OPENAI_LIVE_SPIKE=1 make spike-openai-live
+~~~
+
+Kết quả/phiên bản chi tiết nằm trong [ADR-0002](docs/adr/0002-runtime-and-integration.md).
+
 ## Bắt đầu từ đâu?
 
 1. Đọc [kế hoạch tổng](plan.md) để nắm phạm vi V1 và quy tắc nghiệp vụ.
@@ -110,10 +132,10 @@ Ký hiệu `{...}` trong cây rút gọn đại diện cho các thư mục con r
 
 ## Quy ước và cấu hình
 
-- Định hướng stack: Python/FastAPI, React/TypeScript, PostgreSQL/pgvector, LangGraph, MCP, Celery/Redis và Langfuse. Backend/frontend foundation đã được khóa ở WP-01; các integration LangGraph/MCP/checkpointer vẫn thuộc M0.
+- Định hướng stack: Python/FastAPI, React/TypeScript, PostgreSQL/pgvector, LangGraph, MCP, Celery/Redis và Langfuse. Backend/frontend foundation, MCP SDK và LangGraph checkpointer compatibility đã được khóa; implementation nghiệp vụ vẫn theo các WP trong roadmap.
 - [.env.example](.env.example) là mẫu không có secret. `AI_PROVIDER=fake` là mặc định; `AI_PROVIDER=openai` yêu cầu `OPENAI_API_KEY`. Không gửi API key vào chat hoặc commit vào repo.
 - [.python-version](.python-version), [.editorconfig](.editorconfig) và [.gitignore](.gitignore) thống nhất phiên bản Python dự kiến, định dạng và dữ liệu không commit.
-- Makefile hiện cung cấp các lệnh WP-01. `make up`, migrations, seed, E2E và evaluation sẽ được thêm ở các WP tương ứng.
+- Makefile cung cấp lệnh WP-01, compatibility spikes và validation 30 case M0. `make up`, migrations, seed, E2E và live evaluation runner sẽ được thêm ở các WP tương ứng.
 - Dữ liệu mẫu phải là dữ liệu tự tạo/công khai có quyền sử dụng. Không kết nối VPN/GitLab/ticketing của doanh nghiệp thật trong V1.
 
 Xem [bản đồ kiến trúc](docs/architecture.md) và [kịch bản demo dự kiến](docs/demo-script.md). Chỉ báo cáo metric và tính năng đã chạy kiểm chứng.

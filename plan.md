@@ -5,7 +5,10 @@ Ngày chốt thiết kế: 2026-09-15
 Trạng thái: đặc tả để bắt đầu viết code; các con số chất lượng là mục tiêu cần đo.  
 Bản kế hoạch ban đầu: [docs/archive/plan-original.md](docs/archive/plan-original.md).
 
-Bộ khung thư mục và WP-01 đã được triển khai, kiểm tra local. Xem [README](README.md), [roadmap và mục lục các PLAN.md](docs/implementation-roadmap.md) để chạy code và bắt đầu WP-02. M0 vẫn chưa hoàn thành vì còn các spike OpenAI/MCP/checkpointer, seed spec và evaluation cases.
+Bộ khung thư mục và WP-01 đã được triển khai, kiểm tra local. Xem [README](README.md),
+[roadmap và mục lục các PLAN.md](docs/implementation-roadmap.md) để chạy code và bắt đầu
+WP-02. Các spike MCP/checkpointer, seed spec và 30 evaluation cases đã đạt; M0 vẫn mở vì
+Responses live cần chủ dự án opt-in bằng account có quota.
 
 ## 1. Mục tiêu và những lựa chọn đã chốt
 

@@ -1,7 +1,7 @@
-# ADR-0002 — Runtime foundation của WP-01
+# ADR-0002 — Runtime foundation và compatibility M0
 
 Ngày: 2026-09-15  
-Trạng thái: chấp nhận cho WP-01; live Responses và LangGraph/checkpointer vẫn đang chờ M0.
+Trạng thái: chấp nhận có điều kiện; chỉ còn live Responses cần opt-in trước khi đóng M0.
 
 ## Bối cảnh
 
@@ -24,7 +24,11 @@ WP-01 cần một backend và frontend cài lại được từ lockfile, chạy
 | FastAPI / Starlette | 0.141.1 / 1.6.0 |
 | Pydantic / settings | 2.13.5 / 2.15.0 |
 | OpenAI Python SDK | 2.54.0 |
+| MCP Python SDK | 2.2.0 |
+| LangGraph / PostgreSQL checkpointer | 1.2.11 / 3.1.2 |
+| Psycopg / pool | 3.3.5 / 3.3.1 |
 | httpx2 | 2.13.0 |
+| jsonschema | 4.26.0 |
 | Node | 22.23.2 |
 | React / React Router | 19.3.0 / 7.18.3 |
 | Vite / TypeScript | 7.3.6 / 5.9.3 |
@@ -35,15 +39,21 @@ Hai lockfile mới là nguồn chính xác cho toàn bộ dependency bắc cầu
 
 ## Bằng chứng
 
-- Backend: Ruff format/lint, mypy strict và 6 pytest đạt.
+- Backend mặc định: Ruff format/lint, mypy strict, 10 pytest đạt và một integration
+  test PostgreSQL skip có chủ đích khi không cấu hình database.
+- Backend với PostgreSQL 17 tạm thời: 11 pytest đạt, gồm pause/restart/resume.
 - Frontend: npm ci báo 0 vulnerability tại thời điểm kiểm tra; ESLint, TypeScript, 1 Vitest và Vite production build đạt trong Node container.
 - Uvicorn khởi động application lifecycle thành công ở fake mode.
+- `make eval-validate`: 30/30 case hợp lệ theo JSON Schema và semantic invariants.
 
 GitHub Actions chưa thể chạy trước khi commit được push; lần CI remote đầu tiên vẫn là điều kiện xác nhận cuối.
 
 ## Hệ quả và phần hoãn
 
-WP-01 chỉ tạo foundation. Không coi plain text provider là agent, không coi fake test là đánh giá model. Chưa cài LangGraph, MCP, PostgreSQL, Redis, Celery hoặc Langfuse cho tới khi WP tương ứng sử dụng chúng.
+Các spike chỉ khóa compatibility boundary, không phải tính năng nghiệp vụ hoàn chỉnh. Không
+coi plain text provider là agent, fake test là đánh giá model, `current_actor` là MCP business
+server hay checkpoint probe là approval transaction. PostgreSQL application schema, Redis,
+Celery và Langfuse vẫn được thêm ở WP sử dụng chúng.
 
 ### Spike Responses API
 
@@ -64,8 +74,7 @@ Tài liệu contract được đối chiếu với [Structured Outputs](https://
 [Function Calling](https://developers.openai.com/api/docs/guides/function-calling) và
 [GPT-4.1 mini](https://developers.openai.com/api/docs/models/gpt-4.1-mini) chính thức.
 
-M0 còn phải chạy live Responses bằng account có quota và PostgreSQL checkpointer
-pause/resume; kết quả sẽ bổ sung hoặc thay thế ADR này nếu cần.
+M0 còn phải chạy live Responses bằng account có quota; kết quả sẽ bổ sung ADR này nếu cần.
 
 ### Spike MCP stdio và actor isolation
 
@@ -94,3 +103,17 @@ thuộc database bên ngoài. Serializer bật strict msgpack theo khuyến cáo
 
 API được đối chiếu với tài liệu chính thức về [interrupt/resume](https://docs.langchain.com/oss/python/langgraph/interrupts)
 và [PostgreSQL checkpointer](https://reference.langchain.com/python/langgraph/checkpoint.postgres).
+
+## Kết luận compatibility M0
+
+| Hạng mục | Kết quả | Quyết định |
+|---|---|---|
+| Responses plain/structured/tool contract | Offline đạt; live chưa chạy | Giữ SDK 2.54.0 và target live opt-in; chưa đóng M0 |
+| MCP stdio discovery/call/actor isolation | Đạt với hai subprocess | Giữ MCP SDK 2.2.0; actor/run chỉ truyền qua trusted process boundary |
+| LangGraph PostgreSQL checkpoint recovery | Đạt qua hai process và PostgreSQL 17 | Giữ LangGraph 1.2.11/checkpointer 3.1.2; `thread_id=run_id` |
+| Seed contract | Schema/spec đã chốt | Stable keys trong source, UUID được map khi seed ở WP-04 |
+| Evaluation M0 | 30/30 case hợp lệ | Development-only; chưa phải baseline chất lượng model |
+
+Do live Responses có thể phát sinh phí và phụ thuộc quota của tài khoản, bước này không chạy
+tự động trong local check hoặc CI. M0 tổng thể vẫn mở cho đến khi chủ dự án chủ động chạy
+`RUN_OPENAI_LIVE_SPIKE=1 make spike-openai-live` và ghi kết quả.

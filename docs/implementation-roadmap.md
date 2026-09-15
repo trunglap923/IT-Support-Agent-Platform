@@ -10,7 +10,9 @@ Nguồn yêu cầu: [plan.md](../plan.md), đặc biệt mục 21.1. Bản đồ
 - [x] WP-01: runtime/dependencies, lockfiles và local install/lint/typecheck/test/build đã đạt; chờ CI remote đầu tiên sau push.
 - [ ] M0: hoàn tất spike provider/MCP/checkpointer, seed spec và 30 evaluation cases.
 
-WP-01 hoàn thành ở local; WP-02..WP-14 chưa hoàn thành. M0 vẫn còn các spike tích hợp và dữ liệu evaluation, nên chưa coi nền tảng AI/MCP/checkpointer đã được chứng minh.
+WP-01 hoàn thành ở local; WP-02..WP-14 chưa hoàn thành. MCP stdio, PostgreSQL
+checkpointer, seed contract và 30 evaluation cases đã đạt. M0 chỉ còn Responses live cần
+chủ động opt-in bằng account có quota; vì vậy chưa đánh dấu M0 hoàn thành.
 
 ## Cách dùng kế hoạch
 
@@ -29,8 +31,11 @@ WP-01 hoàn thành ở local; WP-02..WP-14 chưa hoàn thành. M0 vẫn còn cá
 - [x] Tạo backend app factory/config/health tối thiểu và frontend shell/router; chưa thêm nghiệp vụ chưa dùng.
 - [x] Thiết kế fake-provider config để tests không cần paid keys; OpenAI mode fail rõ khi thiếu key và chưa được gọi từ API.
 - [ ] Trước paid embedding/chat đầu tiên, bắt buộc nối DB/budget guard; phần này thuộc WP-04/WP-06.
-- [ ] Smoke-test Responses tool/structured output, MCP stdio/actor isolation và PostgreSQL checkpointer pause/resume; ghi kết quả trong ADR runtime.
-- [ ] Viết seed spec và 30 evaluation cases đầu. Đây là công việc M0, không đợi tới WP-13 mới thiết kế cách chấm.
+- [x] Kiểm chứng Responses plain/structured/tool contract offline với strict schema và token cap.
+- [ ] Chạy Responses live bằng target opt-in; CI không có key và không chạy paid spike.
+- [x] Smoke-test MCP stdio discovery/call và actor isolation qua hai subprocess.
+- [x] Smoke-test PostgreSQL checkpointer pause/restart/resume qua hai process.
+- [x] Viết seed spec và 30 evaluation cases đầu. Đây là công việc M0, không đợi tới WP-13 mới thiết kế cách chấm.
 - [x] Cung cấp lint/typecheck/test/build commands có thực thi, CI fake-mode ban đầu; cách chạy và kết quả local đã ghi trong README/ADR-0002.
 
 Không tự chạy paid evaluation hoặc kết nối dịch vụ doanh nghiệp thật từ lệnh bootstrap.
