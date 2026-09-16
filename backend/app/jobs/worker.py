@@ -11,7 +11,8 @@ from app.agent.graph import build_support_graph, run_support_graph
 from app.agent.rag import RAGGraphNodes
 from app.auth.principal import Principal
 from app.db import Database
-from app.db.models import Message, RunStatus
+from app.db.models import Conversation, Message, RunStatus
+from app.memory.retrieval import MemoryContextService
 from app.observability import AIObserver, NoopAIObserver
 from app.providers.base import StructuredResponseProvider
 from app.providers.embeddings import EmbeddingProvider, FakeEmbeddingProvider
@@ -104,6 +105,14 @@ async def execute_support_run(
             )
             if query is None:
                 raise LookupError("Run has no user message")
+            conversation_device_id = await session.scalar(
+                select(Conversation.device_id).where(Conversation.id == conversation_id)
+            )
+            memory_context = await MemoryContextService().context_messages(
+                session,
+                owner_id=actor_id,
+                device_id=conversation_device_id,
+            )
             principal = Principal(
                 user_id=user.id,
                 session_id=UUID(int=0),
@@ -118,6 +127,7 @@ async def execute_support_run(
                 principal=principal,
                 retriever=HybridRetriever(embedding_provider=embedding_provider),
                 provider=provider,
+                history=memory_context,
                 observer=observer,
                 model=model,
             )

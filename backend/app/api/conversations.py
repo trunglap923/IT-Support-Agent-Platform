@@ -13,6 +13,7 @@ from app.auth.csrf import require_csrf
 from app.db.models import Conversation, Message, RunStatus
 from app.dependencies import CurrentPrincipal, get_db_session
 from app.jobs.dispatch import BrokerUnavailableError, RunDispatcher
+from app.memory.lifecycle import MemoryLifecycleService, MemoryNotFoundError
 from app.repositories.conversations import ConversationRepository
 from app.services.conversations.submission import (
     ActiveRunConflictError,
@@ -54,6 +55,10 @@ class SubmitMessageResponse(BaseModel):
     created: bool
     enqueued: bool
     enqueue_error: str | None
+
+
+class SelectConversationDeviceRequest(BaseModel):
+    device_id: UUID | None
 
 
 def _conversation_response(value: Conversation) -> ConversationResponse:
@@ -101,6 +106,31 @@ async def create_conversation(
         title=payload.title.strip(),
     )
     await session.commit()
+    return _conversation_response(conversation)
+
+
+@router.put(
+    "/{conversation_id}/device",
+    response_model=ConversationResponse,
+    dependencies=[Depends(require_csrf)],
+)
+async def select_conversation_device(
+    conversation_id: UUID,
+    payload: SelectConversationDeviceRequest,
+    principal: CurrentPrincipal,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> ConversationResponse:
+    try:
+        conversation = await MemoryLifecycleService().assign_conversation_device(
+            session,
+            owner_id=principal.user_id,
+            conversation_id=conversation_id,
+            device_id=payload.device_id,
+        )
+        await session.commit()
+    except MemoryNotFoundError as error:
+        await session.rollback()
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
     return _conversation_response(conversation)
 
 

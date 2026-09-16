@@ -9,7 +9,7 @@ from typing import Literal
 
 @dataclass(frozen=True, slots=True)
 class ContextMessage:
-    role: Literal["user", "assistant"]
+    role: Literal["user", "assistant", "memory"]
     content: str
 
 

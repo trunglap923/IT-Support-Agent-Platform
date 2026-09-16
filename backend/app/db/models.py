@@ -215,6 +215,29 @@ class User(Base):
     )
 
 
+class UserDevice(Base):
+    __tablename__ = "user_devices"
+    __table_args__ = (
+        CheckConstraint(
+            "platform IN ('windows', 'macos', 'linux', 'other')",
+            name="user_device_platform_allowlist",
+        ),
+        UniqueConstraint("id", "owner_id", name="uq_user_devices_id_owner"),
+        UniqueConstraint("owner_id", "label", name="uq_user_devices_owner_label"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    label: Mapped[str] = mapped_column(String(80))
+    platform: Mapped[str] = mapped_column(String(20))
+    active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
 class AuthSession(Base):
     __tablename__ = "sessions"
 
@@ -399,10 +422,19 @@ class DocumentChunk(Base):
 
 class Conversation(Base):
     __tablename__ = "conversations"
-    __table_args__ = (UniqueConstraint("id", "owner_id", name="uq_conversations_id_owner_id"),)
+    __table_args__ = (
+        UniqueConstraint("id", "owner_id", name="uq_conversations_id_owner_id"),
+        ForeignKeyConstraint(
+            ["device_id", "owner_id"],
+            ["user_devices.id", "user_devices.owner_id"],
+            name="fk_conversations_device_owner",
+            ondelete="RESTRICT",
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    device_id: Mapped[UUID | None] = mapped_column(index=True)
     title: Mapped[str] = mapped_column(String(200))
     issue_state: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, server_default="{}")
     version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
@@ -574,6 +606,12 @@ class MemoryCandidate(Base):
             name="memory_candidate_status_allowlist",
         ),
         UniqueConstraint("job_id", "kind", "key", name="uq_memory_candidate_job_key"),
+        ForeignKeyConstraint(
+            ["device_id", "owner_id"],
+            ["user_devices.id", "user_devices.owner_id"],
+            name="fk_memory_candidates_device_owner",
+            ondelete="RESTRICT",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
@@ -584,6 +622,7 @@ class MemoryCandidate(Base):
     source_conversation_id: Mapped[UUID] = mapped_column(
         ForeignKey("conversations.id", ondelete="CASCADE"), index=True
     )
+    device_id: Mapped[UUID | None] = mapped_column(index=True)
     kind: Mapped[str] = mapped_column(String(20))
     key: Mapped[str] = mapped_column(String(40))
     value: Mapped[str] = mapped_column(String(240))
@@ -622,6 +661,12 @@ class MemoryFact(Base):
             "key",
             unique=True,
             postgresql_where=text("scope = 'device' AND deleted_at IS NULL"),
+        ),
+        ForeignKeyConstraint(
+            ["device_id", "owner_id"],
+            ["user_devices.id", "user_devices.owner_id"],
+            name="fk_memory_facts_device_owner",
+            ondelete="RESTRICT",
         ),
     )
 
