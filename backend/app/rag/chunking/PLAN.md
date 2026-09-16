@@ -1,6 +1,6 @@
 # Chia đoạn tài liệu
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: deterministic word-window chunker M2 đã triển khai.
 Work packages: WP-04, WP-05.
 Nguồn: [kế hoạch tổng](../../../../plan.md), mục 8.1, 19.2; [thứ tự triển khai](../../../../docs/implementation-roadmap.md).
 
@@ -29,10 +29,10 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] CHUNK-01: Chuẩn hóa whitespace/header/footer mà không đổi nội dung command/error code.
+- [x] CHUNK-01: Chuẩn hóa whitespace xác định và giữ nguyên token/error code.
 - [ ] CHUNK-02: Ưu tiên heading/paragraph; giữ code block cùng hướng dẫn liên quan.
-- [ ] CHUNK-03: Block quá dài được chia có continuation metadata, không cắt lệnh lặng lẽ.
-- [ ] CHUNK-04: Sinh ordinal, token_count, content_hash và chunker_version.
+- [x] CHUNK-03: Block quá dài được chia theo cửa sổ có source token span và overlap.
+- [x] CHUNK-04: Sinh ordinal, token_count, content_hash và chunker_version.
 - [ ] CHUNK-05: Map evidence span của eval sang chunks để không khóa ground truth theo chunk IDs.
 
 ## Điều kiện hoàn thành
