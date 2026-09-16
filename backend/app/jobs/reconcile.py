@@ -14,13 +14,16 @@ async def reconcile_queued_run_dispatches(
     dispatcher: RunDispatcher,
     *,
     older_than_seconds: int = 30,
+    max_attempts: int = 3,
     limit: int = 100,
 ) -> int:
     cutoff = datetime.now(UTC) - timedelta(seconds=older_than_seconds)
     async with database.session() as session:
-        queued_runs = await RunRepository().list_queued_before(
+        queued_runs = await RunRepository().list_recoverable(
             session,
-            before=cutoff,
+            queued_before=cutoff,
+            now=datetime.now(UTC),
+            max_attempts=max_attempts,
             limit=limit,
         )
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from sqlalchemy import select
 
@@ -20,6 +20,7 @@ from app.rag.retrieval.query import HybridRetriever
 from app.repositories.runs import RunRepository
 from app.repositories.users import UserRepository
 from app.services.approvals.resume import execute_approval_resume_run
+from app.services.conversations.run_lease import RunLeaseService
 from app.services.conversations.run_state import RunStateService
 
 
@@ -48,29 +49,46 @@ async def execute_support_run(
     embedding_provider: EmbeddingProvider,
     observer: AIObserver,
     model: str,
+    worker_id: str | None = None,
+    lease_seconds: int = 90,
+    max_attempts: int = 3,
 ) -> WorkerResult:
     repository = RunRepository()
-    async with database.session() as session:
-        run = await repository.get_by_id(session, run_id=run_id)
-        if run is None:
-            return WorkerResult(run_id=run_id, status="missing")
-        if run.status is RunStatus.RESUME_QUEUED:
-            resumed = await execute_approval_resume_run(database, run_id=run_id)
-            return WorkerResult(run_id=run_id, status=resumed)
-        actor_id = run.actor_id
-        conversation_id = run.conversation_id
-
+    lease = RunLeaseService(repository)
     state = RunStateService(repository)
+    execution_worker_id = worker_id or f"worker:{uuid4()}"
     async with database.session() as session, session.begin():
-        claimed = await state.transition(
+        claim = await lease.claim(
             session,
             run_id=run_id,
-            actor_id=actor_id,
-            target=RunStatus.RUNNING,
-            operation_id=f"worker-claim:{run_id}",
+            worker_id=execution_worker_id,
+            lease_seconds=lease_seconds,
+            max_attempts=max_attempts,
         )
-        if not claimed.applied:
-            return WorkerResult(run_id=run_id, status="duplicate")
+        if not claim.acquired:
+            return WorkerResult(
+                run_id=run_id,
+                status="duplicate" if claim.outcome == "busy" else claim.outcome,
+            )
+        assert claim.run is not None and claim.previous_status is not None
+        actor_id = claim.run.actor_id
+        conversation_id = claim.run.conversation_id
+        if claim.previous_status is RunStatus.QUEUED:
+            await state.transition(
+                session,
+                run_id=run_id,
+                actor_id=actor_id,
+                target=RunStatus.RUNNING,
+                operation_id=f"worker-claim:{run_id}",
+            )
+
+    if claim.previous_status is RunStatus.RESUME_QUEUED:
+        resumed = await execute_approval_resume_run(
+            database,
+            run_id=run_id,
+            worker_id=execution_worker_id,
+        )
+        return WorkerResult(run_id=run_id, status=resumed)
 
     try:
         async with database.session() as session:
@@ -113,6 +131,14 @@ async def execute_support_run(
             )
 
         async with database.session() as session, session.begin():
+            lease_extended = await lease.heartbeat(
+                session,
+                run_id=run_id,
+                worker_id=execution_worker_id,
+                lease_seconds=lease_seconds,
+            )
+            if not lease_extended:
+                raise RuntimeError("Run lease was lost before result commit")
             session.add(
                 Message(
                     conversation_id=conversation_id,
@@ -143,14 +169,20 @@ async def execute_support_run(
             }
     except Exception:
         async with database.session() as session, session.begin():
-            await state.transition(
-                session,
-                run_id=run_id,
-                actor_id=actor_id,
-                target=RunStatus.FAILED,
-                operation_id=f"worker-failed:{run_id}",
-                error_code="agent_execution_failed",
-                safe_payload={"error_code": "agent_execution_failed"},
-            )
+            failed_run = await repository.get_for_update(session, run_id=run_id)
+            if (
+                failed_run is not None
+                and failed_run.status is RunStatus.RUNNING
+                and failed_run.lease_owner == execution_worker_id
+            ):
+                await state.transition(
+                    session,
+                    run_id=run_id,
+                    actor_id=actor_id,
+                    target=RunStatus.FAILED,
+                    operation_id=f"worker-failed:{run_id}",
+                    error_code="agent_execution_failed",
+                    safe_payload={"error_code": "agent_execution_failed"},
+                )
         raise
     return WorkerResult(run_id=run_id, status="processed")

@@ -15,7 +15,9 @@ from app.services.conversations.run_state import RunStateService
 from app.services.tickets import TicketWriteService
 
 
-async def execute_approval_resume_run(database: Database, *, run_id: UUID) -> str:
+async def execute_approval_resume_run(
+    database: Database, *, run_id: UUID, worker_id: str | None = None
+) -> str:
     repository = RunRepository()
     state = RunStateService(repository)
     async with database.session() as session, session.begin():
@@ -24,12 +26,18 @@ async def execute_approval_resume_run(database: Database, *, run_id: UUID) -> st
             return "missing"
         if run.status is not RunStatus.RESUME_QUEUED:
             return "duplicate"
+        if worker_id is not None and run.lease_owner != worker_id:
+            return "lease_lost"
         approval = await session.scalar(
             select(ApprovalRequest).where(
                 ApprovalRequest.run_id == run.id,
                 ApprovalRequest.owner_id == run.actor_id,
                 ApprovalRequest.status.in_(
-                    [ApprovalStatus.APPROVED.value, ApprovalStatus.REJECTED.value]
+                    [
+                        ApprovalStatus.APPROVED.value,
+                        ApprovalStatus.REJECTED.value,
+                        ApprovalStatus.EXECUTED.value,
+                    ]
                 ),
             )
         )
@@ -54,11 +62,14 @@ async def execute_approval_resume_run(database: Database, *, run_id: UUID) -> st
         actor_id=actor_id,
         approval_id=approval.id,
         arguments_hash=approval.arguments_hash,
-        approved=approval.status == ApprovalStatus.APPROVED.value,
+        approved=approval.status in {ApprovalStatus.APPROVED.value, ApprovalStatus.EXECUTED.value},
     )
     async with database.session() as session, session.begin():
         ticket_receipt = None
-        if approval.status == ApprovalStatus.APPROVED.value:
+        if approval.status in {
+            ApprovalStatus.APPROVED.value,
+            ApprovalStatus.EXECUTED.value,
+        }:
             ticket_receipt = await TicketWriteService().create_from_approval(
                 session,
                 approval_id=approval.id,

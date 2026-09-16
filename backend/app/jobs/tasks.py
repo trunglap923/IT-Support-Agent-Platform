@@ -43,6 +43,8 @@ def run_agent(run_id: str) -> dict[str, str]:
                     model=settings.openai_model
                     if settings.ai_provider.value == "openai"
                     else "fake",
+                    lease_seconds=settings.run_lease_seconds,
+                    max_attempts=settings.run_max_attempts,
                 )
             )
             return {key: str(value) for key, value in receipt.items()}
@@ -73,7 +75,11 @@ def reconcile_queued_runs() -> dict[str, int]:
             socket_timeout_seconds=settings.redis_socket_timeout_seconds,
         )
         try:
-            return await reconcile_queued_run_dispatches(database, dispatcher)
+            return await reconcile_queued_run_dispatches(
+                database,
+                dispatcher,
+                max_attempts=settings.run_max_attempts,
+            )
         finally:
             await database.close()
 

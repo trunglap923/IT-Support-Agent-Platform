@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import cast
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import AgentRun, RunEvent, RunStatus
@@ -100,6 +100,36 @@ class RunRepository:
             .where(
                 AgentRun.status == RunStatus.QUEUED,
                 AgentRun.created_at < before,
+            )
+            .order_by(AgentRun.created_at, AgentRun.id)
+            .limit(limit)
+        )
+        return list((await session.scalars(statement)).all())
+
+    async def list_recoverable(
+        self,
+        session: AsyncSession,
+        *,
+        queued_before: datetime,
+        now: datetime,
+        max_attempts: int,
+        limit: int,
+    ) -> list[AgentRun]:
+        statement = (
+            select(AgentRun)
+            .where(
+                AgentRun.attempts < max_attempts,
+                or_(
+                    and_(
+                        AgentRun.status.in_([RunStatus.QUEUED, RunStatus.RESUME_QUEUED]),
+                        AgentRun.created_at < queued_before,
+                    ),
+                    and_(
+                        AgentRun.status == RunStatus.RUNNING,
+                        AgentRun.lease_until.is_not(None),
+                        AgentRun.lease_until < now,
+                    ),
+                ),
             )
             .order_by(AgentRun.created_at, AgentRun.id)
             .limit(limit)

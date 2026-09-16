@@ -57,6 +57,8 @@ class Settings(BaseSettings):
     celery_background_concurrency: int = Field(default=1, gt=0, le=4)
     celery_task_soft_time_limit_seconds: int = Field(default=300, gt=0)
     celery_task_time_limit_seconds: int = Field(default=330, gt=0)
+    run_lease_seconds: int = Field(default=90, ge=15, le=600)
+    run_max_attempts: int = Field(default=3, ge=1, le=10)
     sse_poll_interval_seconds: float = Field(default=1.0, gt=0, le=10)
     sse_heartbeat_seconds: float = Field(default=15.0, gt=0, le=60)
     document_storage_path: str = "/data/documents"

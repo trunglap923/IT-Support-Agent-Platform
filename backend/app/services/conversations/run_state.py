@@ -88,6 +88,9 @@ class RunStateService:
         run.outcome = outcome
         run.error_code = error_code
         run.finished_at = changed_at if target in TERMINAL_RUN_STATUSES else None
+        if target in TERMINAL_RUN_STATUSES:
+            run.lease_owner = None
+            run.lease_until = None
         event = await self.repository.append_event(
             session,
             run_id=run.id,
