@@ -34,7 +34,7 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 ## Các bước triển khai
 
 - [x] RAG-01: Hoàn thành ingestion và chunking với dữ liệu do dự án sở hữu.
-- [ ] RAG-02: Tạo embedding space thống nhất và scoped hybrid retrieval.
+- [x] RAG-02: Tạo embedding space thống nhất và scoped hybrid retrieval.
 - [ ] RAG-03: Bổ sung citation/source endpoints và xử lý câu hỏi thiếu căn cứ.
 - [ ] RAG-04: Nối admin preview/publish/archive; đo retrieval baseline trước reranker.
 

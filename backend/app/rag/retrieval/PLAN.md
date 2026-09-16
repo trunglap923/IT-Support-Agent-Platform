@@ -1,6 +1,6 @@
 # Tìm kiếm hybrid có phân quyền
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: exact vector + FTS + scoped RRF baseline đã triển khai.
 Work packages: WP-05, WP-13.
 Nguồn: [kế hoạch tổng](../../../../plan.md), mục 8.2, 19; [thứ tự triển khai](../../../../docs/implementation-roadmap.md).
 
@@ -34,9 +34,9 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] RET-01: Tạo predicate visibility/department/current version/archive/effective/expiry dùng chung hai nhánh search.
-- [ ] RET-02: Xây query embedding, lexical normalization và error-code preservation.
-- [ ] RET-03: Fuse ranks thay vì cộng score khác thang đo; áp dụng token budget.
+- [x] RET-01: Tạo predicate visibility/department/current version/archive/effective/expiry dùng chung hai nhánh search.
+- [x] RET-02: Xây query embedding và PostgreSQL full-text query.
+- [x] RET-03: Fuse ranks bằng RRF thay vì cộng score khác thang đo.
 - [ ] RET-04: Đo Recall@5 trên cases answerable, tách no-answer cases.
 - [ ] RET-05: Lưu corpus/config version vào trace và eval artifacts.
 
