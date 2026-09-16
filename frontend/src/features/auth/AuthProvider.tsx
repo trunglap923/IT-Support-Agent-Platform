@@ -69,8 +69,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, [csrfToken, queryClient]);
 
   const value = useMemo(
-    () => ({ user, isLoading, login, logout }),
-    [user, isLoading, login, logout],
+    () => ({ user, csrfToken, isLoading, login, logout }),
+    [user, csrfToken, isLoading, login, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

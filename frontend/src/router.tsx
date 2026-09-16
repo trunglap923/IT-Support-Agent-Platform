@@ -1,7 +1,7 @@
 import { createBrowserRouter } from "react-router-dom";
 
 import { AppShell } from "./components/AppShell";
-import { ChatPlaceholderPage } from "./features/ChatPlaceholderPage";
+import { ChatPage } from "./features/chat/ChatPage";
 import { DashboardPage } from "./features/DashboardPage";
 import { LoginPage } from "./features/auth/LoginPage";
 import { RequireAuth } from "./features/auth/RequireAuth";
@@ -20,7 +20,7 @@ export const router = createBrowserRouter([
     ),
     children: [
       { index: true, element: <DashboardPage /> },
-      { path: "chat", element: <ChatPlaceholderPage /> },
+      { path: "chat", element: <ChatPage /> },
     ],
   },
 ]);

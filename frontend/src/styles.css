@@ -29,9 +29,68 @@ a {
 }
 
 button,
-input {
+input,
+textarea {
   font: inherit;
 }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+.chat-layout {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 1rem;
+  min-height: 70vh;
+}
+
+.conversation-list,
+.chat-panel {
+  border: 1px solid rgb(22 34 28 / 12%);
+  border-radius: 1.35rem;
+  background: rgb(255 255 255 / 58%);
+}
+
+.conversation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.75rem;
+}
+
+.conversation-list button {
+  border: 0;
+  border-radius: 0.75rem;
+  padding: 0.8rem;
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+}
+
+.conversation-list button.active { background: #e1e8df; }
+.conversation-list .new-chat-button { margin-bottom: 0.5rem; color: white; background: #173f2d; }
+
+.chat-panel { display: flex; min-height: 660px; flex-direction: column; padding: clamp(1rem, 3vw, 2rem); }
+.chat-panel header h1 { margin-bottom: 1rem; font-family: Georgia, serif; font-size: 2.2rem; font-weight: 500; }
+.message-list { display: flex; flex: 1; flex-direction: column; gap: 1rem; overflow-y: auto; padding: 1rem 0; }
+.chat-empty { margin: auto; color: #68766e; text-align: center; }
+.chat-message { max-width: 78%; border-radius: 1rem; padding: 0.9rem 1rem; background: white; }
+.chat-message.user { align-self: flex-end; color: white; background: #173f2d; }
+.chat-message > span { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; opacity: 0.7; }
+.chat-message > p { margin: 0.4rem 0 0; white-space: pre-wrap; line-height: 1.55; }
+.citation-list { display: grid; gap: 0.45rem; margin: 0.8rem 0 0; padding: 0; list-style: none; }
+.citation-list li { border-top: 1px solid rgb(22 34 28 / 12%); padding-top: 0.5rem; font-size: 0.78rem; }
+.citation-list small { display: block; margin-top: 0.25rem; color: #68766e; }
+.chat-composer { display: grid; grid-template-columns: 1fr auto; gap: 0.7rem; border-top: 1px solid rgb(22 34 28 / 12%); padding-top: 1rem; }
+.chat-composer textarea { resize: vertical; border: 1px solid rgb(22 34 28 / 20%); border-radius: 0.8rem; padding: 0.85rem; background: #fbfaf6; }
+.chat-composer button { align-self: end; border: 0; border-radius: 0.8rem; padding: 0.85rem 1.2rem; color: white; background: #173f2d; font-weight: 750; }
+.chat-composer button:disabled { background: #829086; }
+.chat-error { color: #8e3d28; }
 
 .app-frame {
   min-height: 100vh;
@@ -571,7 +630,8 @@ p {
 
   .hero,
   .login-page,
-  .run-monitor-page {
+  .run-monitor-page,
+  .chat-layout {
     grid-template-columns: 1fr;
   }
 

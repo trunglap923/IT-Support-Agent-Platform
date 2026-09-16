@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+
 import { useRunEvents } from "./useRunEvents";
 
 const statusLabels: Record<string, string> = {
@@ -10,8 +12,20 @@ const statusLabels: Record<string, string> = {
   cancelled: "Đã hủy",
 };
 
-export function RunStatusPanel({ runId }: { runId: string }) {
+export function RunStatusPanel({
+  runId,
+  onTerminal,
+}: {
+  runId: string;
+  onTerminal?: () => void;
+}) {
   const { snapshot, events, connectionState, error, retry } = useRunEvents(runId);
+
+  useEffect(() => {
+    if (snapshot && ["completed", "failed", "cancelled"].includes(snapshot.status)) {
+      onTerminal?.();
+    }
+  }, [snapshot, onTerminal]);
 
   return (
     <section className="run-monitor" aria-live="polite">

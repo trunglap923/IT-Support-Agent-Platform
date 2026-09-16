@@ -1,0 +1,92 @@
+export interface Conversation {
+  id: string;
+  title: string;
+}
+
+export interface ChatCitation {
+  source_id: string;
+  title: string;
+  page_number: number | null;
+  excerpt: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  run_id: string | null;
+  role: "user" | "assistant";
+  content: string;
+  outcome: string | null;
+  citations?: ChatCitation[];
+}
+
+export interface SubmittedRun {
+  run_id: string;
+  status: string;
+  created: boolean;
+  enqueued: boolean;
+  enqueue_error: string | null;
+}
+
+export class ChatApiError extends Error {
+  constructor(message: string, public readonly status: number) {
+    super(message);
+  }
+}
+
+async function request<T>(url: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(url, {
+    credentials: "same-origin",
+    ...init,
+    headers: { Accept: "application/json", ...init?.headers },
+  });
+  if (!response.ok) {
+    const message =
+      response.status === 409
+        ? "Cuộc trò chuyện đang xử lý một yêu cầu khác."
+        : response.status === 503
+          ? "Worker đang tạm thời không sẵn sàng."
+          : "Không thể xử lý yêu cầu chat.";
+    throw new ChatApiError(message, response.status);
+  }
+  return (await response.json()) as T;
+}
+
+export function listConversations(signal?: AbortSignal): Promise<Conversation[]> {
+  return request("/api/v1/conversations", { signal });
+}
+
+export function listMessages(
+  conversationId: string,
+  signal?: AbortSignal,
+): Promise<ChatMessage[]> {
+  return request(`/api/v1/conversations/${encodeURIComponent(conversationId)}/messages`, {
+    signal,
+  });
+}
+
+export function createConversation(
+  csrfToken: string,
+  title = "IT support",
+): Promise<Conversation> {
+  return request("/api/v1/conversations", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
+    body: JSON.stringify({ title }),
+  });
+}
+
+export function submitMessage(
+  conversationId: string,
+  content: string,
+  csrfToken: string,
+  clientRequestId: string = crypto.randomUUID(),
+): Promise<SubmittedRun> {
+  return request(
+    `/api/v1/conversations/${encodeURIComponent(conversationId)}/messages`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
+      body: JSON.stringify({ content, client_request_id: clientRequestId }),
+    },
+  );
+}
