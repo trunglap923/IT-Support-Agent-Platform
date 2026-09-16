@@ -142,5 +142,5 @@ def test_approval_resumes_matching_postgres_checkpoint(
     result, run_status, outcome, approval_status = asyncio.run(resume_and_read())
     assert result == "resumed"
     assert run_status is RunStatus.COMPLETED
-    assert outcome == "approval_accepted"
-    assert approval_status == "approved"
+    assert outcome == "ticket_created"
+    assert approval_status == "executed"

@@ -12,6 +12,7 @@ from app.db import Database
 from app.db.models import ApprovalRequest, ApprovalStatus, RunStatus
 from app.repositories.runs import RunRepository
 from app.services.conversations.run_state import RunStateService
+from app.services.tickets import TicketWriteService
 
 
 async def execute_approval_resume_run(database: Database, *, run_id: UUID) -> str:
@@ -56,17 +57,23 @@ async def execute_approval_resume_run(database: Database, *, run_id: UUID) -> st
         approved=approval.status == ApprovalStatus.APPROVED.value,
     )
     async with database.session() as session, session.begin():
+        ticket_receipt = None
+        if approval.status == ApprovalStatus.APPROVED.value:
+            ticket_receipt = await TicketWriteService().create_from_approval(
+                session,
+                approval_id=approval.id,
+                owner_id=actor_id,
+            )
         await state.transition(
             session,
             run_id=run_id,
             actor_id=actor_id,
             target=RunStatus.COMPLETED,
             operation_id=f"approval-resume-complete:{approval.id}",
-            outcome=(
-                "approval_accepted"
-                if approval.status == ApprovalStatus.APPROVED.value
-                else "approval_rejected"
-            ),
-            safe_payload={"approval_id": str(approval.id)},
+            outcome=("ticket_created" if ticket_receipt is not None else "approval_rejected"),
+            safe_payload={
+                "approval_id": str(approval.id),
+                "ticket_id": str(ticket_receipt.ticket_id) if ticket_receipt is not None else None,
+            },
         )
     return "resumed"
