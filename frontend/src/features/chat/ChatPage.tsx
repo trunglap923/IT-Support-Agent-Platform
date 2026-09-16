@@ -5,6 +5,7 @@ import {
   listConversations,
   listMessages,
   submitMessage,
+  submitMessageFeedback,
   type ChatMessage,
   type Conversation,
 } from "../../api/chat";
@@ -20,6 +21,7 @@ export function ChatPage() {
   const [runId, setRunId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [feedbackPending, setFeedbackPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const refreshMessages = useCallback(async (conversationId: string) => {
@@ -83,6 +85,27 @@ export function ChatPage() {
     }
   }
 
+  async function handleFeedback(
+    messageId: string,
+    rating: "helpful" | "unhelpful",
+  ) {
+    if (!active || !csrfToken || feedbackPending) return;
+    setFeedbackPending(messageId);
+    setError(null);
+    try {
+      const feedback = await submitMessageFeedback(active.id, messageId, rating, csrfToken);
+      setMessages((current) =>
+        current.map((message) =>
+          message.id === messageId ? { ...message, feedback } : message,
+        ),
+      );
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Không thể lưu phản hồi.");
+    } finally {
+      setFeedbackPending(null);
+    }
+  }
+
   if (loading) return <p className="chat-loading">Đang tải cuộc trò chuyện…</p>;
 
   return (
@@ -132,6 +155,27 @@ export function ChatPage() {
                     </li>
                   ))}
                 </ul>
+              ) : null}
+              {message.role === "assistant" ? (
+                <div className="message-feedback" aria-label="Đánh giá câu trả lời">
+                  <span>Câu trả lời này có hữu ích không?</span>
+                  <button
+                    aria-pressed={message.feedback?.rating === "helpful"}
+                    disabled={feedbackPending === message.id}
+                    onClick={() => void handleFeedback(message.id, "helpful")}
+                    type="button"
+                  >
+                    Hữu ích
+                  </button>
+                  <button
+                    aria-pressed={message.feedback?.rating === "unhelpful"}
+                    disabled={feedbackPending === message.id}
+                    onClick={() => void handleFeedback(message.id, "unhelpful")}
+                    type="button"
+                  >
+                    Chưa tốt
+                  </button>
+                </div>
               ) : null}
             </article>
           ))}

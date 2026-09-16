@@ -1,0 +1,72 @@
+{
+  "schema_version": "gate-test-evidence-v1",
+  "generated_at": "2026-09-16T12:25:24.183231+00:00",
+  "git_revision": "647c5c77f627f18af071bc90ae6a7593768ec524-dirty",
+  "environment": "isolated PostgreSQL databases created per test",
+  "duration_seconds": 15.746,
+  "pytest_exit_code": 0,
+  "suites": {
+    "G-01": {
+      "status": "pass",
+      "counts": {
+        "passed": 8,
+        "failed": 0,
+        "error": 0,
+        "skipped": 0
+      },
+      "test_ids": [
+        "tests.integration.test_conversation_ownership::test_conversation_run_and_events_are_owner_scoped",
+        "tests.integration.test_conversation_ownership::test_database_rejects_run_for_wrong_conversation_owner",
+        "tests.integration.test_cross_conversation_memory::test_confirmed_memory_crosses_conversations_but_device_memory_stays_scoped",
+        "tests.integration.test_document_lifecycle::test_publish_acl_revoke_apply_to_retrieval_and_history",
+        "tests.integration.test_feedback_api::test_feedback_is_idempotent_csrf_protected_and_owner_scoped",
+        "tests.integration.test_hybrid_retrieval::test_hybrid_retrieval_filters_scope_and_old_versions",
+        "tests.integration.test_sse_api::test_sse_cursor_and_heartbeat_contract",
+        "tests.integration.test_sse_api::test_sse_replay_cursor_ownership_and_no_side_effects"
+      ]
+    },
+    "G-02": {
+      "status": "pass",
+      "counts": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "skipped": 0
+      },
+      "test_ids": [
+        "tests.integration.test_approval_lifecycle::test_canonical_argument_hash_is_order_independent",
+        "tests.integration.test_approval_lifecycle::test_approval_api_enforces_owner_csrf_expiry_and_single_decision",
+        "tests.integration.test_ticket_write::test_ticket_creation_is_idempotent_under_duplicate_execution"
+      ]
+    },
+    "G-03": {
+      "status": "pass",
+      "counts": {
+        "passed": 3,
+        "failed": 0,
+        "error": 0,
+        "skipped": 0
+      },
+      "test_ids": [
+        "tests.integration.test_workflow_failure_recovery::test_tool_timeout_is_unknown_and_retryable",
+        "tests.integration.test_workflow_failure_recovery::test_worker_crash_reclaim_and_committed_ticket_receipt_recovery",
+        "tests.integration.test_workflow_recovery::test_lease_reclaim_retry_limit_and_reconciliation_after_broker_restart"
+      ]
+    },
+    "G-08-safety": {
+      "status": "pass",
+      "counts": {
+        "passed": 4,
+        "failed": 0,
+        "error": 0,
+        "skipped": 0
+      },
+      "test_ids": [
+        "tests.integration.test_consent_memory::test_memory_requires_consent_and_only_creates_pending_candidates",
+        "tests.integration.test_consent_memory::test_candidate_source_must_belong_to_owner",
+        "tests.integration.test_cross_conversation_memory::test_confirmed_memory_crosses_conversations_but_device_memory_stays_scoped",
+        "tests.integration.test_memory_concurrency::test_delete_while_extraction_runs_discards_stale_job"
+      ]
+    }
+  }
+}

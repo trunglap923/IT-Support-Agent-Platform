@@ -17,9 +17,9 @@
       "value": 1.0
     },
     "mrr_at_5": {
-      "numerator_reciprocal_rank_sum": 8.0,
+      "numerator_reciprocal_rank_sum": 7.833333333333333,
       "denominator": 9,
-      "value": 0.8888888888888888
+      "value": 0.8703703703703703
     },
     "no_answer_accuracy": {
       "numerator": 5,
@@ -98,7 +98,7 @@
         "docker-troubleshooting:v1",
         "docker-registry:v1",
         "docker-registry:v1",
-        "vpn-troubleshooting:v1"
+        "docker-registry:v1"
       ],
       "forbidden_returned": []
     },
@@ -107,11 +107,11 @@
       "expected_outcome": "answered",
       "retrieval_outcome": "no_answer",
       "expected_document": "gitlab-access:v3",
-      "rank": 2,
+      "rank": 3,
       "top5": [
         "it-escalation:v1",
-        "gitlab-access:v3",
         "docker-registry:v1",
+        "gitlab-access:v3",
         "gitlab-access:v3",
         "docker-troubleshooting:v1"
       ],
@@ -157,8 +157,8 @@
         "engineering-oncall:v1",
         "gitlab-access:v3",
         "engineering-oncall:v1",
-        "vpn-troubleshooting:v1",
-        "vpn-troubleshooting:v1"
+        "docker-registry:v1",
+        "docker-registry:v1"
       ],
       "forbidden_returned": []
     },
@@ -262,8 +262,8 @@
         "gitlab-access:v3",
         "vpn-troubleshooting:v1",
         "gitlab-access:v3",
-        "vpn-troubleshooting:v1",
-        "it-escalation:v1"
+        "docker-registry:v1",
+        "docker-registry:v1"
       ],
       "forbidden_returned": []
     },

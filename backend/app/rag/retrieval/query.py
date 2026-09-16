@@ -42,11 +42,12 @@ class _Candidate:
     page_number: int | None
     section: str | None
     content: str
+    ordinal: int
 
 
 def _base_query(
     principal: Principal, *, now: datetime
-) -> Select[tuple[UUID, UUID, UUID, str, str, str, int | None, str | None, str]]:
+) -> Select[tuple[UUID, UUID, UUID, str, str, str, int | None, str | None, str, int]]:
     return (
         select(
             DocumentChunk.id.label("chunk_id"),
@@ -58,6 +59,7 @@ def _base_query(
             DocumentChunk.page_number,
             DocumentChunk.section,
             DocumentChunk.content,
+            DocumentChunk.ordinal,
         )
         .join(DocumentVersion, DocumentChunk.version_id == DocumentVersion.id)
         .join(Document, DocumentVersion.document_id == Document.id)
@@ -77,6 +79,7 @@ def _candidate(row: object) -> _Candidate:
         page_number=mapping["page_number"],
         section=mapping["section"],
         content=mapping["content"],
+        ordinal=mapping["ordinal"],
     )
 
 
@@ -116,7 +119,12 @@ class HybridRetriever:
         vector_rows = (
             await session.execute(
                 base.add_columns(distance.label("vector_distance"))
-                .order_by(distance, DocumentChunk.id)
+                .order_by(
+                    distance,
+                    Document.document_key,
+                    DocumentVersion.version_label,
+                    DocumentChunk.ordinal,
+                )
                 .limit(self._branch_limit)
             )
         ).all()
@@ -127,7 +135,12 @@ class HybridRetriever:
             await session.execute(
                 base.add_columns(lexical_score.label("lexical_score"))
                 .where(DocumentChunk.search_vector.op("@@")(ts_query))
-                .order_by(lexical_score.desc(), DocumentChunk.id)
+                .order_by(
+                    lexical_score.desc(),
+                    Document.document_key,
+                    DocumentVersion.version_label,
+                    DocumentChunk.ordinal,
+                )
                 .limit(self._branch_limit)
             )
         ).all()
@@ -167,4 +180,14 @@ class HybridRetriever:
                     lexical_rank=lexical_rank,
                 )
             )
-        return sorted(scored, key=lambda hit: (-hit.score, str(hit.chunk_id)))[: self._result_limit]
+        stable_order = {
+            candidate.chunk_id: (
+                candidate.document_key,
+                candidate.version_label,
+                candidate.ordinal,
+            )
+            for candidate in candidates.values()
+        }
+        return sorted(scored, key=lambda hit: (-hit.score, stable_order[hit.chunk_id]))[
+            : self._result_limit
+        ]

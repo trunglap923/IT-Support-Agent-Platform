@@ -1,6 +1,6 @@
 # Logs, trace và feedback telemetry
 
-Trạng thái: Langfuse generation trace/no-op fallback và usage metadata WP-06 đã có.
+Trạng thái: Langfuse trace, usage metadata và owner-scoped message feedback đã có.
 Work packages: WP-03, WP-04, WP-06, WP-13.
 Nguồn: [kế hoạch tổng](../../../plan.md), mục 18; [thứ tự triển khai](../../../docs/implementation-roadmap.md).
 
@@ -34,7 +34,7 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [x] OBS-01a: Gắn run ID và pseudonymous actor; request/conversation propagation còn WP-13.
 - [ ] OBS-02: Instrument queue wait, retrieval, model, MCP, approval wait, validation, memory.
 - [x] OBS-03: Thu token/cost từ provider response và ledger cho embedding/chat.
-- [x] OBS-04a: Gắn feedback-eligible metadata và no-op khi chưa cấu hình key; feedback endpoint còn WP-13.
+- [x] OBS-04a: Gắn feedback metadata; API/UI lưu feedback có ownership, CSRF và idempotent update.
 - [ ] OBS-05: Thêm redaction tests trên mọi sink và document dashboard/report queries.
 
 ## Điều kiện hoàn thành

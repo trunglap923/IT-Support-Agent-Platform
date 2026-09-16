@@ -17,6 +17,15 @@ export interface ChatMessage {
   content: string;
   outcome: string | null;
   citations?: ChatCitation[];
+  feedback?: MessageFeedback | null;
+}
+
+export interface MessageFeedback {
+  id: string;
+  message_id: string;
+  rating: "helpful" | "unhelpful";
+  reason: string | null;
+  comment: string | null;
 }
 
 export interface SubmittedRun {
@@ -87,6 +96,22 @@ export function submitMessage(
       method: "POST",
       headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
       body: JSON.stringify({ content, client_request_id: clientRequestId }),
+    },
+  );
+}
+
+export function submitMessageFeedback(
+  conversationId: string,
+  messageId: string,
+  rating: MessageFeedback["rating"],
+  csrfToken: string,
+): Promise<MessageFeedback> {
+  return request(
+    `/api/v1/conversations/${encodeURIComponent(conversationId)}/messages/${encodeURIComponent(messageId)}/feedback`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
+      body: JSON.stringify({ rating }),
     },
   );
 }

@@ -21,6 +21,7 @@ FRONTEND_DOCKER = docker run --rm --user $(PROJECT_UID):$(PROJECT_GID) -e npm_co
 	dev-backend dev-frontend dev-frontend-docker dev-stop spike-openai-live \
 	spike-mcp-stdio spike-langgraph-postgres eval-validate eval-agent-fake \
 	eval-agent-repro eval-agent-live knowledge-validate retrieval-baseline \
+	wp13-gate-tests quality-report \
 	db-up db-down db-status redis-up redis-down redis-status services-up services-down \
 	migrate seed-demo-user wp02-integration-check wp03-integration-check \
 	wp10-integration-check backend-integration-check wp02-check wp03-check \
@@ -45,6 +46,8 @@ help:
 	@echo "  make eval-agent-fake         Run deterministic development-split evaluation"
 	@echo "  make eval-agent-repro        Verify identical fake runs have the same digest"
 	@echo "  make eval-agent-live         Run 1 RAG case 3 times (paid and explicit opt-in)"
+	@echo "  make wp13-gate-tests         Run PostgreSQL-backed G-01/G-02/G-03/G-08 regressions"
+	@echo "  make quality-report          Generate reviewed G-01..G-09/performance/cost reports"
 	@echo "  make knowledge-validate      Validate corpus metadata, ACL rules and checksums"
 	@echo "  make retrieval-baseline      Run isolated PostgreSQL retrieval evaluation"
 	@echo "  make db-up                  Start local PostgreSQL/pgvector and wait until healthy"
@@ -204,6 +207,12 @@ knowledge-validate:
 
 retrieval-baseline:
 	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --project backend --frozen --env-file $(COMPOSE_ENV_FILE) python -m evals.runner.retrieval_baseline
+
+wp13-gate-tests:
+	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --project backend --frozen --env-file $(COMPOSE_ENV_FILE) python -m evals.runner.gate_tests
+
+quality-report: eval-agent-fake wp13-gate-tests retrieval-baseline
+	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --project backend --frozen python -m evals.runner.quality_report
 
 db-up:
 	$(COMPOSE) --file $(COMPOSE_FILE) --env-file $(COMPOSE_ENV_FILE) up --detach --wait postgres

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createConversation, submitMessage } from "./chat";
+import { createConversation, submitMessage, submitMessageFeedback } from "./chat";
 
 describe("chat API", () => {
   afterEach(() => vi.unstubAllGlobals());
@@ -28,5 +28,33 @@ describe("chat API", () => {
   it("creates a conversation through the protected endpoint", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: "c1", title: "IT support" }), { status: 201 })));
     await expect(createConversation("csrf-token")).resolves.toEqual({ id: "c1", title: "IT support" });
+  });
+
+  it("sends owner feedback with CSRF protection", async () => {
+    const feedback = {
+      id: "feedback-1",
+      message_id: "message-1",
+      rating: "helpful",
+      reason: null,
+      comment: null,
+    };
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(feedback), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(
+      submitMessageFeedback("conversation-1", "message-1", "helpful", "csrf-token"),
+    ).resolves.toEqual(feedback);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/conversations/conversation-1/messages/message-1/feedback",
+      expect.objectContaining({
+        method: "PUT",
+        headers: expect.objectContaining({ "X-CSRF-Token": "csrf-token" }),
+        body: JSON.stringify({ rating: "helpful" }),
+      }),
+    );
   });
 });

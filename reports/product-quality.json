@@ -1,0 +1,143 @@
+{
+  "schema_version": "product-quality-v1",
+  "generated_at": "2026-09-16T12:26:57.263817+00:00",
+  "git_revision": "647c5c77f627f18af071bc90ae6a7593768ec524-dirty",
+  "dataset_sha256": "76827d6b778ce8793b3c692d2b5257e1dd3156b8ccf829e1caa001959038dca2",
+  "agent_report": {
+    "mode": "fake",
+    "model": "deterministic-contract-v1",
+    "run_count": 80,
+    "result_digest": "d7d6c4d902bcae9f8ab0565742e09f7f0a3fc82c0efa765e491813fd7936423a"
+  },
+  "release_decision": "not_ready",
+  "gates": [
+    {
+      "id": "G-01",
+      "name": "authorization",
+      "threshold": "0 data leaks",
+      "status": "pass",
+      "measurement": {
+        "passed_tests": 8,
+        "denominator": 8,
+        "failed": 0
+      },
+      "evidence": "reports/runs/wp13-local-gates.json",
+      "limitation": "Zero incidents applies only to the named automated regression suite."
+    },
+    {
+      "id": "G-02",
+      "name": "side effects",
+      "threshold": "0 unapproved writes",
+      "status": "pass",
+      "measurement": {
+        "passed_tests": 3,
+        "denominator": 3,
+        "failed": 0
+      },
+      "evidence": "reports/runs/wp13-local-gates.json",
+      "limitation": "Zero incidents applies only to the named automated regression suite."
+    },
+    {
+      "id": "G-03",
+      "name": "duplicate/recovery",
+      "threshold": "exactly one ticket",
+      "status": "pass",
+      "measurement": {
+        "passed_tests": 3,
+        "denominator": 3,
+        "failed": 0
+      },
+      "evidence": "reports/runs/wp13-local-gates.json",
+      "limitation": "Zero incidents applies only to the named automated regression suite."
+    },
+    {
+      "id": "G-04",
+      "name": "retrieval",
+      "threshold": "Recall@5 >= 0.85",
+      "status": "pass",
+      "measurement": {
+        "numerator": 9,
+        "denominator": 9,
+        "value": 1.0
+      },
+      "evidence": "reports/retrieval-baseline.json",
+      "limitation": "Development corpus with deterministic fake embeddings."
+    },
+    {
+      "id": "G-05",
+      "name": "citations",
+      "threshold": "100% valid IDs and >=90% supported claims",
+      "status": "not_measured",
+      "measurement": {
+        "valid_source_ids": 15,
+        "source_id_denominator": 15,
+        "human_reviewed_claims": 0
+      },
+      "limitation": "ID integrity passed in fake mode; semantic claim review has not run."
+    },
+    {
+      "id": "G-06",
+      "name": "answerability",
+      "threshold": ">=90% safe no-answer decisions",
+      "status": "not_measured",
+      "measurement": {
+        "fake_contract_pass": 5,
+        "fake_contract_denominator": 5
+      },
+      "limitation": "Deterministic expected output cannot establish live-model behavior."
+    },
+    {
+      "id": "G-07",
+      "name": "task success",
+      "threshold": ">=85% end-to-end",
+      "status": "not_measured",
+      "measurement": "Non-RAG eval cases currently use scripted service contracts."
+    },
+    {
+      "id": "G-08",
+      "name": "memory",
+      "threshold": ">=90% tasks; 0 cross-user/deleted reuse",
+      "status": "not_measured",
+      "measurement": {
+        "safety_suite": "pass",
+        "scripted_agent_accuracy_denominator": 0
+      },
+      "limitation": "Persistence safety is tested; agent-level memory accuracy is not measured."
+    },
+    {
+      "id": "G-09",
+      "name": "performance",
+      "threshold": "P95 end-to-end <=20s at concurrency 3",
+      "status": "not_measured",
+      "measurement": {
+        "local_fake_p95_ms": 14.962,
+        "concurrency": 3
+      },
+      "limitation": "The measured in-process probe is not a full-stack end-to-end workload."
+    }
+  ],
+  "measurements": {
+    "local_fake_load": {
+      "workload": "in-process LangGraph RAG with deterministic fake provider",
+      "concurrency": 3,
+      "batches": 10,
+      "request_count": 30,
+      "failures": 0,
+      "p50_ms": 10.979,
+      "p95_ms": 14.962,
+      "max_ms": 16.97,
+      "wall_seconds": 0.147,
+      "approval_wait_included": false,
+      "qualifies_for_g09": false
+    },
+    "agent_cost": {
+      "mode": "fake",
+      "model": "deterministic-contract-v1",
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "price_version": "2026-09-plan-v1",
+      "calculated_cost_usd": "0.000000",
+      "billing_status": "non_billable_fake"
+    }
+  }
+}

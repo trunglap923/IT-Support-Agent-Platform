@@ -557,6 +557,31 @@ class Message(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class MessageFeedback(Base):
+    __tablename__ = "message_feedback"
+    __table_args__ = (
+        CheckConstraint("rating IN ('helpful', 'unhelpful')", name="feedback_rating_allowlist"),
+        UniqueConstraint("owner_id", "message_id", name="uq_feedback_owner_message"),
+        Index("ix_feedback_owner_created", "owner_id", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    message_id: Mapped[UUID] = mapped_column(
+        ForeignKey("messages.id", ondelete="CASCADE"), index=True
+    )
+    run_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("agent_runs.id", ondelete="SET NULL"), index=True
+    )
+    rating: Mapped[str] = mapped_column(String(20))
+    reason: Mapped[str | None] = mapped_column(String(80))
+    comment: Mapped[str | None] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
 class MemoryConsentEvent(Base):
     __tablename__ = "memory_consent_events"
     __table_args__ = (CheckConstraint("epoch >= 0", name="memory_consent_epoch_non_negative"),)

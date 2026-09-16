@@ -38,12 +38,12 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 - [x] RUNNER-01: Tạo CLI chọn split/configuration/repetitions/output và validate trước khi chạy.
 - [x] RUNNER-02: Thiết lập database tạm prefix `test_retrieval_eval_` và guard trước cleanup.
-- [ ] RUNNER-03: LangGraph RAG và scripted contract đã có; actual scoped DB-effect measurement còn ở P58.
+- [x] RUNNER-03: LangGraph RAG, scripted contracts và PostgreSQL gate suites ghi actual scoped DB effects.
 - [x] RUNNER-04: Thêm scorer deterministic retrieval/no-answer/scope có mẫu số; semantic review còn WP-06.
 - [x] RUNNER-05: Live mode opt-in, giới hạn call/output/cost; resume/checkpoint batch chưa cần cho quota nhỏ.
 
 ## Điều kiện hoàn thành
 
 - [x] Chạy lại cùng fake seed cho kết quả nhất quán; live artifact giữ từng lần chạy.
-- [ ] Báo cáo ba cấu hình trên đúng nhóm task có thể so sánh.
+- [ ] Báo cáo ba cấu hình live trên đúng nhóm task chưa chạy; fake report không dùng để so chất lượng model.
 - [x] Artifacts không chứa secret/raw checkpoint; live eval không tự chạy trong PR CI.

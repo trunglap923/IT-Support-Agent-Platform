@@ -33,11 +33,11 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 - [x] EVAL-01: Chốt case schema, nhóm tình huống và evidence ground truth trước tinh chỉnh prompt.
 - [x] EVAL-02: Xây baseline retrieval/no-answer từ M2, lưu cả thất bại.
-- [ ] EVAL-03: Đã nối RAG tới LangGraph; actual scoped DB effects cho non-RAG còn ở P58.
+- [x] EVAL-03: Nối LangGraph và PostgreSQL regression evidence cho scoped side effects.
 - [ ] EVAL-04: Chạy live agent cases ít nhất ba lần, báo số mẫu/biến động/cost.
-- [ ] EVAL-05: Tổng hợp G-01..G-10; ghi rõ gate chưa đo hoặc chưa đạt, không coi fake run là AI quality.
+- [x] EVAL-05: Tổng hợp G-01..G-09; gate chưa đo giữ `not_measured`, G-10 thuộc P64.
 
 ## Điều kiện hoàn thành
 
 - [x] 120 ca đúng split/nhóm; runner P57 sẽ gắn model/prompt/corpus version vào kết quả.
-- [ ] Release gates được báo cả mẫu số, phương pháp và giới hạn; không thay ngưỡng để hợp kết quả.
+- [x] G-01..G-09 được báo cả mẫu số, phương pháp và giới hạn; G-10 thuộc P64.

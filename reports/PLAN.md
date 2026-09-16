@@ -1,6 +1,6 @@
 # Báo cáo — kết quả đo và bằng chứng portfolio
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: đã có retrieval baseline và báo cáo G-01..G-09; G-10 thuộc P64.
 Work packages: WP-06, WP-13, WP-14.
 Nguồn: [kế hoạch tổng](../plan.md), mục 19, 22; [thứ tự triển khai](../docs/implementation-roadmap.md).
 
@@ -32,11 +32,11 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] REPORT-01: Tạo baseline đầu tiên sau demo M2, ghi phương pháp và giới hạn.
-- [ ] REPORT-02: Xuất tổng hợp G-01..G-10 kèm links tới artifacts an toàn và failure examples.
-- [ ] REPORT-03: Báo cost thật/reserved-unknown, latency distribution và điều kiện load.
+- [x] REPORT-01: Tạo baseline M2 và agent fake contract report, ghi phương pháp/giới hạn.
+- [x] REPORT-02: Xuất G-01..G-09; G-10 và release checklist hoàn tất ở P64.
+- [x] REPORT-03: Báo token/cost status và local concurrency-3 latency, không gọi đó là E2E.
 - [ ] REPORT-04: So sánh baseline/tools/memory không dùng task unsupported để nâng điểm giả.
-- [ ] REPORT-05: Hoàn thiện release checklist với chưa đo/chưa đạt và quyết định phát hành.
+- [x] REPORT-05: Quyết định `not_ready` khi còn gate `not_measured`; checklist G-10 ở P64.
 
 ## Điều kiện hoàn thành
 

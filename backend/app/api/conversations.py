@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, cast
+from typing import Annotated, Literal, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.csrf import require_csrf
-from app.db.models import Conversation, Message, RunStatus
+from app.db.models import Conversation, Message, MessageFeedback, RunStatus
 from app.dependencies import CurrentPrincipal, get_db_session
 from app.jobs.dispatch import BrokerUnavailableError, RunDispatcher
 from app.memory.lifecycle import MemoryLifecycleService, MemoryNotFoundError
@@ -22,6 +22,7 @@ from app.services.conversations.submission import (
     RunSubmissionService,
 )
 from app.services.documents.access import redact_revoked_message_citations
+from app.services.feedback import FeedbackService, FeedbackTargetNotFoundError
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 
@@ -35,6 +36,14 @@ class ConversationResponse(BaseModel):
     title: str
 
 
+class FeedbackResponse(BaseModel):
+    id: UUID
+    message_id: UUID
+    rating: str
+    reason: str | None
+    comment: str | None
+
+
 class MessageResponse(BaseModel):
     id: UUID
     run_id: UUID | None
@@ -42,6 +51,13 @@ class MessageResponse(BaseModel):
     content: str
     outcome: str | None
     citations: list[dict[str, object]]
+    feedback: FeedbackResponse | None = None
+
+
+class PutFeedbackRequest(BaseModel):
+    rating: Literal["helpful", "unhelpful"]
+    reason: str | None = Field(default=None, min_length=1, max_length=80)
+    comment: str | None = Field(default=None, min_length=1, max_length=500)
 
 
 class SubmitMessageRequest(BaseModel):
@@ -68,6 +84,7 @@ def _conversation_response(value: Conversation) -> ConversationResponse:
 def _message_response(
     value: Message,
     override: tuple[str, str | None, list[dict[str, object]]] | None = None,
+    feedback: MessageFeedback | None = None,
 ) -> MessageResponse:
     content, outcome, citations = override or (value.content, value.outcome, value.citations)
     return MessageResponse(
@@ -77,6 +94,17 @@ def _message_response(
         content=content,
         outcome=outcome,
         citations=citations,
+        feedback=_feedback_response(feedback) if feedback is not None else None,
+    )
+
+
+def _feedback_response(value: MessageFeedback) -> FeedbackResponse:
+    return FeedbackResponse(
+        id=value.id,
+        message_id=value.message_id,
+        rating=value.rating,
+        reason=value.reason,
+        comment=value.comment,
     )
 
 
@@ -158,7 +186,47 @@ async def list_messages(
         principal=principal,
         messages=values,
     )
-    return [_message_response(value, redactions.get(value.id)) for value in values]
+    feedback = await FeedbackService().for_messages(
+        session,
+        owner_id=principal.user_id,
+        message_ids=[value.id for value in values],
+    )
+    return [
+        _message_response(value, redactions.get(value.id), feedback.get(value.id))
+        for value in values
+    ]
+
+
+@router.put(
+    "/{conversation_id}/messages/{message_id}/feedback",
+    response_model=FeedbackResponse,
+    dependencies=[Depends(require_csrf)],
+)
+async def put_message_feedback(
+    conversation_id: UUID,
+    message_id: UUID,
+    payload: PutFeedbackRequest,
+    principal: CurrentPrincipal,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> FeedbackResponse:
+    try:
+        value = await FeedbackService().put(
+            session,
+            owner_id=principal.user_id,
+            conversation_id=conversation_id,
+            message_id=message_id,
+            rating=payload.rating,
+            reason=payload.reason.strip() if payload.reason else None,
+            comment=payload.comment.strip() if payload.comment else None,
+        )
+        await session.commit()
+    except FeedbackTargetNotFoundError as error:
+        await session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Assistant message not found",
+        ) from error
+    return _feedback_response(value)
 
 
 @router.post(
