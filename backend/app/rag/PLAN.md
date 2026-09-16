@@ -35,7 +35,7 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 - [x] RAG-01: Hoàn thành ingestion và chunking với dữ liệu do dự án sở hữu.
 - [x] RAG-02: Tạo embedding space thống nhất và scoped hybrid retrieval.
-- [ ] RAG-03: Bổ sung citation/source endpoints và xử lý câu hỏi thiếu căn cứ.
+- [x] RAG-03: Bổ sung citation DTO/validation và xử lý câu hỏi thiếu căn cứ; source endpoint nối ở WP-06.
 - [ ] RAG-04: Nối admin preview/publish/archive; đo retrieval baseline trước reranker.
 
 ## Điều kiện hoàn thành

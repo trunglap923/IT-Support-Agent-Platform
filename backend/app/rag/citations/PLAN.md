@@ -1,6 +1,6 @@
 # Citation và output evidence
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: source DTO, allowlist validation và no-answer baseline đã triển khai; ACL recheck lịch sử còn WP-06/WP-11.
 Work packages: WP-05, WP-06, WP-11.
 Nguồn: [kế hoạch tổng](../../../../plan.md), mục 8.3, 12.4, 17; [thứ tự triển khai](../../../../docs/implementation-roadmap.md).
 
@@ -30,8 +30,8 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] CITE-01: Tạo source DTO từ chunks thực tế; không dùng URL/title model tự sinh.
-- [ ] CITE-02: Validate final citations và recheck quyền trước publish answer.
+- [x] CITE-01: Tạo source DTO từ chunks thực tế; không dùng URL/title model tự sinh.
+- [x] CITE-02: Validate citation ID thuộc retrieval allowlist; ACL recheck cuối nối ở WP-06.
 - [ ] CITE-03: Repair tối đa một lần trong run budget; nếu vẫn sai thì abstain/hỏi thêm.
 - [ ] CITE-04: Nối message_sources để kiểm tra lại historical messages khi ACL thay đổi.
 - [ ] CITE-05: Cấp download/excerpt qua authenticated API, archive/retired source có trạng thái rõ.
