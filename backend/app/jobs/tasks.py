@@ -13,12 +13,14 @@ from app.db import Database
 from app.jobs.celery_app import celery_app
 from app.jobs.dispatch import CeleryRunDispatcher
 from app.jobs.reconcile import reconcile_queued_run_dispatches
-from app.jobs.worker import execute_fake_run
+from app.jobs.worker import execute_support_run
+from app.observability import create_ai_observer
+from app.providers.factory import create_embedding_provider, create_provider
 
 
 @shared_task(name="jobs.run_agent")  # type: ignore[untyped-decorator]
 def run_agent(run_id: str) -> dict[str, str]:
-    """Claim and complete a deterministic fake run using process-local resources."""
+    """Claim a run and execute the configured retrieval-backed support graph."""
 
     settings = Settings()
     if settings.database_url is None:
@@ -27,10 +29,27 @@ def run_agent(run_id: str) -> dict[str, str]:
 
     async def execute() -> dict[str, str]:
         database = Database(database_url)
+        provider = create_provider(settings, database)
+        embedding_provider = create_embedding_provider(settings, database)
+        observer = create_ai_observer(settings)
         try:
-            receipt = asdict(await execute_fake_run(database, run_id=UUID(run_id)))
+            receipt = asdict(
+                await execute_support_run(
+                    database,
+                    run_id=UUID(run_id),
+                    provider=provider,
+                    embedding_provider=embedding_provider,
+                    observer=observer,
+                    model=settings.openai_model
+                    if settings.ai_provider.value == "openai"
+                    else "fake",
+                )
+            )
             return {key: str(value) for key, value in receipt.items()}
         finally:
+            observer.close()
+            await embedding_provider.close()
+            await provider.close()
             await database.close()
 
     return asyncio.run(execute())

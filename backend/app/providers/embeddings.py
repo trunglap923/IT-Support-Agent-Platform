@@ -24,6 +24,8 @@ class EmbeddingProvider(Protocol):
     async def embed(self, texts: list[str], *, operation_id: str) -> EmbeddingBatch:
         """Embed a non-empty batch using a unique operation ID."""
 
+    async def close(self) -> None: ...
+
 
 def estimate_input_tokens(texts: list[str]) -> int:
     return max(1, sum(math.ceil(len(text.encode("utf-8")) / 3) for text in texts))
@@ -65,6 +67,9 @@ class FakeEmbeddingProvider:
             provider_request_id=f"fake-{operation_id}",
             input_tokens=0,
         )
+
+    async def close(self) -> None:
+        return None
 
 
 class OpenAIEmbeddingProvider:
@@ -120,3 +125,6 @@ class OpenAIEmbeddingProvider:
             provider_request_id=response.id,
             input_tokens=input_tokens,
         )
+
+    async def close(self) -> None:
+        await self._client.close()

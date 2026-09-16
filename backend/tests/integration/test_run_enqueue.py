@@ -166,7 +166,7 @@ def test_commit_then_enqueue_failure_replay_and_worker_claim(
                         )
                     ).all()
                 )
-            assert message_count == 1
+            assert message_count == 2
             assert [event.type for event in events] == [
                 "run.queued",
                 "run.running",

@@ -13,9 +13,10 @@ Nguồn yêu cầu: [plan.md](../plan.md), đặc biệt mục 21.1. Bản đồ
 - [x] WP-03: Redis/Celery, durable run events, commit-then-enqueue, SSE và frontend reconnect đã đạt local; chờ CI remote sau push.
 - [x] WP-04: corpus, document schema, PDF parse, deterministic chunk, guarded embeddings và idempotent ingestion đã đạt local.
 - [x] WP-05: scoped hybrid retrieval, citation allowlist, no-answer behavior và baseline có mẫu số đã đạt local.
+- [x] WP-06: bounded RAG graph, structured provider, chat API/UI, citations, usage guard và Langfuse adapter đã triển khai local.
 
-WP-01, compatibility M0 và WP-02..WP-05 đã hoàn thành ở local; CI remote được tạm hoãn
-theo yêu cầu hiện tại. WP-06..WP-14 chưa hoàn thành. Responses
+WP-01, compatibility M0 và WP-02..WP-06 đã hoàn thành ở local; CI remote được tạm hoãn
+theo yêu cầu hiện tại. WP-07..WP-14 chưa hoàn thành. Responses
 live, MCP stdio, PostgreSQL checkpointer, seed contract và 30 evaluation cases đều có bằng
 chứng. Paid/live checks vẫn là opt-in và không chạy trong CI.
 
@@ -59,6 +60,21 @@ không được chạy trong lượt này theo yêu cầu.
 Bằng chứng local ngày 2026-09-16 nằm tại `reports/retrieval-baseline.md`. Fake embedding
 chỉ dùng kiểm tra wiring tái lập; đánh giá semantic với OpenAI vẫn là live evaluation opt-in
 ở WP-06/WP-13.
+
+## Checklist WP-06
+
+- [x] P32: bounded LangGraph state/nodes/edges và context contract.
+- [x] P33: structured fake/OpenAI responses, normalization và source allowlist.
+- [x] P34: rewrite → scoped retrieval → no-answer/generate → citation validation.
+- [x] P35: owner-scoped conversation/message API và commit-before-enqueue.
+- [x] P36: interactive chat, run streaming/retry, final messages và citations.
+- [x] P37: Langfuse v4 adapter/no-op fallback, token counters và guarded chat ledger.
+- [x] P38: fake-mode answer/no-answer system flow và functional baseline 4/4.
+
+Bằng chứng local ngày 2026-09-16: Ruff/mypy, 56 backend tests không cần service và 6
+PostgreSQL migration/chat/RAG/ledger/enqueue integration tests đạt; frontend
+lint/typecheck, 12 tests và production build đạt. Báo cáo tại
+`reports/rag-chat-baseline.md`; đây là functional wiring baseline, không phải live AI quality.
 
 ## Cách dùng kế hoạch
 

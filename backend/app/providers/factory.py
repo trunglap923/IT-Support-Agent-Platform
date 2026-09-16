@@ -2,9 +2,16 @@
 
 from decimal import Decimal
 
+from openai import AsyncOpenAI
+
 from app.config import AIProvider, Settings
 from app.db import Database
 from app.providers.base import StructuredResponseProvider
+from app.providers.embeddings import (
+    EmbeddingProvider,
+    FakeEmbeddingProvider,
+    OpenAIEmbeddingProvider,
+)
 from app.providers.fake import FakeTextProvider
 from app.providers.openai import build_openai_provider
 from app.services.budget.service import DatabaseUsageLedger
@@ -33,4 +40,26 @@ def create_provider(
         api_key=key.get_secret_value(),
         model=settings.openai_model,
         usage_ledger=ledger,
+    )
+
+
+def create_embedding_provider(settings: Settings, database: Database) -> EmbeddingProvider:
+    if settings.ai_provider is AIProvider.FAKE:
+        return FakeEmbeddingProvider(dimensions=settings.embedding_dimensions)
+    key = settings.openai_api_key
+    if key is None:
+        raise RuntimeError("OpenAI credentials were not validated")
+    ledger = DatabaseUsageLedger(
+        database,
+        daily_budget_usd=Decimal(str(settings.app_ai_daily_budget_usd)),
+        monthly_budget_usd=Decimal(str(settings.app_ai_monthly_budget_usd)),
+        input_price_per_million_usd=Decimal(str(settings.embedding_input_price_per_million_usd)),
+        price_version=settings.embedding_price_version,
+    )
+    client = AsyncOpenAI(api_key=key.get_secret_value(), max_retries=0, timeout=20.0)
+    return OpenAIEmbeddingProvider(
+        client=client,
+        ledger=ledger,
+        model=settings.embedding_model,
+        dimensions=settings.embedding_dimensions,
     )
