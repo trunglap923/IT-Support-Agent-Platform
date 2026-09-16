@@ -82,6 +82,38 @@ class UsageStatus(StrEnum):
     UNKNOWN = "unknown"
 
 
+class ServiceHealth(StrEnum):
+    HEALTHY = "healthy"
+    DEGRADED = "degraded"
+    DOWN = "down"
+    UNKNOWN = "unknown"
+
+
+class ServiceFaultMode(StrEnum):
+    NONE = "none"
+    TIMEOUT = "timeout"
+    ERROR = "error"
+
+
+class TicketStatus(StrEnum):
+    OPEN = "open"
+    IN_PROGRESS = "in_progress"
+    RESOLVED = "resolved"
+
+
+class TicketSeverity(StrEnum):
+    LOW = "low"
+    NORMAL = "normal"
+    HIGH = "high"
+
+
+class TicketIssueType(StrEnum):
+    VPN = "vpn"
+    DOCKER = "docker"
+    GITLAB = "gitlab"
+    OTHER = "other"
+
+
 USER_ROLE_TYPE = Enum(
     UserRole,
     name="user_role",
@@ -438,4 +470,84 @@ class Message(Base):
     citations: Mapped[list[dict[str, Any]]] = mapped_column(
         JSONB, default=list, server_default="[]"
     )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ServiceState(Base):
+    __tablename__ = "service_states"
+    __table_args__ = (
+        CheckConstraint("service_id IN ('vpn', 'registry', 'gitlab')", name="service_id_allowlist"),
+        CheckConstraint(
+            "status IN ('healthy', 'degraded', 'down', 'unknown')",
+            name="service_status_allowlist",
+        ),
+        CheckConstraint(
+            "fault_mode IN ('none', 'timeout', 'error')", name="service_fault_allowlist"
+        ),
+    )
+
+    service_id: Mapped[str] = mapped_column(String(20), primary_key=True)
+    status: Mapped[str] = mapped_column(String(20))
+    message: Mapped[str] = mapped_column(String(500))
+    fault_mode: Mapped[str] = mapped_column(String(20), default="none", server_default="none")
+    updated_by: Mapped[UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), index=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class Ticket(Base):
+    __tablename__ = "tickets"
+    __table_args__ = (
+        CheckConstraint(
+            "issue_type IN ('vpn', 'docker', 'gitlab', 'other')",
+            name="ticket_issue_type_allowlist",
+        ),
+        CheckConstraint("severity IN ('low', 'normal', 'high')", name="ticket_severity_allowlist"),
+        CheckConstraint(
+            "status IN ('open', 'in_progress', 'resolved')", name="ticket_status_allowlist"
+        ),
+        CheckConstraint(
+            "status != 'resolved' OR resolution_note IS NOT NULL",
+            name="resolved_ticket_has_note",
+        ),
+        Index("ix_tickets_owner_status_created", "owner_id", "status", "created_at"),
+        Index("ix_tickets_department_status_updated", "department_id", "status", "updated_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    display_key: Mapped[str] = mapped_column(String(30), unique=True)
+    owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"))
+    department_id: Mapped[UUID] = mapped_column(ForeignKey("departments.id", ondelete="RESTRICT"))
+    device_id: Mapped[UUID | None] = mapped_column()
+    conversation_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("conversations.id", ondelete="SET NULL")
+    )
+    approval_id: Mapped[UUID | None] = mapped_column(unique=True)
+    source: Mapped[str] = mapped_column(String(20), default="seed", server_default="seed")
+    title: Mapped[str] = mapped_column(String(160))
+    description: Mapped[str] = mapped_column(Text)
+    issue_type: Mapped[str] = mapped_column(String(20))
+    severity: Mapped[str] = mapped_column(String(20))
+    status: Mapped[str] = mapped_column(String(20), default="open", server_default="open")
+    resolution_note: Mapped[str | None] = mapped_column(Text)
+    version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class TicketEvent(Base):
+    __tablename__ = "ticket_events"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    ticket_id: Mapped[UUID] = mapped_column(
+        ForeignKey("tickets.id", ondelete="CASCADE"), index=True
+    )
+    actor_id: Mapped[UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    type: Mapped[str] = mapped_column(String(60))
+    safe_payload: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, server_default="{}")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
