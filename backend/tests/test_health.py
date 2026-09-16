@@ -17,6 +17,7 @@ def test_liveness_uses_fake_provider_without_external_services() -> None:
             AsyncClient(transport=transport, base_url="http://test") as client,
         ):
             response = await client.get("/api/v1/health/live")
+            readiness = await client.get("/api/v1/health/ready")
 
         assert response.status_code == 200
         assert response.headers["X-Request-ID"]
@@ -27,6 +28,14 @@ def test_liveness_uses_fake_provider_without_external_services() -> None:
             "environment": "test",
             "provider": "fake",
             "request_id": response.headers["X-Request-ID"],
+        }
+        assert readiness.status_code == 503
+        assert readiness.json() == {
+            "status": "not_ready",
+            "dependencies": {
+                "postgres": "not_configured",
+                "redis": "not_configured",
+            },
         }
 
     asyncio.run(run())

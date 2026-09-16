@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     demo_seed_password: SecretStr | None = None
     redis_url: SecretStr | None = None
     redis_socket_timeout_seconds: float = Field(default=2.0, gt=0, le=30)
+    readiness_timeout_seconds: float = Field(default=2.0, gt=0, le=10)
     celery_agent_concurrency: int = Field(default=2, gt=0, le=8)
     celery_background_concurrency: int = Field(default=1, gt=0, le=4)
     celery_task_soft_time_limit_seconds: int = Field(default=300, gt=0)

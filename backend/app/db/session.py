@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -40,3 +41,9 @@ class Database:
 
     async def close(self) -> None:
         await self.engine.dispose()
+
+    async def ping(self) -> None:
+        """Verify that the process can execute a minimal database query."""
+
+        async with self.engine.connect() as connection:
+            await connection.execute(text("SELECT 1"))

@@ -1,11 +1,8 @@
 from __future__ import annotations
 
 import asyncio
-import os
-from urllib.parse import urlsplit
 from uuid import uuid4
 
-import pytest
 from redis.asyncio import Redis
 
 from app.config import Settings
@@ -13,19 +10,8 @@ from app.jobs.celery_app import AGENT_QUEUE, create_celery_app
 from app.jobs.dispatch import CeleryRunDispatcher
 
 
-def required_test_redis_url() -> str:
-    configured = os.getenv("TEST_REDIS_URL")
-    if configured:
-        if urlsplit(configured).path in {"", "/", "/0"}:
-            pytest.fail("TEST_REDIS_URL must use a dedicated non-zero Redis database")
-        return configured
-    if os.getenv("REQUIRE_REDIS_TESTS") == "1":
-        pytest.fail("Set TEST_REDIS_URL before the required Redis integration gate")
-    pytest.skip("TEST_REDIS_URL is not configured")
-
-
-def test_real_redis_preflight_and_agent_queue_delivery() -> None:
-    redis_url = required_test_redis_url()
+def test_real_redis_preflight_and_agent_queue_delivery(test_redis_url: str) -> None:
+    redis_url = test_redis_url
     application = create_celery_app(Settings(redis_url=redis_url))
     dispatcher = CeleryRunDispatcher(
         application,

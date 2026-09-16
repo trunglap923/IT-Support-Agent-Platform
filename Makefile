@@ -78,7 +78,7 @@ wp02-integration-check:
 	REQUIRE_DATABASE_TESTS=1 UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --directory backend --frozen --env-file $(COMPOSE_ENV_FILE) pytest tests/integration/test_migrations.py tests/integration/test_user_repository.py tests/integration/test_auth_api.py tests/integration/test_conversation_ownership.py
 
 wp03-integration-check:
-	REDIS_URL=$(or $(TEST_REDIS_URL),redis://127.0.0.1:6379/15) TEST_REDIS_URL=$(or $(TEST_REDIS_URL),redis://127.0.0.1:6379/15) REQUIRE_DATABASE_TESTS=1 REQUIRE_REDIS_TESTS=1 UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --directory backend --frozen --env-file $(COMPOSE_ENV_FILE) pytest tests/integration/test_run_state_store.py tests/integration/test_run_enqueue.py tests/integration/test_sse_api.py tests/integration/test_redis_dispatch.py
+	REDIS_URL=$(or $(TEST_REDIS_URL),redis://127.0.0.1:6379/15) TEST_REDIS_URL=$(or $(TEST_REDIS_URL),redis://127.0.0.1:6379/15) REQUIRE_DATABASE_TESTS=1 REQUIRE_REDIS_TESTS=1 UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --directory backend --frozen --env-file $(COMPOSE_ENV_FILE) pytest tests/integration/test_run_state_store.py tests/integration/test_run_enqueue.py tests/integration/test_sse_api.py tests/integration/test_redis_dispatch.py tests/integration/test_health_readiness.py
 
 backend-integration-check: wp02-integration-check wp03-integration-check
 

@@ -4,6 +4,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from redis.asyncio import Redis
 
 from app.api.auth import router as auth_router
 from app.api.health import router as health_router
@@ -18,6 +19,7 @@ def create_app(
     settings: Settings | None = None,
     provider: TextGenerationProvider | None = None,
     database: Database | None = None,
+    redis_client: Redis | None = None,
 ) -> FastAPI:
     resolved_settings = settings or Settings()
 
@@ -27,11 +29,21 @@ def create_app(
         resolved_database = database
         if resolved_database is None and resolved_settings.database_url is not None:
             resolved_database = Database(resolved_settings.database_url.get_secret_value())
+        resolved_redis = redis_client
+        if resolved_redis is None and resolved_settings.redis_url is not None:
+            resolved_redis = Redis.from_url(
+                resolved_settings.redis_url.get_secret_value(),
+                socket_connect_timeout=resolved_settings.redis_socket_timeout_seconds,
+                socket_timeout=resolved_settings.redis_socket_timeout_seconds,
+            )
         application.state.provider = resolved_provider
         application.state.database = resolved_database
+        application.state.redis = resolved_redis
         try:
             yield
         finally:
+            if resolved_redis is not None:
+                await resolved_redis.aclose()
             if resolved_database is not None:
                 await resolved_database.close()
             await resolved_provider.close()

@@ -86,7 +86,10 @@ make dev-backend
 make dev-frontend-docker
 ~~~
 
-Mở http://127.0.0.1:5173. Health API ở http://127.0.0.1:8000/api/v1/health/live. Chế độ mặc định dùng fake provider và không gọi OpenAI.
+Mở http://127.0.0.1:5173. Liveness ở
+http://127.0.0.1:8000/api/v1/health/live; readiness PostgreSQL/Redis ở
+http://127.0.0.1:8000/api/v1/health/ready. Chế độ mặc định dùng fake provider và không
+gọi OpenAI.
 
 Nếu host đã có đúng Node/npm, thay hai target Docker bằng `make frontend-install`, `make frontend-check` và `make dev-frontend`.
 

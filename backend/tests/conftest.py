@@ -5,6 +5,7 @@ import subprocess
 import sys
 from collections.abc import Iterator
 from pathlib import Path
+from urllib.parse import urlsplit
 from uuid import uuid4
 
 import pytest
@@ -16,6 +17,18 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 
 def sync_url(value: str) -> URL:
     return make_url(value).set(drivername="postgresql+psycopg")
+
+
+@pytest.fixture
+def test_redis_url() -> str:
+    configured = os.getenv("TEST_REDIS_URL")
+    if configured:
+        if urlsplit(configured).path in {"", "/", "/0"}:
+            pytest.fail("TEST_REDIS_URL must use a dedicated non-zero Redis database")
+        return configured
+    if os.getenv("REQUIRE_REDIS_TESTS") == "1":
+        pytest.fail("Set TEST_REDIS_URL before the required Redis integration gate")
+    pytest.skip("TEST_REDIS_URL is not configured")
 
 
 @pytest.fixture
