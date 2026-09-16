@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 from uuid import UUID, uuid4
@@ -16,6 +17,7 @@ from sqlalchemy import (
     ForeignKeyConstraint,
     Index,
     Integer,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -70,6 +72,12 @@ class IngestionJobStatus(StrEnum):
     RUNNING = "running"
     COMPLETED = "completed"
     FAILED = "failed"
+
+
+class UsageStatus(StrEnum):
+    RESERVED = "reserved"
+    COMPLETED = "completed"
+    UNKNOWN = "unknown"
 
 
 USER_ROLE_TYPE = Enum(
@@ -268,6 +276,34 @@ class IngestionJob(Base):
     error_detail: Mapped[str | None] = mapped_column(String(500))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class UsageLedgerEntry(Base):
+    __tablename__ = "usage_ledger"
+    __table_args__ = (
+        CheckConstraint("reserved_input_tokens > 0", name="reserved_tokens_positive"),
+        CheckConstraint("reserved_cost_usd >= 0", name="reserved_cost_non_negative"),
+        CheckConstraint(
+            "actual_cost_usd IS NULL OR actual_cost_usd >= 0", name="actual_cost_non_negative"
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    operation_id: Mapped[str] = mapped_column(String(120), unique=True)
+    kind: Mapped[str] = mapped_column(String(40), index=True)
+    provider: Mapped[str] = mapped_column(String(40))
+    model: Mapped[str] = mapped_column(String(120))
+    price_version: Mapped[str] = mapped_column(String(40))
+    status: Mapped[str] = mapped_column(String(20), index=True)
+    reserved_input_tokens: Mapped[int] = mapped_column(Integer)
+    actual_input_tokens: Mapped[int | None] = mapped_column(Integer)
+    reserved_cost_usd: Mapped[Decimal] = mapped_column(Numeric(14, 8))
+    actual_cost_usd: Mapped[Decimal | None] = mapped_column(Numeric(14, 8))
+    provider_request_id: Mapped[str | None] = mapped_column(String(160))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
 
 class Conversation(Base):

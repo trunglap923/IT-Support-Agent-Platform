@@ -41,6 +41,8 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-4.1-mini-2025-04-14"
     embedding_model: str = "text-embedding-3-small"
     embedding_dimensions: int = Field(default=1536, gt=0)
+    embedding_input_price_per_million_usd: float = Field(default=0.02, ge=0)
+    embedding_price_version: str = "2026-09-plan-v1"
 
     database_url: SecretStr | None = None
     migration_database_url: SecretStr | None = None

@@ -1,6 +1,6 @@
 # Model và embedding adapters
 
-Trạng thái: WP-01 có text provider boundary/fake/OpenAI adapter; generate tools, embedding và budget còn theo WP-04/WP-06.
+Trạng thái: có text provider WP-01 và guarded fake/OpenAI embedding WP-04; generate tools còn theo WP-06.
 Work packages: WP-01, WP-04, WP-06, WP-12, WP-13.
 Nguồn: [kế hoạch tổng](../../../plan.md), mục 16; [thứ tự triển khai](../../../docs/implementation-roadmap.md).
 
@@ -36,7 +36,7 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [ ] PROV-02: Implement Responses/function-calling mapping theo cấu hình đã chốt; giữ tool call IDs.
 - [ ] PROV-03: Đặt strict schema/output validation, token cap, timeout, store=false và retry một tầng.
 - [ ] PROV-04: Nối budget reservation/finalization cho tất cả paid calls.
-- [ ] PROV-05: Tại WP-04 triển khai embed tối thiểu, dimension validation và budget guard; hoàn thiện generate ở WP-06, thêm versioned embedding cache theo kế hoạch.
+- [x] PROV-05: Tại WP-04 triển khai embed tối thiểu, dimension validation và budget guard; embedding cache còn theo WP-06.
 
 ## Điều kiện hoàn thành
 

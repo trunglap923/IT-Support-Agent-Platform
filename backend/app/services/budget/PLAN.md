@@ -1,6 +1,6 @@
 # Ngân sách và usage ledger
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: reservation/ledger tối thiểu cho paid embedding đã triển khai; chat counters còn WP-06.
 Work packages: WP-04, WP-06, WP-12, WP-13.
 Nguồn: [kế hoạch tổng](../../../../plan.md), mục 9.4, 16.3; [thứ tự triển khai](../../../../docs/implementation-roadmap.md).
 
@@ -31,8 +31,8 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] COST-01: Định nghĩa operation/attempt ID, token caps, reserved/actual/unknown statuses.
-- [ ] COST-02: Triển khai ledger/reserve atomic tối thiểu trước paid embedding đầu tiên ở WP-04; mở rộng input/output cap cho chat ở WP-06.
+- [x] COST-01: Định nghĩa operation ID, token caps, reserved/actual/unknown statuses.
+- [x] COST-02: Triển khai ledger/reserve atomic tối thiểu trước paid embedding đầu tiên ở WP-04; mở rộng input/output cap cho chat ở WP-06.
 - [ ] COST-03: Finalize actual usage gồm cached tokens, ghi provider_request_id.
 - [ ] COST-04: Áp dụng run counters qua retries/repair và worker replay.
 - [ ] COST-05: Expose safe usage aggregates cho report, không automatic expensive fallback.
