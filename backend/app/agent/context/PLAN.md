@@ -1,6 +1,6 @@
 # Context và compaction
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: context contract và bounded recent-history builder WP-06 đã có; memory/ACL history recheck còn WP-12.
 Work packages: WP-06, WP-12.
 Nguồn: [kế hoạch tổng](../../../../plan.md), mục 8.3, 9.3, 12.4; [thứ tự triển khai](../../../../docs/implementation-roadmap.md).
 
@@ -31,8 +31,8 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] CTX-01: Ưu tiên current query, confirmed attempted steps và tool result pairs.
-- [ ] CTX-02: Giới hạn history, RAG top 5, năm fact và ba sự cố theo token budget.
+- [x] CTX-01: Luôn giữ current query và lịch sử gần nhất trong contract serializable.
+- [x] CTX-02: Giới hạn history/current query theo input-token budget; evidence/memory quota nối theo WP tương ứng.
 - [ ] CTX-03: Phân biệt suggested_steps với confirmed_attempted_steps khi tạo summary.
 - [ ] CTX-04: Loại sources/history nay trái quyền; label nguồn superseded là historical.
 - [ ] CTX-05: Đọc lại memory settings/epoch khi build; không hồi sinh dữ liệu từ checkpoint cũ.

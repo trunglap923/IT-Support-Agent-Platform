@@ -1,6 +1,6 @@
 # LangGraph runtime
 
-Trạng thái: spike checkpoint/recovery M0 đã đạt; graph nghiệp vụ vẫn chưa triển khai.
+Trạng thái: bounded RAG graph topology/context contract WP-06 đã có; approval/checkpoint business flow còn WP-08.
 Work packages: WP-06, WP-08, WP-10, WP-12.
 Nguồn: [kế hoạch tổng](../../../plan.md), mục 9, 11, 12; [thứ tự triển khai](../../../docs/implementation-roadmap.md).
 
@@ -34,10 +34,10 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] AG-01: Định nghĩa state serializable, schema_version và status/outcome tách biệt.
+- [x] AG-01: Định nghĩa state serializable, schema_version và status/outcome tách biệt.
 - [ ] AG-02: Xây graph load → decision → read tool/final reply, dùng context builder.
 - [ ] AG-03: Thêm propose idempotent → interrupt → recheck → write → receipt nodes.
-- [ ] AG-04: Áp dụng tối đa 4 model calls kể cả retry/repair, 4 read calls, 1 approved write/run, recursion=24 và active deadline 60 giây mỗi execution segment.
+- [x] AG-04: Áp dụng tối đa 4 model calls, 4 retrieval calls và recursion=24; write/deadline nối ở WP-08.
 - [ ] AG-05: Nối PostgreSQL checkpointer, run locking, replay receipt và memory job sau khi final persist.
 
 ## Điều kiện hoàn thành
