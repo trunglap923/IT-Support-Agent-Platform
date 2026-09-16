@@ -13,13 +13,16 @@ from evals.runner.harness import CaseRun
 
 
 def git_revision(root: Path) -> str:
-    completed = subprocess.run(
-        ["git", "rev-parse", "--verify", "HEAD"],
-        cwd=root,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+    try:
+        completed = subprocess.run(
+            ["git", "rev-parse", "--verify", "HEAD"],
+            cwd=root,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:
+        return "unavailable-container-build"
     revision = completed.stdout.strip() or "unknown"
     status = subprocess.run(
         ["git", "status", "--porcelain"],
@@ -62,8 +65,7 @@ def build_report(
         for run in runs
     ]
     stable_cases = [
-        {key: value for key, value in item.items() if key != "latency_ms"}
-        for item in cases
+        {key: value for key, value in item.items() if key != "latency_ms"} for item in cases
     ]
     stable = json.dumps(stable_cases, sort_keys=True, separators=(",", ":"))
     passed = sum(bool(item["scores"]["deterministic_pass"]) for item in cases)
@@ -90,7 +92,10 @@ def build_report(
         "limitations": [
             "Fake mode validates the harness and policy contracts, not semantic AI quality.",
             "Non-RAG scenarios use deterministic service contracts in both modes.",
-            "Required answer facts need rubric or human review and are not auto-claimed as passing.",
+            (
+                "Required answer facts need rubric or human review and are not auto-claimed "
+                "as passing."
+            ),
         ],
         "cases": cases,
     }
@@ -98,6 +103,4 @@ def build_report(
 
 def write_report(report: dict[str, Any], output: Path) -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(
-        json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-    )
+    output.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")

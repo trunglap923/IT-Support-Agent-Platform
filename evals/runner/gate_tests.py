@@ -109,8 +109,7 @@ def main() -> None:
         }
         suites[gate] = {
             "status": "pass"
-            if selected
-            and counts["failed"] == counts["error"] == counts["skipped"] == 0
+            if selected and counts["failed"] == counts["error"] == counts["skipped"] == 0
             else "fail",
             "counts": counts,
             "test_ids": [case["test_id"] for case in selected],
@@ -128,9 +127,7 @@ def main() -> None:
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(artifact, indent=2) + "\n", encoding="utf-8")
     passed = sum(case["status"] == "passed" for case in cases)
-    print(
-        f"Gate regression evidence: {passed}/{len(cases)} passed; artifact={args.output}"
-    )
+    print(f"Gate regression evidence: {passed}/{len(cases)} passed; artifact={args.output}")
     if completed.returncode != 0:
         print(completed.stdout[-2_000:])
         print(completed.stderr[-2_000:])

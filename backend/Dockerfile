@@ -34,3 +34,21 @@ HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=5 \
     CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health/live', timeout=2).read()"]
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips=*"]
+
+FROM runtime AS test
+
+USER root
+RUN uv sync --frozen --all-groups --no-editable
+COPY backend/tests /app/tests
+COPY evals /workspace/evals
+COPY data /workspace/data
+COPY reports /workspace/reports
+RUN mkdir -p /app/.pytest_cache \
+    && chown -R app:app /app/tests /app/.pytest_cache /workspace
+
+ENV PYTHONPATH=/workspace:/app
+WORKDIR /workspace
+USER app:app
+CMD ["pytest", "/app/tests"]
+
+FROM runtime AS production

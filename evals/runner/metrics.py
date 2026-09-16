@@ -10,7 +10,6 @@ from decimal import Decimal
 from typing import Any
 
 from app.providers.fake import FakeTextProvider
-
 from evals.runner.harness import execute_case
 from evals.runner.load_cases import load_cases, select_cases
 
@@ -46,9 +45,7 @@ async def measure_local_fake_load(
                 ]
             )
             latencies.extend(result.latency_ms for result in results)
-            failures += sum(
-                not bool(result.scores["deterministic_pass"]) for result in results
-            )
+            failures += sum(not bool(result.scores["deterministic_pass"]) for result in results)
     finally:
         await provider.close()
     elapsed = time.perf_counter() - started
@@ -72,8 +69,7 @@ def calculate_report_cost(
 ) -> dict[str, Any]:
     totals = report["token_totals"]
     cost = (
-        Decimal(totals["input"]) * input_price
-        + Decimal(totals["output"]) * output_price
+        Decimal(totals["input"]) * input_price + Decimal(totals["output"]) * output_price
     ) / Decimal(1_000_000)
     return {
         "mode": report["mode"],

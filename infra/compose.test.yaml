@@ -1,0 +1,36 @@
+name: it-support-agent-tests
+
+services:
+  postgres:
+    environment:
+      POSTGRES_DB: it_support_agent_test
+      POSTGRES_USER: test_runner
+      POSTGRES_PASSWORD: test-only-local-password
+
+  test-runner:
+    image: it-support-agent-api:test
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+      target: test
+    init: true
+    environment:
+      APP_ENV: test
+      AI_PROVIDER: fake
+      DATABASE_URL: postgresql+asyncpg://test_runner:test-only-local-password@postgres:5432/it_support_agent_test
+      MIGRATION_DATABASE_URL: postgresql+psycopg://test_runner:test-only-local-password@postgres:5432/it_support_agent_test
+      TEST_DATABASE_ADMIN_URL: postgresql+psycopg://test_runner:test-only-local-password@postgres:5432/it_support_agent_test
+      REDIS_URL: redis://redis:6379/0
+      TEST_REDIS_URL: redis://redis:6379/15
+      REQUIRE_DATABASE_TESTS: "1"
+      REQUIRE_REDIS_TESTS: "1"
+      COOKIE_SECURE: "false"
+      ALLOWED_WEB_ORIGIN: http://testserver
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - backend
+    restart: "no"

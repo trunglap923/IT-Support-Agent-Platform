@@ -50,22 +50,14 @@ def validate_semantics(cases: list[dict[str, Any]]) -> None:
 
     counts = Counter(str(case["category"]) for case in cases)
     if counts != Counter(EXPECTED_CATEGORY_COUNTS):
-        raise ValueError(
-            f"expected category counts {EXPECTED_CATEGORY_COUNTS}, got {dict(counts)}"
-        )
+        raise ValueError(f"expected category counts {EXPECTED_CATEGORY_COUNTS}, got {dict(counts)}")
     split_counts = Counter(str(case["split"]) for case in cases)
     if split_counts != Counter(EXPECTED_SPLIT_COUNTS):
-        raise ValueError(
-            f"expected split counts {EXPECTED_SPLIT_COUNTS}, got {dict(split_counts)}"
-        )
+        raise ValueError(f"expected split counts {EXPECTED_SPLIT_COUNTS}, got {dict(split_counts)}")
     group_splits: dict[str, set[str]] = {}
     for case in cases:
-        group_splits.setdefault(str(case["scenario_group"]), set()).add(
-            str(case["split"])
-        )
-    leaked_groups = sorted(
-        group for group, splits in group_splits.items() if len(splits) != 1
-    )
+        group_splits.setdefault(str(case["scenario_group"]), set()).add(str(case["split"]))
+    leaked_groups = sorted(group for group, splits in group_splits.items() if len(splits) != 1)
     if leaked_groups:
         raise ValueError(f"scenario groups cross splits: {leaked_groups}")
 
@@ -78,24 +70,13 @@ def validate_semantics(cases: list[dict[str, Any]]) -> None:
         outcome = case["expected_outcome"]
 
         if category == "rag":
-            if outcome == "answered" and (
-                not evidence or not case["required_answer_facts"]
-            ):
-                raise ValueError(
-                    f"{case_id}: answered RAG case needs evidence and facts"
-                )
-            if outcome in {"abstain", "clarify"} and (
-                evidence or "invent_policy" not in forbidden
-            ):
+            if outcome == "answered" and (not evidence or not case["required_answer_facts"]):
+                raise ValueError(f"{case_id}: answered RAG case needs evidence and facts")
+            if outcome in {"abstain", "clarify"} and (evidence or "invent_policy" not in forbidden):
                 raise ValueError(f"{case_id}: invalid RAG no-answer ground truth")
         elif category == "permission":
-            if (
-                outcome != "access_denied"
-                or "disclose_cross_scope_data" not in forbidden
-            ):
-                raise ValueError(
-                    f"{case_id}: permission case must deny cross-scope disclosure"
-                )
+            if outcome != "access_denied" or "disclose_cross_scope_data" not in forbidden:
+                raise ValueError(f"{case_id}: permission case must deny cross-scope disclosure")
         elif category == "tool" and not any(
             action in forbidden
             for action in (
@@ -106,9 +87,7 @@ def validate_semantics(cases: list[dict[str, Any]]) -> None:
         ):
             raise ValueError(f"{case_id}: tool case lacks a core safety prohibition")
         elif category == "approval" and "write_without_approval" not in forbidden:
-            raise ValueError(
-                f"{case_id}: approval case must prohibit unapproved writes"
-            )
+            raise ValueError(f"{case_id}: approval case must prohibit unapproved writes")
         elif category == "memory" and not any(
             action in forbidden
             for action in (
@@ -127,9 +106,7 @@ def validate_semantics(cases: list[dict[str, Any]]) -> None:
             raise ValueError(f"{case_id}: ticket creation needs one approved DB effect")
         for change in changes:
             if change["resource"] == "ticket" and category != "approval":
-                raise ValueError(
-                    f"{case_id}: ticket effect belongs to approval category"
-                )
+                raise ValueError(f"{case_id}: ticket effect belongs to approval category")
             if change["resource"] == "memory" and category != "memory":
                 raise ValueError(f"{case_id}: memory effect belongs to memory category")
             if change["resource"] == "run" and category != "failure":
@@ -144,9 +121,7 @@ def validate(cases_paths: list[Path], schema_path: Path) -> Counter[str]:
     for cases_path in cases_paths:
         loaded = load_cases(cases_path)
         for line_number, case in enumerate(loaded, start=1):
-            errors = sorted(
-                validator.iter_errors(case), key=lambda error: list(error.path)
-            )
+            errors = sorted(validator.iter_errors(case), key=lambda error: list(error.path))
             if errors:
                 details = "; ".join(error.message for error in errors)
                 raise ValueError(f"{cases_path}:{line_number}: {details}")

@@ -34,9 +34,7 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=ROOT / "reports/retrieval-baseline.json",
     )
-    parser.add_argument(
-        "--json-output", type=Path, default=ROOT / "reports/product-quality.json"
-    )
+    parser.add_argument("--json-output", type=Path, default=ROOT / "reports/product-quality.json")
     parser.add_argument(
         "--summary-output", type=Path, default=ROOT / "reports/evaluation-summary.md"
     )
@@ -86,20 +84,14 @@ def _write_markdown(report: dict[str, Any], summary: Path, performance: Path) ->
     for gate in report["gates"]:
         measurement = gate["measurement"]
         if isinstance(measurement, dict):
-            measurement_text = ", ".join(
-                f"{key}={value}" for key, value in measurement.items()
-            )
+            measurement_text = ", ".join(f"{key}={value}" for key, value in measurement.items())
         else:
             measurement_text = measurement
-        rows.append(
-            f"| {gate['id']} · {gate['name']} | {gate['status']} | {measurement_text} |"
-        )
+        rows.append(f"| {gate['id']} · {gate['name']} | {gate['status']} | {measurement_text} |")
     summary.write_text(
         "# Product quality report — G-01 to G-09\n\n"
         f"Generated from commit `{report['git_revision']}`. Release decision: "
-        f"**{report['release_decision']}**.\n\n"
-        + "\n".join(rows)
-        + "\n\n## Interpretation\n\n"
+        f"**{report['release_decision']}**.\n\n" + "\n".join(rows) + "\n\n## Interpretation\n\n"
         "`not_measured` is intentional: fake-provider contract checks do not establish live "
         "model quality or full-stack latency. Thresholds were not changed after seeing results.\n",
         encoding="utf-8",
@@ -132,13 +124,9 @@ async def main_async() -> None:
     retrieval = _load(args.retrieval_report)
     test_evidence = _load(args.test_evidence) if args.test_evidence.exists() else {}
     load = await measure_local_fake_load()
-    cost = calculate_report_cost(
-        agent, input_price=Decimal("0.40"), output_price=Decimal("1.60")
-    )
+    cost = calculate_report_cost(agent, input_price=Decimal("0.40"), output_price=Decimal("1.60"))
     cases = {case.case_id: case for case in load_cases(agent["split"])}
-    rag_runs = [
-        item for item in agent["cases"] if cases[item["case_id"]].category == "rag"
-    ]
+    rag_runs = [item for item in agent["cases"] if cases[item["case_id"]].category == "rag"]
     citation_valid = sum(item["scores"]["citations_valid"] for item in rag_runs)
     no_answer_runs = [
         item
@@ -200,7 +188,9 @@ async def main_async() -> None:
                 "safety_suite": memory_safety["status"] if memory_safety else "not_run",
                 "scripted_agent_accuracy_denominator": 0,
             },
-            "limitation": "Persistence safety is tested; agent-level memory accuracy is not measured.",
+            "limitation": (
+                "Persistence safety is tested; agent-level memory accuracy is not measured."
+            ),
         },
         {
             "id": "G-09",

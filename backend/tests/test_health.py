@@ -8,7 +8,12 @@ from app.main import create_app
 
 def test_liveness_uses_fake_provider_without_external_services() -> None:
     async def run() -> None:
-        settings = Settings(app_env=AppEnvironment.TEST)
+        settings = Settings(
+            app_env=AppEnvironment.TEST,
+            database_url=None,
+            migration_database_url=None,
+            redis_url=None,
+        )
         app = create_app(settings=settings)
         transport = ASGITransport(app=app)
 

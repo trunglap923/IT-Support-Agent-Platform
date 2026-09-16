@@ -11,11 +11,15 @@ FRONTEND_DEV_CONTAINER ?= it-support-agent-frontend-dev
 COMPOSE ?= docker compose
 COMPOSE_FILE ?= $(CURDIR)/infra/compose.yaml
 COMPOSE_ENV_FILE ?= $(CURDIR)/.env
+COMPOSE_OPS_FILE ?= $(CURDIR)/infra/compose.ops.yaml
+STACK_COMPOSE = $(COMPOSE) --file $(COMPOSE_FILE) --env-file $(COMPOSE_ENV_FILE)
+OPS_COMPOSE = $(COMPOSE) --file $(COMPOSE_FILE) --file $(COMPOSE_OPS_FILE) --env-file $(COMPOSE_ENV_FILE)
 PROJECT_UID := $(shell id -u)
 PROJECT_GID := $(shell id -g)
 FRONTEND_DOCKER = docker run --rm --user $(PROJECT_UID):$(PROJECT_GID) -e npm_config_cache=/tmp/npm-cache -v $(CURDIR)/frontend:/app -w /app $(NODE_IMAGE)
 
-.PHONY: help bootstrap check backend-sync backend-format backend-check \
+.PHONY: help bootstrap bootstrap-host env-init stack-build up down status test \
+	test-e2e eval demo clean-verify check backend-sync backend-format backend-check \
 	frontend-install frontend-check frontend-install-docker frontend-check-docker \
 	frontend-e2e-docker \
 	dev-backend dev-frontend dev-frontend-docker dev-stop spike-openai-live \
@@ -23,13 +27,24 @@ FRONTEND_DOCKER = docker run --rm --user $(PROJECT_UID):$(PROJECT_GID) -e npm_co
 	eval-agent-repro eval-agent-live knowledge-validate retrieval-baseline \
 	wp13-gate-tests quality-report \
 	db-up db-down db-status redis-up redis-down redis-status services-up services-down \
-	migrate seed-demo-user wp02-integration-check wp03-integration-check \
+	migrate seed seed-demo-user wp02-integration-check wp03-integration-check \
 	wp10-integration-check backend-integration-check wp02-check wp03-check \
 	wp12-integration-check wp12-check worker-agent worker-background scheduler
 
 help:
-	@echo "WP-01 commands:"
-	@echo "  make bootstrap              Install locked backend/frontend dependencies"
+	@echo "Primary reproducible commands:"
+	@echo "  make bootstrap              Create local env if needed and build locked images"
+	@echo "  make up                     Build/start the complete seven-service stack"
+	@echo "  make migrate                Run Alembic as an explicit one-shot container"
+	@echo "  make seed                   Seed the demo identity without resetting data"
+	@echo "  make test                   Run backend tests with isolated DB/Redis, then frontend checks"
+	@echo "  make test-e2e               Run browser E2E in pinned Playwright"
+	@echo "  make eval                   Run the deterministic, non-paid evaluation"
+	@echo "  make demo                   Migrate, seed and start the complete demo stack"
+	@echo "  make down                   Stop the stack while preserving all named volumes"
+	@echo "  make clean-verify           Verify build/migrate/seed/health in an isolated project"
+	@echo "Developer commands:"
+	@echo "  make bootstrap-host         Install locked backend/frontend host dependencies"
 	@echo "  make check                  Run all checks using host npm"
 	@echo "  make backend-check          Format check, lint, typecheck and tests"
 	@echo "  make frontend-check         Lint, typecheck, tests and build"
@@ -71,7 +86,43 @@ help:
 	@echo "  make wp02-check             Run all WP-02 backend and frontend checks"
 	@echo "  make wp03-check             Run all WP-03 backend, service and frontend checks"
 
-bootstrap: backend-sync frontend-install
+bootstrap: env-init stack-build
+
+bootstrap-host: backend-sync frontend-install
+
+env-init:
+	@if [ ! -f "$(COMPOSE_ENV_FILE)" ]; then \
+		cp "$(CURDIR)/.env.example" "$(COMPOSE_ENV_FILE)"; \
+		echo "Created .env from .env.example; set DEMO_SEED_PASSWORD before make seed."; \
+	fi
+	@$(COMPOSE) version >/dev/null
+	@$(STACK_COMPOSE) config --quiet
+
+stack-build: env-init
+	$(STACK_COMPOSE) build api frontend
+
+up: env-init
+	$(STACK_COMPOSE) up --detach --build --wait
+
+down:
+	$(STACK_COMPOSE) down
+
+status:
+	$(STACK_COMPOSE) ps
+
+test: env-init
+	bash $(CURDIR)/infra/scripts/run-tests.sh
+
+test-e2e: frontend-e2e-docker
+
+eval: env-init
+	bash $(CURDIR)/infra/scripts/run-eval.sh
+
+demo: migrate seed up
+	@echo "Demo ready at http://127.0.0.1:$${FRONTEND_PORT:-5173}"
+
+clean-verify:
+	bash $(CURDIR)/infra/scripts/clean-verify.sh
 
 check: backend-check frontend-check
 
@@ -89,32 +140,19 @@ backend-check:
 	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --directory backend --frozen pytest
 
 wp02-integration-check:
-	REQUIRE_DATABASE_TESTS=1 UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --directory backend --frozen --env-file $(COMPOSE_ENV_FILE) pytest tests/integration/test_migrations.py tests/integration/test_user_repository.py tests/integration/test_auth_api.py tests/integration/test_conversation_ownership.py
+	RUN_FRONTEND=0 bash $(CURDIR)/infra/scripts/run-tests.sh /app/tests/integration/test_migrations.py /app/tests/integration/test_user_repository.py /app/tests/integration/test_auth_api.py /app/tests/integration/test_conversation_ownership.py
 
 wp03-integration-check:
-	REDIS_URL=$(or $(TEST_REDIS_URL),redis://127.0.0.1:6379/15) TEST_REDIS_URL=$(or $(TEST_REDIS_URL),redis://127.0.0.1:6379/15) REQUIRE_DATABASE_TESTS=1 REQUIRE_REDIS_TESTS=1 UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --directory backend --frozen --env-file $(COMPOSE_ENV_FILE) pytest tests/integration/test_run_state_store.py tests/integration/test_run_enqueue.py tests/integration/test_sse_api.py tests/integration/test_redis_dispatch.py tests/integration/test_health_readiness.py tests/integration/test_auth_rate_limit.py
+	RUN_FRONTEND=0 bash $(CURDIR)/infra/scripts/run-tests.sh /app/tests/integration/test_run_state_store.py /app/tests/integration/test_run_enqueue.py /app/tests/integration/test_sse_api.py /app/tests/integration/test_redis_dispatch.py /app/tests/integration/test_health_readiness.py /app/tests/integration/test_auth_rate_limit.py
 
 wp10-integration-check:
-	REDIS_URL=$(or $(TEST_REDIS_URL),redis://127.0.0.1:6379/15) TEST_REDIS_URL=$(or $(TEST_REDIS_URL),redis://127.0.0.1:6379/15) REQUIRE_DATABASE_TESTS=1 REQUIRE_REDIS_TESTS=1 UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --directory backend --frozen --env-file $(COMPOSE_ENV_FILE) pytest \
-		tests/integration/test_business_reads.py \
-		tests/integration/test_mcp_business_reads.py \
-		tests/integration/test_approval_lifecycle.py \
-		tests/integration/test_approval_checkpoint_resume.py \
-		tests/integration/test_ticket_api.py \
-		tests/integration/test_ticket_write.py \
-		tests/integration/test_operations_api.py \
-		tests/integration/test_redis_dispatch.py \
-		tests/integration/test_workflow_recovery.py \
-		tests/integration/test_workflow_failure_recovery.py
+	RUN_FRONTEND=0 bash $(CURDIR)/infra/scripts/run-tests.sh /app/tests/integration/test_business_reads.py /app/tests/integration/test_mcp_business_reads.py /app/tests/integration/test_approval_lifecycle.py /app/tests/integration/test_approval_checkpoint_resume.py /app/tests/integration/test_ticket_api.py /app/tests/integration/test_ticket_write.py /app/tests/integration/test_operations_api.py /app/tests/integration/test_redis_dispatch.py /app/tests/integration/test_workflow_recovery.py /app/tests/integration/test_workflow_failure_recovery.py
 
 wp12-integration-check:
-	REQUIRE_DATABASE_TESTS=1 UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --directory backend --frozen --env-file $(COMPOSE_ENV_FILE) pytest \
-		tests/integration/test_migrations.py \
-		tests/integration/test_consent_memory.py \
-		tests/integration/test_cross_conversation_memory.py \
-		tests/integration/test_memory_concurrency.py
+	RUN_FRONTEND=0 bash $(CURDIR)/infra/scripts/run-tests.sh /app/tests/integration/test_migrations.py /app/tests/integration/test_consent_memory.py /app/tests/integration/test_cross_conversation_memory.py /app/tests/integration/test_memory_concurrency.py
 
-backend-integration-check: wp02-integration-check wp03-integration-check wp10-integration-check wp12-integration-check
+backend-integration-check:
+	RUN_FRONTEND=0 bash $(CURDIR)/infra/scripts/run-tests.sh /app/tests/integration
 
 wp02-check: backend-check wp02-integration-check frontend-check-docker
 
@@ -215,28 +253,28 @@ quality-report: eval-agent-fake wp13-gate-tests retrieval-baseline
 	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --project backend --frozen python -m evals.runner.quality_report
 
 db-up:
-	$(COMPOSE) --file $(COMPOSE_FILE) --env-file $(COMPOSE_ENV_FILE) up --detach --wait postgres
+	$(STACK_COMPOSE) up --detach --wait postgres
 
 db-down:
-	$(COMPOSE) --file $(COMPOSE_FILE) --env-file $(COMPOSE_ENV_FILE) stop postgres
+	$(STACK_COMPOSE) stop postgres
 
 db-status:
-	$(COMPOSE) --file $(COMPOSE_FILE) --env-file $(COMPOSE_ENV_FILE) ps
+	$(STACK_COMPOSE) ps
 
 redis-up:
-	$(COMPOSE) --file $(COMPOSE_FILE) --env-file $(COMPOSE_ENV_FILE) up --detach --wait redis
+	$(STACK_COMPOSE) up --detach --wait redis
 
 redis-down:
-	$(COMPOSE) --file $(COMPOSE_FILE) --env-file $(COMPOSE_ENV_FILE) stop redis
+	$(STACK_COMPOSE) stop redis
 
 redis-status:
-	$(COMPOSE) --file $(COMPOSE_FILE) --env-file $(COMPOSE_ENV_FILE) ps redis
+	$(STACK_COMPOSE) ps redis
 
 services-up:
-	$(COMPOSE) --file $(COMPOSE_FILE) --env-file $(COMPOSE_ENV_FILE) up --detach --wait postgres redis
+	$(STACK_COMPOSE) up --detach --wait postgres redis
 
 services-down:
-	$(COMPOSE) --file $(COMPOSE_FILE) --env-file $(COMPOSE_ENV_FILE) down
+	$(STACK_COMPOSE) down
 
 worker-agent:
 	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --directory backend --frozen --env-file $(COMPOSE_ENV_FILE) celery -A app.jobs.celery_app:celery_app worker --queues agent --concurrency $${CELERY_AGENT_CONCURRENCY:-2} --loglevel INFO
@@ -247,8 +285,14 @@ worker-background:
 scheduler:
 	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --directory backend --frozen --env-file $(COMPOSE_ENV_FILE) celery -A app.jobs.celery_app:celery_app beat --loglevel INFO
 
-migrate:
-	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --directory backend --frozen --env-file $(COMPOSE_ENV_FILE) alembic -c alembic.ini upgrade head
+migrate: env-init
+	$(STACK_COMPOSE) build api
+	$(STACK_COMPOSE) up --detach --wait postgres redis
+	$(OPS_COMPOSE) run --rm migrate
 
-seed-demo-user:
-	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --directory backend --frozen --env-file $(COMPOSE_ENV_FILE) python -m app.auth.seed_demo_user
+seed: env-init
+	$(STACK_COMPOSE) build api
+	$(STACK_COMPOSE) up --detach --wait postgres redis
+	$(STACK_COMPOSE) run --rm --no-deps api python -m app.auth.seed_demo_user
+
+seed-demo-user: seed

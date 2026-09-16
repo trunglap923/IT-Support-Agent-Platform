@@ -1,0 +1,12 @@
+services:
+  migrate:
+    image: it-support-agent-api:local
+    command: ["alembic", "-c", "alembic.ini", "upgrade", "head"]
+    restart: "no"
+    environment:
+      MIGRATION_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-it_support_agent}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-it_support_agent}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend

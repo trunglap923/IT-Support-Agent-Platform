@@ -69,6 +69,7 @@ services:
     build:
       context: ..
       dockerfile: backend/Dockerfile
+      target: production
     environment:
       <<: *backend-environment
       DEMO_SEED_PASSWORD: ${DEMO_SEED_PASSWORD:-}
