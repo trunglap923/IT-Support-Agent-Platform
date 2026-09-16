@@ -7,28 +7,32 @@ from fastapi import FastAPI
 from redis.asyncio import Redis
 
 from app.api.auth import router as auth_router
+from app.api.conversations import router as conversations_router
 from app.api.health import router as health_router
 from app.api.runs import router as runs_router
 from app.config import Settings
 from app.db import Database
-from app.providers import TextGenerationProvider, create_provider
+from app.jobs.celery_app import celery_app
+from app.jobs.dispatch import CeleryRunDispatcher, RunDispatcher, UnavailableRunDispatcher
+from app.providers import StructuredResponseProvider, create_provider
 from app.request_id import RequestIdMiddleware
 
 
 def create_app(
     settings: Settings | None = None,
-    provider: TextGenerationProvider | None = None,
+    provider: StructuredResponseProvider | None = None,
     database: Database | None = None,
     redis_client: Redis | None = None,
+    run_dispatcher: RunDispatcher | None = None,
 ) -> FastAPI:
     resolved_settings = settings or Settings()
 
     @asynccontextmanager
     async def lifespan(application: FastAPI) -> AsyncIterator[None]:
-        resolved_provider = provider or create_provider(resolved_settings)
         resolved_database = database
         if resolved_database is None and resolved_settings.database_url is not None:
             resolved_database = Database(resolved_settings.database_url.get_secret_value())
+        resolved_provider = provider or create_provider(resolved_settings)
         resolved_redis = redis_client
         if resolved_redis is None and resolved_settings.redis_url is not None:
             resolved_redis = Redis.from_url(
@@ -39,6 +43,15 @@ def create_app(
         application.state.provider = resolved_provider
         application.state.database = resolved_database
         application.state.redis = resolved_redis
+        application.state.run_dispatcher = run_dispatcher or (
+            CeleryRunDispatcher(
+                celery_app,
+                redis_url=resolved_settings.redis_url.get_secret_value(),
+                socket_timeout_seconds=resolved_settings.redis_socket_timeout_seconds,
+            )
+            if resolved_settings.redis_url is not None
+            else UnavailableRunDispatcher()
+        )
         try:
             yield
         finally:
@@ -57,6 +70,7 @@ def create_app(
     application.add_middleware(RequestIdMiddleware)
     application.include_router(health_router, prefix="/api/v1")
     application.include_router(auth_router, prefix="/api/v1")
+    application.include_router(conversations_router, prefix="/api/v1")
     application.include_router(runs_router, prefix="/api/v1")
     return application
 

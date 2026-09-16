@@ -21,6 +21,15 @@ class RunDispatcher(Protocol):
     async def enqueue_run(self, run_id: UUID) -> None: ...
 
 
+class UnavailableRunDispatcher:
+    async def ensure_available(self) -> None:
+        raise BrokerUnavailableError("Redis broker is not configured")
+
+    async def enqueue_run(self, run_id: UUID) -> None:
+        del run_id
+        raise BrokerUnavailableError("Redis broker is not configured")
+
+
 class CeleryRunDispatcher:
     def __init__(
         self,
