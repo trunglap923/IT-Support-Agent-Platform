@@ -18,9 +18,11 @@ Nguồn yêu cầu: [plan.md](../plan.md), đặc biệt mục 21.1. Bản đồ
 - [x] WP-08: approval lifecycle, checkpoint resume và idempotent ticket transaction đã đạt local.
 - [x] WP-09: approval/ticket/IT operations UI cùng browser E2E theo role đã đạt local.
 - [x] WP-10: lease, retry, reconcile, crash/receipt recovery và failure tests đã đạt local.
+- [x] WP-11: upload/preview, version/publish/revoke/ACL và document admin E2E đã đạt local.
+- [x] WP-12: consent memory, device scope, LangGraph context, epoch concurrency và settings UI đã đạt local.
 
-WP-01, compatibility M0 và WP-02..WP-10 đã hoàn thành ở local; CI remote được tạm hoãn
-theo yêu cầu hiện tại. WP-11..WP-14 chưa hoàn thành. Responses
+WP-01, compatibility M0 và WP-02..WP-12 đã hoàn thành ở local; CI remote được tạm hoãn
+theo yêu cầu hiện tại. WP-13..WP-14 chưa hoàn thành. Responses
 live, MCP stdio, PostgreSQL checkpointer, seed contract và 30 evaluation cases đều có bằng
 chứng. Paid/live checks vẫn là opt-in và không chạy trong CI.
 
@@ -100,6 +102,20 @@ reconcile vẫn đạt. Frontend lint/typecheck, 14 unit tests, production build
 journeys theo employee/IT/admin đều đạt. GitHub Actions chưa được chạy theo yêu cầu hiện
 tại. Cleanup approval định kỳ và các phần memory/document admin vẫn thuộc WP sau, không
 được tính là hoàn tất ở đây.
+
+## Checklist WP-11–WP-12
+
+- [x] P50: upload PDF an toàn, MIME/size validation, storage isolation và draft preview.
+- [x] P51: publish/version/revoke/ACL lifecycle; retrieval/history recheck quyền hiện hành.
+- [x] P52: document admin UI và browser E2E upload → process → publish → revoke.
+- [x] P53: consent audit, extraction job và pending candidate; không tự động lưu fact.
+- [x] P54: confirm/reject, device scope và confirmed memory trong LangGraph context.
+- [x] P55: edit/delete optimistic version, epoch protection và memory settings UI.
+
+Bằng chứng local ngày 2026-09-16: backend format/lint/mypy và 72 test không cần service
+đạt; target WP-12 đạt 5 PostgreSQL tests, gồm cross-conversation/device isolation và
+delete-while-job-running. Frontend lint/typecheck, 14 unit tests, production build và cả 7
+Playwright journeys đạt. CI remote vẫn được tạm hoãn theo yêu cầu.
 
 ## Cách dùng kế hoạch
 

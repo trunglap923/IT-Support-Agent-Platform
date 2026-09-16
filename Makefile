@@ -23,7 +23,7 @@ FRONTEND_DOCKER = docker run --rm --user $(PROJECT_UID):$(PROJECT_GID) -e npm_co
 	db-up db-down db-status redis-up redis-down redis-status services-up services-down \
 	migrate seed-demo-user wp02-integration-check wp03-integration-check \
 	wp10-integration-check backend-integration-check wp02-check wp03-check \
-	worker-agent worker-background scheduler
+	wp12-integration-check wp12-check worker-agent worker-background scheduler
 
 help:
 	@echo "WP-01 commands:"
@@ -59,6 +59,7 @@ help:
 	@echo "  make wp02-integration-check  Run DB/migration/auth/ownership tests in isolated databases"
 	@echo "  make wp03-integration-check  Run run-state/enqueue/SSE/Redis service integration tests"
 	@echo "  make wp10-integration-check  Run MCP/approval/ticket/recovery integration tests"
+	@echo "  make wp12-integration-check  Run memory consent/device/epoch integration tests"
 	@echo "  make backend-integration-check  Run all service integration tests"
 	@echo "  make wp02-check             Run all WP-02 backend and frontend checks"
 	@echo "  make wp03-check             Run all WP-03 backend, service and frontend checks"
@@ -99,11 +100,20 @@ wp10-integration-check:
 		tests/integration/test_workflow_recovery.py \
 		tests/integration/test_workflow_failure_recovery.py
 
-backend-integration-check: wp02-integration-check wp03-integration-check wp10-integration-check
+wp12-integration-check:
+	REQUIRE_DATABASE_TESTS=1 UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --directory backend --frozen --env-file $(COMPOSE_ENV_FILE) pytest \
+		tests/integration/test_migrations.py \
+		tests/integration/test_consent_memory.py \
+		tests/integration/test_cross_conversation_memory.py \
+		tests/integration/test_memory_concurrency.py
+
+backend-integration-check: wp02-integration-check wp03-integration-check wp10-integration-check wp12-integration-check
 
 wp02-check: backend-check wp02-integration-check frontend-check-docker
 
 wp03-check: backend-check wp03-integration-check frontend-check-docker
+
+wp12-check: backend-check wp12-integration-check frontend-check-docker frontend-e2e-docker
 
 frontend-install:
 	$(NPM) --prefix frontend ci

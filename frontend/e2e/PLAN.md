@@ -1,6 +1,6 @@
 # Kiểm thử trình duyệt end-to-end
 
-Trạng thái: Playwright foundation và ticket/approval/operations role journeys WP-09 đã triển khai local.
+Trạng thái: Playwright bao phủ ticket/operations, document admin và memory lifecycle local.
 Work packages: WP-06, WP-09, WP-11, WP-12, WP-13.
 Nguồn: [kế hoạch tổng](../../plan.md), mục 4, 19, 22; [thứ tự triển khai](../../docs/implementation-roadmap.md).
 
@@ -40,7 +40,7 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [x] E2E-03a: Kiểm thử approve/reject, manual ticket form và IT resolve/reopen.
 - [ ] E2E-03b: Bổ sung browser race cho approve hai lần và expiry.
 - [x] E2E-04a: Kiểm thử admin upload/preview/process/publish/revoke và employee UI denial.
-- [ ] E2E-04b: Kiểm thử memory cross-conversation/consent/delete ở WP-12.
+- [x] E2E-04b: Kiểm thử UI consent/device/confirm/edit/delete; backend kiểm tra cross-conversation/epoch.
 - [x] E2E-05: Thu screenshot/trace khi thất bại; suite dùng identity/token giả không nhạy cảm.
 
 ## Điều kiện hoàn thành

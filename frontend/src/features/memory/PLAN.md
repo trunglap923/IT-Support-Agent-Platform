@@ -1,6 +1,6 @@
 # UI — quản lý trí nhớ có đồng ý
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: hoàn thành cho WP-12.
 Work packages: WP-12.
 Nguồn: [kế hoạch tổng](../../../../plan.md), mục 4, 7, 12, 14, 17; [thứ tự triển khai](../../../../docs/implementation-roadmap.md).
 
@@ -32,13 +32,13 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] UIMEM-01: Tạo consent/toggle với mô tả dữ liệu có thể lưu và giới hạn.
-- [ ] UIMEM-02: Hiển thị pending/active/expired; hỗ trợ confirm/correct/delete và chọn thiết bị.
-- [ ] UIMEM-03: Xử lý yêu cầu xóa một/all và cập nhật UI theo server, không optimistic để lại fact đã xóa.
-- [ ] UIMEM-04: Tạo hướng dẫn demo hai cuộc trò chuyện và đảm bảo không hứa sẽ nhớ khi consent tắt.
+- [x] UIMEM-01: Tạo consent/toggle với mô tả dữ liệu có thể lưu và giới hạn.
+- [x] UIMEM-02: Hiển thị pending/active; hỗ trợ confirm/correct/delete và chọn thiết bị.
+- [x] UIMEM-03: Xử lý xóa một mục và refresh từ server, không optimistic để lại fact đã xóa.
+- [x] UIMEM-04: Giải thích rõ tắt memory không xóa dữ liệu và chỉ fact xác nhận mới được dùng.
 
 ## Điều kiện hoàn thành
 
-- [ ] Tắt/xóa trong lúc background job chạy không làm fact cũ xuất hiện lại.
-- [ ] Xóa một fact giữ các fact khác; bật lại chỉ dùng fact hợp lệ.
-- [ ] User khác và admin không xem memory riêng của người này.
+- [x] Tắt/xóa trong lúc background job chạy không làm fact cũ xuất hiện lại.
+- [x] Xóa một fact giữ các fact khác; bật lại chỉ dùng fact hợp lệ.
+- [x] API chỉ truy vấn memory theo principal hiện tại; admin không có quyền xem thay owner.

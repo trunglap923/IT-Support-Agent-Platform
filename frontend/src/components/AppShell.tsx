@@ -7,6 +7,7 @@ const navItems = [
   { to: "/", label: "Tổng quan", end: true },
   { to: "/chat", label: "Chat" },
   { to: "/tickets", label: "Ticket" },
+  { to: "/settings/memory", label: "Memory" },
 ];
 
 export function AppShell() {

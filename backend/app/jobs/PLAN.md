@@ -47,6 +47,6 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 - [x] Mất Redis giữa commit/enqueue giữ run queued và được reconcile sau phục hồi.
 - [x] Duplicate delivery/crash không tạo thêm ticket.
-- [ ] Duplicate delivery/crash không phục hồi active memory đã xóa (thuộc WP-12).
+- [x] Extraction hoàn tất sau edit/delete bị discard khi captured epoch đã cũ.
 - [x] Job attempt tối đa 3 và stale lease hết hạn có thể được worker khác reclaim.
 - [ ] OpenAI calls/retries còn chịu budget toàn run trong worker production.

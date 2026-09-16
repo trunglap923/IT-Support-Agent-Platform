@@ -160,6 +160,36 @@ textarea {
 .document-preview > div { display: flex; justify-content: space-between; }
 .document-preview article { border-top: 1px solid rgb(22 34 28 / 10%); padding-top: 0.8rem; }
 
+.memory-page { display: grid; gap: 2rem; }
+.memory-page > header h1 { font-family: Georgia, serif; font-size: clamp(2.4rem, 5vw, 4.5rem); font-weight: 500; }
+.memory-consent-card,
+.memory-section,
+.memory-grid article { border: 1px solid rgb(22 34 28 / 12%); border-radius: 1rem; background: rgb(255 255 255 / 58%); }
+.memory-consent-card { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.2rem; }
+.memory-consent-card p { margin-bottom: 0; color: #536158; }
+.memory-consent-card button { border: 1px solid rgb(22 34 28 / 20%); cursor: pointer; }
+.memory-section { padding: 1.2rem; }
+.device-form { display: grid; grid-template-columns: 1fr 1fr auto; gap: 0.8rem; align-items: end; }
+.device-form label,
+.memory-grid label { display: grid; gap: 0.35rem; color: #536158; font-size: 0.8rem; font-weight: 700; }
+.device-form input,
+.device-form select,
+.memory-grid input,
+.memory-grid select { border: 1px solid rgb(22 34 28 / 20%); border-radius: 0.65rem; padding: 0.7rem; background: #fbfaf6; }
+.device-form button { border: 0; }
+.device-list { display: flex; gap: 0.6rem; margin: 1rem 0 0; padding: 0; list-style: none; }
+.device-list li { border-radius: 999px; padding: 0.5rem 0.75rem; background: #e1e8df; font-weight: 700; }
+.device-list small { margin-left: 0.5rem; color: #68766e; font-weight: 500; }
+.memory-grid { display: grid; gap: 0.8rem; }
+.memory-grid article { padding: 1rem; }
+.memory-grid article > span { color: #68766e; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; }
+.memory-grid article > p { margin-top: 0.7rem; color: #536158; }
+.memory-grid form { display: grid; gap: 0.7rem; }
+.memory-grid form > div { display: flex; gap: 0.5rem; }
+.memory-grid button { border: 1px solid rgb(22 34 28 / 20%); border-radius: 0.65rem; padding: 0.65rem 0.85rem; cursor: pointer; }
+.memory-grid .primary-button { border: 0; }
+.danger-button { color: #8e3d28; background: #f7e3dc; }
+
 .app-frame {
   min-height: 100vh;
 }

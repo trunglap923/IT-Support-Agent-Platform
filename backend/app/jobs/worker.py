@@ -12,6 +12,7 @@ from app.agent.rag import RAGGraphNodes
 from app.auth.principal import Principal
 from app.db import Database
 from app.db.models import Conversation, Message, RunStatus
+from app.memory.lifecycle import MemoryLifecycleService
 from app.memory.retrieval import MemoryContextService
 from app.observability import AIObserver, NoopAIObserver
 from app.providers.base import StructuredResponseProvider
@@ -97,14 +98,15 @@ async def execute_support_run(
             user = await UserRepository().get_by_id(session, actor_id)
             if user is None:
                 raise LookupError("Run actor no longer exists")
-            query = await session.scalar(
-                select(Message.content)
+            user_message = await session.scalar(
+                select(Message)
                 .where(Message.run_id == run_id, Message.role == "user")
                 .order_by(Message.created_at.desc())
                 .limit(1)
             )
-            if query is None:
+            if user_message is None:
                 raise LookupError("Run has no user message")
+            query = user_message.content
             conversation_device_id = await session.scalar(
                 select(Conversation.device_id).where(Conversation.id == conversation_id)
             )
@@ -159,6 +161,11 @@ async def execute_support_run(
                     outcome=result["outcome"],
                     citations=result.get("citations", []),
                 )
+            )
+            await MemoryLifecycleService().extract_from_message(
+                session,
+                owner_id=actor_id,
+                source_message_id=user_message.id,
             )
             transition = await state.transition(
                 session,

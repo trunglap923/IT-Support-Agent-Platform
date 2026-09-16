@@ -138,20 +138,45 @@ class MemoryLifecycleService:
         source_message_id: UUID,
         now: datetime | None = None,
     ) -> ExtractionResult | None:
+        job = await self.start_extraction_job(
+            session,
+            owner_id=owner_id,
+            source_message_id=source_message_id,
+        )
+        if job is None:
+            return None
+        if job.status != "pending":
+            candidates = tuple(
+                await session.scalars(
+                    select(MemoryCandidate)
+                    .where(MemoryCandidate.job_id == job.id)
+                    .order_by(MemoryCandidate.created_at, MemoryCandidate.id)
+                )
+            )
+            return ExtractionResult(job=job, candidates=candidates, created=False)
+        return await self.complete_extraction_job(
+            session,
+            owner_id=owner_id,
+            job_id=job.id,
+            now=now,
+        )
+
+    async def start_extraction_job(
+        self,
+        session: AsyncSession,
+        *,
+        owner_id: UUID,
+        source_message_id: UUID,
+    ) -> MemoryExtractionJob | None:
         existing = await session.scalar(
             select(MemoryExtractionJob).where(
                 MemoryExtractionJob.source_message_id == source_message_id
             )
         )
         if existing is not None:
-            candidates = tuple(
-                await session.scalars(
-                    select(MemoryCandidate)
-                    .where(MemoryCandidate.job_id == existing.id)
-                    .order_by(MemoryCandidate.created_at, MemoryCandidate.id)
-                )
-            )
-            return ExtractionResult(job=existing, candidates=candidates, created=False)
+            if existing.owner_id != owner_id:
+                raise MemoryConflictError("Memory source must be an owned user message")
+            return existing
 
         user = await session.scalar(select(User).where(User.id == owner_id).with_for_update())
         if user is None:
@@ -171,17 +196,58 @@ class MemoryLifecycleService:
         if message_owner_id != owner_id or message.role != "user":
             raise MemoryConflictError("Memory source must be an owned user message")
 
-        current_time = now or datetime.now(UTC)
         job = MemoryExtractionJob(
             owner_id=owner_id,
             run_id=message.run_id,
             source_message_id=message.id,
             captured_epoch=user.memory_epoch,
-            status="completed",
-            completed_at=current_time,
+            status="pending",
         )
         session.add(job)
         await session.flush()
+        return job
+
+    async def complete_extraction_job(
+        self,
+        session: AsyncSession,
+        *,
+        owner_id: UUID,
+        job_id: UUID,
+        now: datetime | None = None,
+    ) -> ExtractionResult:
+        current_time = now or datetime.now(UTC)
+        job = await session.scalar(
+            select(MemoryExtractionJob)
+            .where(MemoryExtractionJob.id == job_id, MemoryExtractionJob.owner_id == owner_id)
+            .with_for_update()
+        )
+        if job is None:
+            raise MemoryNotFoundError("Memory extraction job not found")
+        if job.status != "pending":
+            candidates = tuple(
+                await session.scalars(
+                    select(MemoryCandidate)
+                    .where(MemoryCandidate.job_id == job.id)
+                    .order_by(MemoryCandidate.created_at, MemoryCandidate.id)
+                )
+            )
+            return ExtractionResult(job=job, candidates=candidates, created=False)
+        user = await session.scalar(select(User).where(User.id == owner_id).with_for_update())
+        if user is None:
+            raise MemoryNotFoundError("User not found")
+        if not user.memory_enabled or user.memory_epoch != job.captured_epoch:
+            job.status = "discarded"
+            job.error_code = "stale_memory_epoch"
+            job.completed_at = current_time
+            await session.flush()
+            return ExtractionResult(job=job, candidates=(), created=False)
+        message = await session.get(Message, job.source_message_id)
+        if message is None:
+            job.status = "failed"
+            job.error_code = "source_message_missing"
+            job.completed_at = current_time
+            await session.flush()
+            return ExtractionResult(job=job, candidates=(), created=False)
         candidates = tuple(
             MemoryCandidate(
                 job_id=job.id,
@@ -196,6 +262,8 @@ class MemoryLifecycleService:
             for proposal in extract_candidate_proposals(message.content)
         )
         session.add_all(candidates)
+        job.status = "completed"
+        job.completed_at = current_time
         await session.flush()
         return ExtractionResult(job=job, candidates=candidates, created=True)
 
@@ -350,3 +418,70 @@ class MemoryLifecycleService:
                 .order_by(MemoryFact.updated_at.desc(), MemoryFact.id)
             )
         )
+
+    async def update_fact(
+        self,
+        session: AsyncSession,
+        *,
+        owner_id: UUID,
+        fact_id: UUID,
+        expected_version: int,
+        value: str,
+    ) -> MemoryFact:
+        user, fact = await self._locked_user_and_fact(
+            session,
+            owner_id=owner_id,
+            fact_id=fact_id,
+        )
+        if fact.version != expected_version:
+            raise MemoryConflictError("Memory fact changed; refresh and retry")
+        normalized = " ".join(value.strip().split())
+        if not normalized or len(normalized) > 240:
+            raise MemoryConflictError("Memory value must contain 1 to 240 characters")
+        fact.value = normalized
+        fact.version += 1
+        user.memory_epoch += 1
+        await session.flush()
+        return fact
+
+    async def delete_fact(
+        self,
+        session: AsyncSession,
+        *,
+        owner_id: UUID,
+        fact_id: UUID,
+        expected_version: int,
+        now: datetime | None = None,
+    ) -> None:
+        user, fact = await self._locked_user_and_fact(
+            session,
+            owner_id=owner_id,
+            fact_id=fact_id,
+        )
+        if fact.version != expected_version:
+            raise MemoryConflictError("Memory fact changed; refresh and retry")
+        fact.deleted_at = now or datetime.now(UTC)
+        fact.version += 1
+        user.memory_epoch += 1
+        await session.flush()
+
+    async def _locked_user_and_fact(
+        self,
+        session: AsyncSession,
+        *,
+        owner_id: UUID,
+        fact_id: UUID,
+    ) -> tuple[User, MemoryFact]:
+        user = await session.scalar(select(User).where(User.id == owner_id).with_for_update())
+        fact = await session.scalar(
+            select(MemoryFact)
+            .where(
+                MemoryFact.id == fact_id,
+                MemoryFact.owner_id == owner_id,
+                MemoryFact.deleted_at.is_(None),
+            )
+            .with_for_update()
+        )
+        if user is None or fact is None:
+            raise MemoryNotFoundError("Memory fact not found")
+        return user, fact

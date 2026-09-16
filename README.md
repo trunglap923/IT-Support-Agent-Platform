@@ -80,6 +80,9 @@ khởi động Vite riêng cho suite và chạy các hành trình approval/ticke
 liệu giả lập. Suite không thay đổi database development và không gọi OpenAI.
 `make wp10-integration-check` tạo database PostgreSQL tạm và dùng Redis DB 15 để kiểm tra
 MCP, approval/checkpoint, ticket transaction, lease/reconcile và failure recovery.
+`make wp12-integration-check` kiểm tra consent, candidate confirmation, device isolation và
+epoch protection trên các database PostgreSQL tạm; `make wp12-check` chạy cả backend,
+frontend và browser E2E.
 
 Celery có hai worker riêng và một beat scheduler. Sau `make services-up`, có thể mở ba
 terminal khác nhau để chạy `make worker-agent`, `make worker-background` và
@@ -89,6 +92,8 @@ còn PostgreSQL là nguồn trạng thái.
 Sau khi đăng nhập, route `/chat` cho phép tạo conversation/message, theo dõi run bằng SSE
 và hiển thị câu trả lời/citation. Route `/tickets` cung cấp ticket cá nhân và approval;
 `/operations` dành cho IT/admin, nhưng chỉ admin được đổi service state mô phỏng.
+Admin quản lý version tài liệu tại `/admin/documents`; mọi người dùng quản lý consent,
+thiết bị, candidate và memory đã xác nhận tại `/settings/memory`.
 
 Chạy hai terminal để xem giao diện. Backend development bind vào `0.0.0.0` để
 frontend trong Docker có thể gọi API qua Docker host gateway; frontend chỉ được

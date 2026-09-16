@@ -1,6 +1,6 @@
 # HTTP API và SSE
 
-Trạng thái: auth/run/chat cùng approval/ticket/service routes WP-02–WP-10 đã triển khai; document/memory routes thuộc WP sau.
+Trạng thái: auth/run/chat, approval/ticket/service, document và memory routes đã triển khai.
 Work packages: WP-02, WP-03, WP-08, WP-11, WP-12.
 Nguồn: [kế hoạch tổng](../../../plan.md), mục 14; [thứ tự triển khai](../../../docs/implementation-roadmap.md).
 
@@ -45,7 +45,7 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [x] API-04a: Bổ sung routes approval, ticket IT/service status và manual ticket draft.
 - [x] API-04b1: Bổ sung admin PDF upload và draft preview routes.
 - [x] API-04b2a: Bổ sung document version/process/publish/revoke/ACL routes.
-- [ ] API-04b2b: Bổ sung memory routes ở WP-12.
+- [x] API-04b2b: Bổ sung owner-scoped consent/device/candidate/fact memory routes.
 - [ ] API-05: Chuẩn hóa 401/403/404/409/410/413/422/429/503, cursor pagination và Retry-After.
 
 ## Điều kiện hoàn thành

@@ -85,6 +85,13 @@ class MemoryFactResponse(BaseModel):
     expires_at: datetime
 
 
+class UpdateFactRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expected_version: int = Field(ge=1)
+    value: str = Field(min_length=1, max_length=240)
+
+
 @router.get("/consent", response_model=ConsentResponse)
 async def get_consent(
     principal: CurrentPrincipal,
@@ -229,3 +236,53 @@ async def list_facts(
 ) -> list[MemoryFactResponse]:
     values = await MemoryLifecycleService().list_facts(session, owner_id=principal.user_id)
     return [MemoryFactResponse.model_validate(value) for value in values]
+
+
+@router.patch(
+    "/facts/{fact_id}",
+    response_model=MemoryFactResponse,
+    dependencies=[Depends(require_csrf)],
+)
+async def update_fact(
+    fact_id: UUID,
+    payload: UpdateFactRequest,
+    principal: CurrentPrincipal,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> MemoryFactResponse:
+    try:
+        value = await MemoryLifecycleService().update_fact(
+            session,
+            owner_id=principal.user_id,
+            fact_id=fact_id,
+            expected_version=payload.expected_version,
+            value=payload.value,
+        )
+        await session.commit()
+    except (MemoryConflictError, MemoryNotFoundError) as error:
+        await session.rollback()
+        raise _memory_error(error) from error
+    return MemoryFactResponse.model_validate(value)
+
+
+@router.delete(
+    "/facts/{fact_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_csrf)],
+)
+async def delete_fact(
+    fact_id: UUID,
+    expected_version: int,
+    principal: CurrentPrincipal,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> None:
+    try:
+        await MemoryLifecycleService().delete_fact(
+            session,
+            owner_id=principal.user_id,
+            fact_id=fact_id,
+            expected_version=expected_version,
+        )
+        await session.commit()
+    except (MemoryConflictError, MemoryNotFoundError) as error:
+        await session.rollback()
+        raise _memory_error(error) from error
