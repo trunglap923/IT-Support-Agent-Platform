@@ -20,11 +20,13 @@ Nguồn yêu cầu: [plan.md](../plan.md), đặc biệt mục 21.1. Bản đồ
 - [x] WP-10: lease, retry, reconcile, crash/receipt recovery và failure tests đã đạt local.
 - [x] WP-11: upload/preview, version/publish/revoke/ACL và document admin E2E đã đạt local.
 - [x] WP-12: consent memory, device scope, LangGraph context, epoch concurrency và settings UI đã đạt local.
+- [x] WP-13: 120-case dataset, deterministic/live-guarded runner, feedback và G-01–G-09 reports đã có; overall gate decision vẫn `not_ready`.
+- [x] WP-14: production images, 7-service stack, reproducible commands, backup/restore, CI definition và handoff docs đã đạt local; independent review/video/remote CI còn mở.
 
-WP-01, compatibility M0 và WP-02..WP-12 đã hoàn thành ở local; CI remote được tạm hoãn
-theo yêu cầu hiện tại. WP-13..WP-14 chưa hoàn thành. Responses
-live, MCP stdio, PostgreSQL checkpointer, seed contract và 30 evaluation cases đều có bằng
-chứng. Paid/live checks vẫn là opt-in và không chạy trong CI.
+WP-01, compatibility M0 và WP-02..WP-14 đã hoàn thành theo phạm vi implementation/local
+verification. Điều này không đồng nghĩa release-ready: G-05..G-09, full demo seed, manual
+UC-01..UC-12, video, independent clean-machine review và GitHub-hosted CI evidence còn thiếu.
+Paid/live checks vẫn opt-in và không chạy trong CI.
 
 ## Checklist WP-03
 
@@ -116,6 +118,30 @@ Bằng chứng local ngày 2026-09-16: backend format/lint/mypy và 72 test khô
 đạt; target WP-12 đạt 5 PostgreSQL tests, gồm cross-conversation/device isolation và
 delete-while-job-running. Frontend lint/typecheck, 14 unit tests, production build và cả 7
 Playwright journeys đạt. CI remote vẫn được tạm hoãn theo yêu cầu.
+
+## Checklist WP-13
+
+- [x] P56: evaluation dataset 120 case, cân bằng 20 case cho mỗi nhóm RAG/permission/tool/approval/memory/failure.
+- [x] P57: deterministic fake runner, guarded live runner, rubrics và reproducibility digest.
+- [x] P58: feedback API/UI, gate regression evidence, latency/cost report và G-01..G-09 output.
+
+G-01..G-04 pass trên named local suites/development corpus. G-05..G-09 là
+`not_measured`; fake/scripted results không được dùng làm semantic/live/full-stack claim.
+Xem `reports/evaluation-summary.md` và `reports/product-quality.json`.
+
+## Checklist WP-14
+
+- [x] P59: production backend/frontend images, pinned bases, non-root và healthchecks.
+- [x] P60: complete seven-service Compose stack, health dependencies, private datastore network và persistent volumes.
+- [x] P61: bootstrap/up/migrate/seed/test/test-e2e/eval/demo/clean verification commands đã chạy local.
+- [x] P62: PostgreSQL/document backup manifest và restore drill trong DB/volume tạm.
+- [x] P63: CI jobs cho secrets, static/unit, contracts, clean migration, service integration, browser E2E và image build; không deploy.
+- [x] P64: README, architecture, demo script, troubleshooting, link validation và release checklist G-10.
+
+Bằng chứng P59–P64 local ngày 2026-09-16: 7/7 service healthy trên fresh volumes; 16
+migration revisions; backend 113 pass/1 skip; frontend 15 pass/build; Playwright 7 pass;
+120 case valid, 160 reproducible runs; backup restore và cleanup pass. G-10 là
+`local_pass_independent_review_pending`; overall decision vẫn `not_ready`.
 
 ## Cách dùng kế hoạch
 

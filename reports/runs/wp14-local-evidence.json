@@ -1,0 +1,77 @@
+{
+  "schema_version": "wp14-local-evidence-v1",
+  "observed_date": "2026-09-16",
+  "environment": "local-docker-linux",
+  "ai_mode": "fake",
+  "paid_calls": false,
+  "source_commits": {
+    "commands": "f0175a2",
+    "backup_restore": "08f841c",
+    "ci_definition": "254754a"
+  },
+  "checks": {
+    "clean_stack": {
+      "status": "pass",
+      "services_healthy": 7,
+      "services_total": 7,
+      "fresh_volumes": true,
+      "migration_head": "0016_message_feedback"
+    },
+    "demo_target": {
+      "status": "pass",
+      "migration": "pass",
+      "seed": "pass",
+      "services_healthy": 7
+    },
+    "backend": {
+      "status": "pass",
+      "passed": 113,
+      "skipped": 1
+    },
+    "frontend": {
+      "status": "pass",
+      "unit_tests_passed": 15,
+      "lint": "pass",
+      "typecheck": "pass",
+      "production_build": "pass"
+    },
+    "browser_e2e": {
+      "status": "pass",
+      "passed": 7
+    },
+    "contracts": {
+      "status": "pass",
+      "passed": 7
+    },
+    "evaluation": {
+      "status": "pass",
+      "cases_valid": 120,
+      "reproducibility_runs": 160,
+      "result_digest": "a2f9301a89d624fc7576dcec4cccf89f98b4c28b2be0a7ee381c31c20de45290"
+    },
+    "backup_restore": {
+      "status": "pass",
+      "manifest_verified": true,
+      "isolated_database": true,
+      "isolated_document_volume": true,
+      "temporary_targets_cleaned": true
+    },
+    "documentation_links": {
+      "status": "pass",
+      "relative_links_checked": 494
+    },
+    "github_actions_remote": {
+      "status": "not_run"
+    },
+    "independent_clean_machine": {
+      "status": "not_run"
+    }
+  },
+  "g10_status": "local_pass_independent_review_pending",
+  "overall_release_decision": "not_ready",
+  "limitations": [
+    "G-05 through G-09 remain not_measured.",
+    "Full multi-role demo seed and manual UC-01 through UC-12 evidence are not available.",
+    "Local isolated Docker verification is not independent reviewer evidence."
+  ]
+}

@@ -1,45 +1,78 @@
-# Kịch bản demo dự kiến
+# Kịch bản demo và bằng chứng
 
-Trạng thái: checklist cho M2 và M7; chưa phải kết quả demo đã chạy.
+Kịch bản này phân biệt hai chế độ:
 
-Nguồn: [use cases và Definition of Done](../plan.md), [roadmap](implementation-roadmap.md).
+- **Automated portfolio demo**: đã chạy bằng fake provider/fixtures, deterministic, không cần paid key.
+- **Manual V1 demo**: cần full role/business seed và corpus publish; hiện chưa có seed command hoàn chỉnh nên các bước này chưa được tuyên bố đã chạy end-to-end thủ công.
 
-## Chuẩn bị
+## Chuẩn bị automated demo
 
-- [ ] Chạy stack/migrations/seed bằng các lệnh đã triển khai và kiểm chứng ở thời điểm demo.
-- [ ] Dùng account giả Engineering employee, Engineering IT, Operations employee và admin; không ghi password/key vào video.
-- [ ] Corpus đã publish, status mô phỏng có nhãn rõ, quota đủ cho demo; chọn live hay fake và ghi rõ.
-- [ ] Biết cách mở trace đã lọc, ticket detail và nguồn tài liệu. Fake demo chỉ minh họa hành vi, không minh chứng model quality.
-- [ ] Với demo V1, bật memory trước hội thoại đầu và xác nhận fact thiết bị được đề xuất ở bước 1; không bật muộn rồi trông đợi ứng dụng tự quét ticket cũ.
+```bash
+cp .env.example .env
+# đặt POSTGRES_PASSWORD và DEMO_SEED_PASSWORD
+make clean-verify
+make test
+make test-e2e
+make eval
+```
 
-## Demo sớm M2
+Kết quả local gần nhất: clean stack 7/7 healthy; backend 113 pass/1 skip; frontend 15 pass; Playwright 7 pass; evaluation 120 case hợp lệ và 160 deterministic runs tái lập.
 
-1. Login employee, mở chat và hỏi cách cài VPN trên Ubuntu.
-2. Thấy trạng thái tra cứu; mở citation đúng tài liệu/trang/section.
-3. Hỏi câu ngoài corpus: agent hỏi thêm hoặc nói thiếu căn cứ.
-4. Refresh, vẫn xem được lịch sử mà không tự gửi lại câu hỏi.
-5. Đối chiếu trace và baseline đo được; nêu rõ ticket/MCP/memory chưa phải điều kiện M2.
+## Demo giao diện tối thiểu
 
-## Demo V1
+```bash
+make migrate
+make seed
+make up
+```
 
-| Bước | Thao tác | Bằng chứng mong đợi |
+1. Mở `http://127.0.0.1:5173`.
+2. Login `employee.engineering@example.com` bằng `DEMO_SEED_PASSWORD`.
+3. Mở `/chat`, tạo conversation và quan sát message/run status/SSE UI.
+4. Mở `/tickets` và `/settings/memory` để trình bày các state/error/consent controls.
+5. Chỉ gọi đây là wiring demo khi đang dùng fake provider và seed tối thiểu.
+
+## Automated feature evidence
+
+| Hành vi | Cách trình bày | Bằng chứng |
 |---|---|---|
-| 1 | Báo Docker certificate trên laptop Ubuntu | Hỏi phần còn thiếu, tìm đúng runbook và citation |
-| 2 | Xác nhận bước đã thử nhưng vẫn lỗi, yêu cầu ticket | Preview có nội dung/severity/device/expiry; chưa có ticket mới |
-| 3 | Refresh rồi approve hai lần | Preview phục hồi; đúng một ticket với ID từ DB |
-| 4 | IT đúng phòng ban cập nhật ticket resolved | Trạng thái/audit đúng, không coi lúc tạo ticket là resolved |
-| 5 | Mở memory settings kiểm tra fact đã xác nhận và sự cố vừa xử lý | Fact đúng thiết bị; incident record đã tồn tại phản ánh ticket resolved |
-| 6 | Tạo conversation mới hỏi về máy hôm trước | Đúng thiết bị/sự cố; hỏi lại khi có nhiều khả năng |
-| 7 | Xóa/tắt memory rồi mở lượt mới | Không dùng lại fact đã xóa/tắt |
-| 8 | Đổi sang user khác thử link ticket/source riêng | Không lộ nội dung hoặc tiêu đề trái quyền |
-| 9 | Admin đổi VPN sang down mô phỏng, hỏi qua chat | Business tool thật qua MCP; trả status + thời điểm + nhãn mô phỏng |
-| 10 | Admin upload version mới, chờ ready rồi publish | Câu trả lời mới dùng version hiện hành, ACL vẫn đúng |
+| RAG có nguồn/no-answer | Chạy PostgreSQL system tests và retrieval baseline | `reports/rag-chat-baseline.md`, `reports/retrieval-baseline.md` |
+| MCP actor isolation | Chạy contract/integration suite | `backend/tests/contract`, `backend/tests/integration/test_mcp_business_reads.py` |
+| Approve/reject/double approve | Playwright + DB integration | `frontend/e2e/ticket-workflows.pw.ts`, ticket/approval tests |
+| Resolve/reopen và role denial | Playwright deterministic workflow | `make test-e2e` |
+| Document publish/revoke/ACL | Document browser workflow + PostgreSQL tests | `frontend/e2e/document-administration.pw.ts` |
+| Memory confirm/edit/delete | Memory browser workflow + epoch tests | `frontend/e2e/memory-lifecycle.pw.ts` |
+| Redis/worker failure recovery | Required integration tests | workflow recovery/failure recovery tests |
+| Reproducible stack | Fresh Compose project/volumes | `make clean-verify` |
+| Backup/restore | Isolated DB + volume drill | `make backup && make restore-test` |
 
-Test recovery/Redis/worker crash nên trình bày bằng automated test và một tình huống kiểm soát; không gây lỗi vào database đang chứa dữ liệu cần giữ chỉ để quay video.
+## Manual V1 scenario sau khi có full seed
 
-## Bàn giao
+1. Employee hỏi cách xử lý Docker certificate; agent tìm runbook hiện hành và trả citation.
+2. Khi thiếu evidence, agent hỏi thêm hoặc no-answer thay vì bịa.
+3. Employee yêu cầu ticket; UI hiện draft/expiry, chưa có ticket trước approval.
+4. Refresh, approve hai lần; DB chỉ có một ticket/receipt.
+5. IT đúng scope resolve rồi reopen; employee khác không đọc được ticket.
+6. Admin publish version tài liệu mới/revoke cũ; answer/history/source không lộ version bị thu hồi.
+7. User bật memory, xác nhận device fact; conversation mới dùng đúng device. Sau delete/disable, lượt mới không dùng lại.
+8. Admin đổi service status mô phỏng; agent đọc status qua MCP với trusted actor context.
+9. Mở Langfuse trace đã lọc nếu có cấu hình live; không hiển thị secret/session/raw sensitive prompt.
 
-- [ ] Video ngắn có luồng chính, link nguồn và giới hạn còn lại.
-- [ ] Link [reports](../reports/PLAN.md) cho metrics; không dùng con số mục tiêu làm kết quả.
-- [ ] Có kết quả clean-machine và restore drill vào target test riêng.
-- [ ] Phân biệt rõ dữ liệu mô phỏng, hành vi fake provider và kết quả dùng model thật.
+## Live-model demo tùy chọn
+
+Chỉ chạy khi chấp nhận chi phí và đã đặt `OPENAI_API_KEY`:
+
+```bash
+RUN_OPENAI_LIVE_SPIKE=1 make spike-openai-live
+RUN_LIVE_EVAL=1 make eval-agent-live
+```
+
+Ghi rõ model snapshot, số lần chạy, token/cost và không dùng một lần demo thành tuyên bố chất lượng. Báo cáo hiện tại vẫn `not_ready` vì G-05–G-09 chưa được đo đủ.
+
+## Nội dung chưa được tuyên bố hoàn tất
+
+- video 3–5 phút chưa được ghi;
+- full six-user/ticket/service/document seed chưa được triển khai;
+- manual UC-01–UC-12 chưa có evidence trên một seeded environment;
+- GitHub-hosted CI chưa có remote run evidence;
+- production deployment/operations không nằm trong giai đoạn này.

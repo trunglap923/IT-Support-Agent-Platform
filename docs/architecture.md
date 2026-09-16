@@ -1,68 +1,73 @@
-# Bản đồ kiến trúc và trách nhiệm
+# Kiến trúc hệ thống
 
-Trạng thái: thiết kế đích; mới khởi tạo thư mục và kế hoạch, chưa có tiến trình chạy.
+Trạng thái: kiến trúc V1 đã được triển khai local; production operation và live quality gates còn ngoài phạm vi bằng chứng hiện tại.
 
-Nguồn yêu cầu: [kế hoạch tổng, mục 5](../plan.md). Thứ tự viết code: [roadmap](implementation-roadmap.md).
-
-## Các đường chính
+## Runtime topology
 
 ```mermaid
 flowchart TD
-    UI["Frontend: pages và feature hooks"] --> API["FastAPI: auth, validation, API, SSE"]
+    UI["Browser · React"] --> NGINX["Nginx · same-origin /api proxy"]
+    NGINX --> API["FastAPI · auth/CSRF/RBAC/API/SSE"]
     API --> SVC["Business services"]
     SVC --> REPO["Scoped repositories"]
-    REPO --> PG["PostgreSQL + pgvector"]
-    API --> REDIS["Redis: queue, rate limit, embedding cache"]
-    BEAT["Scheduler"] --> REDIS
-    REDIS --> AW["Agent worker: LangGraph"]
-    REDIS --> BW["Background worker: ingestion, memory, maintenance"]
-    AW --> CONTEXT["Context builder"]
-    AW --> EXEC["Tool executor"]
-    EXEC --> RAG["Local RAG retriever và citation checks"]
-    RAG --> REPO
+    REPO --> PG["PostgreSQL 17 + pgvector"]
+    API --> REDIS["Redis · queue/rate limit"]
+    BEAT["Celery beat"] --> REDIS
+    REDIS --> AW["Agent worker"]
+    REDIS --> BW["Background worker"]
+    AW --> GRAPH["LangGraph · checkpoint/pause/resume"]
+    GRAPH --> RAG["Hybrid retrieval + citation allowlist"]
+    GRAPH --> EXEC["Governed tool executor"]
     EXEC --> MCP["MCP stdio subprocess"]
     MCP --> SVC
-    AW --> MODEL["Provider adapter"]
-    BW --> MODEL
-    MODEL --> OPENAI["OpenAI API"]
-    AW --> PG
-    BW --> PG
-    API -.-> OBS["Safe logs + Langfuse"]
-    AW -.-> OBS
-    BW -.-> OBS
+    GRAPH --> MODEL["Fake/OpenAI provider + budget ledger"]
+    API -. filtered telemetry .-> OBS["Langfuse/no-op observability"]
+    AW -. filtered telemetry .-> OBS
 ```
 
-Sơ đồ cho thấy luồng gọi chính, không phải lời cam kết mọi thao tác chạy trong một transaction. DB transaction phải ngắn; không giữ transaction qua model call hoặc lúc chờ người dùng xác nhận.
+Compose có đúng bảy long-running service: frontend, API, agent worker, background worker, scheduler, PostgreSQL và Redis. API/workers dùng cùng production image Python; MCP là subprocess stdio nội bộ, không có public port. Chỉ frontend/API bind vào loopback; datastore nằm trên internal network.
 
-## Ranh giới module
+## Ranh giới tin cậy
 
-| Module | Sở hữu | Không làm |
+| Lớp | Trách nhiệm | Ràng buộc |
 |---|---|---|
-| [api](../backend/app/api/PLAN.md) + [auth](../backend/app/auth/PLAN.md) | HTTP, session/CSRF, actor context, SSE có scope | Nhét prompt/vector query trong router |
-| [services](../backend/app/services/PLAN.md) | Quyền nghiệp vụ, transitions, approval, receipt và transaction | Tin role/owner do model tự gửi |
-| [repositories](../backend/app/repositories/PLAN.md) + [db](../backend/app/db/PLAN.md) | Scoped queries, models, constraints, sessions | Bỏ ownership vì caller là admin/worker |
-| [agent](../backend/app/agent/PLAN.md) + [context](../backend/app/agent/context/PLAN.md) | Graph, state, bounded execution, checkpoint/context | Ghi ticket trực tiếp hoặc chứa HTTP logic |
-| [RAG](../backend/app/rag/PLAN.md) | Ingest/chunk/retrieve, nguồn và ACL hiện hành | Tự publish draft chưa ready hoặc tự crawl URL |
-| [tools](../backend/app/tools/PLAN.md) | Schema model-visible, validation và dispatch | Cho model quyết định actor/approval |
-| [mcp_server](../backend/app/mcp_server/PLAN.md) | Adapter của ba business tools qua stdio | Public endpoint hoặc server có OpenAI key kế thừa |
-| [memory](../backend/app/memory/PLAN.md) | Consent, facts/device, incident references, epoch | Tự nhớ toàn bộ lịch sử hoặc lấy dữ liệu chéo user |
-| [providers](../backend/app/providers/PLAN.md) | Generate/embed, typed output, usage, fake mode | Thực hiện tool side effects |
-| [jobs](../backend/app/jobs/PLAN.md) | Queues, claim/lease, retry/reconcile, cleanup | Coi Redis delivery là exactly-once |
-| [observability](../backend/app/observability/PLAN.md) | Trace/log/usage được lọc | Coi Langfuse là nguồn audit nghiệp vụ duy nhất |
-| [frontend](../frontend/PLAN.md) | Pages, preview, trạng thái và nguồn | Tự suy thành công từ câu trả lời model |
+| API/auth | Session cookie, CSRF, actor, owner/role checks, SSE cursor | Không nhận actor/role từ model hoặc request payload |
+| Services | State transition, approval, ticket receipt, document/memory lifecycle | Transaction ngắn; không giữ DB transaction qua model call/approval wait |
+| Repository/DB | Scoped query, FK/unique/check constraints, durable events | PostgreSQL là nguồn sự thật |
+| LangGraph | Bounded graph, RAG flow, checkpoint, interrupt/resume | Không ghi ticket trực tiếp |
+| Tools/MCP | Strict schemas, allowlist, trusted actor/run context | MCP read tools chỉ đọc status và ticket của actor |
+| Provider | Structured generation/embedding, token/cost ledger | Không sở hữu side effect; paid call phải qua budget guard |
+| Jobs | Queue, lease, heartbeat, retry/reconcile | Redis delivery không được coi exactly-once |
+| Frontend | Hiển thị server state, citation, approval và errors | Không tự suy side effect thành công từ model text |
 
-Chiều phụ thuộc code chủ đạo: entrypoint → service/orchestration → repository/provider. Repository không import router; provider không import graph; MCP dùng chung service thay vì chép nghiệp vụ. Các dependency được truyền vào ở composition root của [app](../backend/app/PLAN.md).
+## Ba workflow quan trọng
 
-## Ba điểm cần giữ khi viết code
+### Chat/RAG
 
-1. Ticket: model/form tạo draft → lưu approval và pause → người dùng quyết định → worker resume bằng quyết định từ DB → executor/MCP → transaction tạo ticket + receipt + audit. Retry kiểm tra receipt để không tạo trùng.
-2. Knowledge: upload → draft version → ingestion ready → admin publish → retrieval chỉ lấy version hiện hành đúng scope. Final answer, lịch sử và source download đều kiểm tra lại quyền.
-3. Memory: tắt mặc định → user đồng ý → fact pending → user xác nhận → context mới mới được dùng. Tắt/xóa làm job epoch cũ không được ghi lại.
+Message và run được commit trước khi enqueue. Worker claim run, dựng owner/device/memory context, rewrite/retrieve trong scope, chọn no-answer hoặc generate structured answer. Citation cuối chỉ được tạo từ result IDs do retrieval trả về. SSE reconnect dùng event cursor và không tạo run mới.
 
-## Runtime và dữ liệu
+### Approval/ticket
 
-Compose dự kiến có bảy service theo [infra](../infra/PLAN.md). API, workers và MCP chia entrypoint nhưng cùng package/image Python; không tách thêm microservice. Document files ở volume runtime, khác [corpus nguồn trong data](../data/PLAN.md).
+Model hoặc form chỉ tạo approval draft. LangGraph pause; user đúng owner approve/reject trong thời hạn. Resume kiểm tra checkpoint, argument hash và actor. Ticket transaction ghi unique approval receipt nên double-click/retry/crash sau commit vẫn quy về đúng một ticket.
 
-PostgreSQL là nguồn trạng thái run/job/ticket/approval/memory; Redis là broker/cache/rate limit. Langfuse Cloud và OpenAI là phụ thuộc ngoài; fake mode phục vụ test offline với model, không thay thế live evaluation.
+### Document/memory
 
-Thay đổi ảnh hưởng các ranh giới này cần [ADR](adr/PLAN.md) và cập nhật kế hoạch module tương ứng.
+PDF upload có MIME/size/path guard, tạo draft version, parse/chunk/embed/store idempotent rồi admin publish. Retrieval/history recheck current version và ACL. Memory mặc định tắt; extraction chỉ tạo candidate, user phải confirm. Device scope, optimistic version và epoch ngăn job cũ ghi lại fact sau delete/disable.
+
+## Dữ liệu và durability
+
+- PostgreSQL: identity/session, conversation/run/event, checkpoint, documents/chunks/ACL, approvals/tickets, memory và usage ledger.
+- Redis: Celery broker/result plumbing, login rate-limit và lease-related runtime data; AOF `everysec`, `noeviction`.
+- Document volume: PDF do ứng dụng quản lý bằng server-owned storage key.
+- Backup: PostgreSQL custom dump + document archive + integrity manifest; Redis không nằm trong backup vì durable business state ở PostgreSQL.
+
+## Trade-offs và giới hạn
+
+- Single-company prototype, không có tenant boundary hoàn chỉnh.
+- Exact vector scan/full-text phù hợp corpus demo; HNSW/reranker chỉ thêm khi số đo yêu cầu.
+- Local files phù hợp demo; production cần object storage, encryption và remote retention.
+- Fake provider đảm bảo test deterministic nhưng không đại diện chất lượng model. G-05–G-09 chưa đủ live/human/full-stack evidence.
+- Langfuse là observability phụ trợ, không phải audit source of truth.
+- Deployment server, TLS, secrets manager, autoscaling và production monitoring chưa thuộc repository này.
+
+Các thay đổi ranh giới nền tảng cần ADR. Quyết định/runtime versions nằm tại [ADR-0002](adr/0002-runtime-and-integration.md); hướng vận hành ở [infra commands](../infra/commands.md).

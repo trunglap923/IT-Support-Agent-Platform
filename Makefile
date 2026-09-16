@@ -19,7 +19,7 @@ PROJECT_GID := $(shell id -g)
 FRONTEND_DOCKER = docker run --rm --user $(PROJECT_UID):$(PROJECT_GID) -e npm_config_cache=/tmp/npm-cache -v $(CURDIR)/frontend:/app -w /app $(NODE_IMAGE)
 
 .PHONY: help bootstrap bootstrap-host env-init stack-build up down status test \
-	test-e2e eval demo clean-verify backup restore-test check backend-sync backend-format backend-check \
+	test-e2e eval demo clean-verify backup restore-test docs-check check backend-sync backend-format backend-check \
 	frontend-install frontend-check frontend-install-docker frontend-check-docker \
 	frontend-e2e-docker \
 	dev-backend dev-frontend dev-frontend-docker dev-stop spike-openai-live \
@@ -45,6 +45,7 @@ help:
 	@echo "  make clean-verify           Verify build/migrate/seed/health in an isolated project"
 	@echo "  make backup                 Back up PostgreSQL and document storage with checksums"
 	@echo "  make restore-test           Restore the latest backup into isolated temporary targets"
+	@echo "  make docs-check             Validate tracked relative Markdown links"
 	@echo "Developer commands:"
 	@echo "  make bootstrap-host         Install locked backend/frontend host dependencies"
 	@echo "  make check                  Run all checks using host npm"
@@ -131,6 +132,9 @@ backup: env-init
 
 restore-test: env-init
 	BACKUP_DIR="$(BACKUP_DIR)" bash $(CURDIR)/infra/scripts/restore-test.sh
+
+docs-check:
+	python3 $(CURDIR)/infra/scripts/check_markdown_links.py
 
 check: backend-check frontend-check
 

@@ -34,6 +34,8 @@ jobs:
           python-version: "3.12"
       - name: Scan tracked files without printing values
         run: python infra/scripts/scan_secrets.py
+      - name: Validate documentation links
+        run: python infra/scripts/check_markdown_links.py
 
   backend-quality:
     name: Backend · static and unit

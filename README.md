@@ -1,215 +1,158 @@
 # IT Support Agent Platform
 
-Portfolio trợ lý IT: trả lời có nguồn, kiểm tra dịch vụ mô phỏng, tạo ticket có xác nhận và nhớ thông tin đã được người dùng đồng ý lưu.
+Portfolio prototype cho trợ lý IT có trạng thái: chat RAG kèm nguồn, service status mô phỏng, ticket cần phê duyệt, memory có consent và quản trị tài liệu có version/ACL.
 
-## Trạng thái hiện tại
+## Trạng thái
 
-Đã khởi tạo cây thư mục và **57 kế hoạch module**. Mỗi `PLAN.md` có phạm vi, hợp đồng, tệp cần viết, phần phụ thuộc, checklist có mã và điều kiện hoàn thành.
+Ứng dụng và local stack đã triển khai qua WP-01–WP-14. Bằng chứng local ngày 2026-09-16:
 
-WP-01, compatibility M0, WP-02 và WP-03 đã hoàn thành ở local. WP-02 gồm
-PostgreSQL/pgvector, Alembic, Argon2, session-cookie, CSRF/RBAC, conversation/run
-persistence và login UI. Gate WP-02 đạt 9 PostgreSQL integration tests, bao gồm
-regression vô hiệu hóa tài khoản khi session cũ vẫn còn hạn.
+- stack Compose 7/7 service healthy trên project sạch;
+- backend `113 passed, 1 skipped`; frontend lint/typecheck, `15 passed`, production build;
+- Playwright `7 passed`; contract `7 passed`; evaluation schema 120 case và reproducibility 160 runs;
+- backup PostgreSQL/document storage restore thành công vào database và volume tạm;
+- G-01–G-04 pass; G-05–G-09 vẫn `not_measured`, nên release decision là **not ready**.
 
-WP-03 bổ sung Redis AOF/noeviction, Celery agent/background workers, durable run state và
-event store, commit-then-enqueue/reconcile, owner-scoped SSE cùng màn hình theo dõi run có
-bounded reconnect. Kết quả ngày 2026-09-16: Ruff/mypy và unit tests đạt, 8
-PostgreSQL/Redis integration tests đạt; frontend lint/typecheck, 10 tests và production
-build đạt. Dataset M0 có 30/30 case hợp lệ và Responses live đạt cả ba contract. Workflow
-GitHub Actions chưa được chạy theo yêu cầu hiện tại.
+GitHub Actions đã được cấu hình nhưng chưa có bằng chứng remote run sau push. Fake mode chứng minh contract/wiring, không chứng minh chất lượng semantic của model thật.
 
-WP-04–WP-06 đã bổ sung ingestion/retrieval, RAG chat và quan sát usage. WP-07–WP-10
-đã có business read services, MCP stdio, governed tools, approval/ticket transaction,
-giao diện ticket/IT, lease/reconcile và failure recovery. Browser E2E kiểm tra employee,
-IT và admin bằng fake API.
+## Kiến trúc
 
-## Chạy development
+```text
+Browser → Nginx/React → FastAPI → PostgreSQL/pgvector
+                              ↘ Redis → Celery agent/background + scheduler
+Agent worker → LangGraph → scoped RAG / governed tools → MCP stdio → business services
+                         ↘ fake hoặc OpenAI provider → optional Langfuse
+```
 
-Yêu cầu: Python 3.12, uv 0.11.x và Docker; hoặc Node 22.23.2 + npm trên host.
+PostgreSQL là nguồn trạng thái bền vững. Redis là broker/rate-limit/cache; side effect ticket được bảo vệ bởi approval, idempotency receipt và reconciliation. Xem [bản đồ kiến trúc](docs/architecture.md) và [ADR runtime](docs/adr/0002-runtime-and-integration.md).
 
-PostgreSQL development dùng image PostgreSQL 17 + pgvector đã pin digest, chỉ publish
-trên loopback. Nếu `.env` được tạo trước WP-02, bổ sung các biến `POSTGRES_*`,
-`DATABASE_URL` và `MIGRATION_DATABASE_URL` từ `.env.example`, rồi chạy:
+## Quick start bằng Docker
 
-~~~bash
-make db-up
-make redis-up
-make db-status
-make migrate
-make seed-demo-user
-~~~
+Yêu cầu: Docker Engine có Compose plugin và GNU Make. Không cần cài Python/Node trên host.
 
-`make db-down` và `make redis-down` chỉ dừng service tương ứng và giữ named volume;
-`make services-up`/`make services-down` quản lý cả hai service. Redis chỉ publish trên
-loopback, bật AOF `everysec` và `noeviction` để không âm thầm loại queue key.
-Không dùng password development cho môi trường khác và không commit `.env`.
-
-Login mặc định giới hạn 5 lần thử trong 5 phút theo bucket email + client IP đã băm.
-Đăng nhập thành công xóa bucket; khi Redis không sẵn sàng, login fail-closed với `503`.
-
-Alembic dùng riêng `MIGRATION_DATABASE_URL` với driver `postgresql+psycopg`; ứng dụng dùng
-`DATABASE_URL` với `postgresql+asyncpg`. Migration test tạo và xóa một database cô lập,
-không reset database development đang dùng.
-
-Demo identity tối thiểu dùng email `employee.engineering@example.com`. Lệnh seed đọc
-password từ `DEMO_SEED_PASSWORD`, lưu Argon2 hash và không ghi password vào source/log.
-Chạy lại lệnh không nhân đôi user và cập nhật hash theo password hiện tại trong `.env`.
-
-Sau khi migrate và seed, mở http://127.0.0.1:5173 rồi đăng nhập bằng email trên và đúng
-password bạn đã đặt ở `DEMO_SEED_PASSWORD`. Trình duyệt phải dùng đúng host
-`127.0.0.1` để khớp `ALLOWED_WEB_ORIGIN`; nếu đổi host/cổng, cập nhật biến đó.
-
-~~~bash
+```bash
 cp .env.example .env
-make backend-sync
-make backend-check
-make frontend-check-docker
-make frontend-e2e-docker
-make wp03-integration-check
-make wp10-integration-check
-~~~
+```
 
-`wp02-integration-check` và `wp03-integration-check` tạo database PostgreSQL tạm có tên
-ngẫu nhiên rồi xóa sau test. WP-03 dùng `TEST_REDIS_URL` ở database 15 và chỉ cleanup
-queue test; các lệnh không migrate/reset database demo. `backend-integration-check` chạy
-cả các nhóm WP-02, WP-03 và WP-07–WP-10. Chạy `make wp02-check` hoặc `make wp03-check` khi các service tương ứng đã
-healthy.
+Sửa ít nhất hai giá trị local trong `.env`:
 
-`make frontend-e2e-docker` dùng image Playwright 1.63.0 khớp dependency frontend,
-khởi động Vite riêng cho suite và chạy các hành trình approval/ticket/operations bằng dữ
-liệu giả lập. Suite không thay đổi database development và không gọi OpenAI.
-`make wp10-integration-check` tạo database PostgreSQL tạm và dùng Redis DB 15 để kiểm tra
-MCP, approval/checkpoint, ticket transaction, lease/reconcile và failure recovery.
-`make wp12-integration-check` kiểm tra consent, candidate confirmation, device isolation và
-epoch protection trên các database PostgreSQL tạm; `make wp12-check` chạy cả backend,
-frontend và browser E2E.
+```dotenv
+POSTGRES_PASSWORD=your-local-database-password
+DEMO_SEED_PASSWORD=your-demo-password-at-least-12-characters
+```
 
-Celery có hai worker riêng và một beat scheduler. Sau `make services-up`, có thể mở ba
-terminal khác nhau để chạy `make worker-agent`, `make worker-background` và
-`make scheduler`. Chỉ chạy một scheduler cho một environment; queue payload chỉ chứa ID,
-còn PostgreSQL là nguồn trạng thái.
+Sau đó:
 
-Sau khi đăng nhập, route `/chat` cho phép tạo conversation/message, theo dõi run bằng SSE
-và hiển thị câu trả lời/citation. Route `/tickets` cung cấp ticket cá nhân và approval;
-`/operations` dành cho IT/admin, nhưng chỉ admin được đổi service state mô phỏng.
-Admin quản lý version tài liệu tại `/admin/documents`; mọi người dùng quản lý consent,
-thiết bị, candidate và memory đã xác nhận tại `/settings/memory`.
+```bash
+make bootstrap
+make migrate
+make seed
+make up
+```
 
-Chạy hai terminal để xem giao diện. Backend development bind vào `0.0.0.0` để
-frontend trong Docker có thể gọi API qua Docker host gateway; frontend chỉ được
-publish trên loopback của máy ở cổng `5173`.
+Mở http://127.0.0.1:5173 và đăng nhập:
 
-~~~bash
+- email: `employee.engineering@example.com`
+- password: giá trị `DEMO_SEED_PASSWORD` trong `.env`
+
+Stack mặc định dùng `AI_PROVIDER=fake`; không gọi API trả phí. `make down` dừng container nhưng giữ PostgreSQL, Redis và document volumes. PostgreSQL/Redis không publish ra host; chỉ frontend `5173` và API `8000` bind loopback.
+
+Lệnh gộp sau khi đã cấu hình `.env`:
+
+```bash
+make demo
+```
+
+Lưu ý: seed hiện chỉ tạo identity employee tối thiểu. Các role IT/admin và corpus publish được tạo trong test fixtures; để demo thủ công đầy đủ mọi màn hình cần bổ sung full seed fixtures. Đây là giới hạn bàn giao còn mở, không được tính là UC-01–UC-12 đã manual-demo hoàn chỉnh.
+
+## Các route chính
+
+| Route | Chức năng |
+|---|---|
+| `/chat` | Conversation, message, run/SSE, citation, approval card |
+| `/tickets` | Ticket và approval của người dùng |
+| `/operations` | Hàng đợi IT, resolve/reopen, service status theo role |
+| `/admin/documents` | Upload, preview, process, publish/revoke/version/ACL |
+| `/settings/memory` | Consent, device, candidate và fact memory |
+
+Liveness: http://127.0.0.1:8000/api/v1/health/live. Readiness: http://127.0.0.1:8000/api/v1/health/ready.
+
+## Kiểm thử và evaluation
+
+```bash
+make test          # isolated PostgreSQL/Redis + backend + frontend checks
+make test-e2e      # 7 deterministic browser workflows
+make eval          # validate 120 cases + fake development split
+make clean-verify  # fresh volumes, migration, seed, 7-service readiness
+make docs-check    # relative links trong Markdown
+```
+
+`make test`, `make eval` và `make clean-verify` dùng Compose project/volumes tạm rồi tự xóa; không reset database development. Chi tiết command và data boundary ở [infra/commands.md](infra/commands.md).
+
+Live OpenAI chỉ chạy khi có key và opt-in rõ ràng; không chạy trong CI:
+
+```bash
+RUN_OPENAI_LIVE_SPIKE=1 make spike-openai-live
+RUN_LIVE_EVAL=1 make eval-agent-live
+```
+
+Không commit hoặc gửi API key vào chat. Budget guard/token cap vẫn không thay thế việc giám sát billing của nhà cung cấp.
+
+## Backup và restore drill
+
+```bash
+make backup
+make restore-test
+```
+
+Backup nằm trong thư mục Git-ignored `backups/`, gồm PostgreSQL custom dump, document archive, row counts và SHA-256 manifest. Restore test chỉ dùng database `restore_test_*` và Docker volume tạm rồi cleanup; không có target restore đè database đang chạy. Xem [runbook backup](infra/backup-and-restore.md).
+
+## Development trên host
+
+Yêu cầu bổ sung: Python 3.12, uv 0.11.x; Node 22.23.2 nếu không dùng frontend Docker.
+
+```bash
+make bootstrap-host
+make services-up
+make migrate
+
 # Terminal 1
 make dev-backend
 
 # Terminal 2
 make dev-frontend-docker
-~~~
-
-Mở http://127.0.0.1:5173. Liveness ở
-http://127.0.0.1:8000/api/v1/health/live; readiness PostgreSQL/Redis ở
-http://127.0.0.1:8000/api/v1/health/ready. Chế độ mặc định dùng fake provider và không
-gọi OpenAI.
-
-Nếu host đã có đúng Node/npm, thay hai target Docker bằng `make frontend-install`, `make frontend-check` và `make dev-frontend`.
-
-Nhấn `Ctrl+C` trong từng terminal để dừng tiến trình. Frontend container có tên
-cố định `it-support-agent-frontend-dev`, dùng `--rm` và thường tự xóa sau khi
-dừng. Nếu terminal đóng bất thường hoặc lần chạy sau báo container cũ, dọn đúng
-container development bằng:
-
-~~~bash
-make dev-stop
-~~~
-
-`make dev-stop` chỉ dừng/xóa frontend container do dự án quản lý; backend chạy
-trực tiếp trên host vẫn được dừng bằng `Ctrl+C`. Nếu cổng `5173` thuộc về một
-container khác, xác định nó trước khi dừng:
-
-~~~bash
-docker ps --filter publish=5173
-~~~
-
-Có thể đổi cổng frontend cho một lần chạy mà không dừng dự án khác:
-
-~~~bash
-make dev-frontend-docker FRONTEND_DEV_PORT=5174
-~~~
-
-## Kiểm chứng compatibility M0
-
-Các kiểm tra không trả phí:
-
-~~~bash
-make spike-mcp-stdio
-make eval-validate
-CHECKPOINT_DATABASE_URL=postgresql://... make spike-langgraph-postgres
-~~~
-
-Responses live là lệnh riêng có thể phát sinh phí, không chạy trong CI và chỉ hoạt động khi
-đồng thời có `OPENAI_API_KEY` trong `.env` và opt-in rõ ràng:
-
-~~~bash
-RUN_OPENAI_LIVE_SPIKE=1 make spike-openai-live
-~~~
-
-Kết quả/phiên bản chi tiết nằm trong [ADR-0002](docs/adr/0002-runtime-and-integration.md).
-
-## Bắt đầu từ đâu?
-
-1. Đọc [kế hoạch tổng](plan.md) để nắm phạm vi V1 và quy tắc nghiệp vụ.
-2. Mở [roadmap và mục lục kế hoạch module](docs/implementation-roadmap.md); bắt đầu WP-01.
-3. Đọc `PLAN.md` của module sắp làm, tạo code cùng kiểm thử và chỉ đánh dấu hoàn thành khi đạt điều kiện trong file.
-4. Nếu thay đổi thiết kế, cập nhật [ADR](docs/adr/PLAN.md), kế hoạch tổng và các module bị ảnh hưởng.
-
-Ưu tiên WP-01 → WP-06 để có demo chat/RAG sớm; sau đó triển khai MCP, approval/ticket, recovery, document admin và memory theo phụ thuộc. Không cần viết đồng thời mọi thư mục.
-
-## Cấu trúc chính
-
-```text
-backend/
-  app/
-    api/ auth/
-    agent/context/
-    rag/{ingestion,chunking,retrieval,citations}/
-    memory/ tools/ mcp_server/
-    services/{conversations,approvals,tickets,documents,budget,service_status}/
-    repositories/ db/ providers/ jobs/ observability/ prompts/
-  migrations/
-  tests/{unit,integration,contract}/
-frontend/
-  src/
-    api/ components/
-    features/{auth,chat,tickets,documents,memory,services}/
-  e2e/
-data/{seed,knowledge,manifests}/
-evals/{cases,rubrics,runner}/
-reports/
-docs/adr/
-docs/archive/plan-original.md
-infra/
-.github/workflows/
 ```
 
-Ký hiệu `{...}` trong cây rút gọn đại diện cho các thư mục con riêng. Mọi module nêu trên có `PLAN.md`; tài liệu archive được giữ nguyên.
+`make dev-stop` chỉ dừng/xóa frontend development container cố định. Backend host dừng bằng `Ctrl+C`. Nếu cổng 5173 bận:
 
-| Khu vực | Kế hoạch đầu vào |
-|---|---|
-| Backend/API/agent | [backend/PLAN.md](backend/PLAN.md) |
-| Frontend | [frontend/PLAN.md](frontend/PLAN.md) |
-| Dữ liệu demo | [data/PLAN.md](data/PLAN.md) |
-| Evaluation | [evals/PLAN.md](evals/PLAN.md) |
-| Báo cáo | [reports/PLAN.md](reports/PLAN.md) |
-| Vận hành local | [infra/PLAN.md](infra/PLAN.md) |
-| CI | [.github/workflows/PLAN.md](.github/workflows/PLAN.md) |
+```bash
+docker ps --filter publish=5173
+make dev-frontend-docker FRONTEND_DEV_PORT=5174
+```
 
-## Quy ước và cấu hình
+## Báo cáo và giới hạn release
 
-- Định hướng stack: Python/FastAPI, React/TypeScript, PostgreSQL/pgvector, LangGraph, MCP, Celery/Redis và Langfuse. Backend/frontend foundation, MCP SDK và LangGraph checkpointer compatibility đã được khóa; implementation nghiệp vụ vẫn theo các WP trong roadmap.
-- [.env.example](.env.example) là mẫu không có secret. `AI_PROVIDER=fake` là mặc định; `AI_PROVIDER=openai` yêu cầu `OPENAI_API_KEY`. Không gửi API key vào chat hoặc commit vào repo.
-- [.python-version](.python-version), [.editorconfig](.editorconfig) và [.gitignore](.gitignore) thống nhất phiên bản Python dự kiến, định dạng và dữ liệu không commit.
-- Makefile cung cấp lệnh WP-01, compatibility spikes và validation 30 case M0. `make up`, migrations, seed, E2E và live evaluation runner sẽ được thêm ở các WP tương ứng.
-- Dữ liệu mẫu phải là dữ liệu tự tạo/công khai có quyền sử dụng. Không kết nối VPN/GitLab/ticketing của doanh nghiệp thật trong V1.
+- [G-01–G-09 quality report](reports/evaluation-summary.md)
+- [retrieval baseline](reports/retrieval-baseline.md)
+- [performance/cost limitations](reports/performance-cost.md)
+- [G-10 và release checklist](reports/release-checklist.md)
+- [troubleshooting](docs/troubleshooting.md)
+- [demo script](docs/demo-script.md)
 
-Xem [bản đồ kiến trúc](docs/architecture.md) và [kịch bản demo dự kiến](docs/demo-script.md). Chỉ báo cáo metric và tính năng đã chạy kiểm chứng.
+Hiện tại không tuyên bố production-ready: G-05–G-09 cần live/human/full-stack measurements; CI remote chưa chạy; full six-user/business-data seed và manual V1 demo evidence chưa có. Không có bước deploy server trong CI.
+
+## Cấu trúc repository
+
+```text
+backend/app/       FastAPI, auth, LangGraph, RAG, tools/MCP, services, jobs
+backend/migrations Alembic migrations
+backend/tests/     unit, contract và PostgreSQL/Redis integration
+frontend/src/      React routes, API clients và feature UI
+frontend/e2e/      deterministic Playwright workflows
+data/              self-authored corpus, manifests và seed specification
+evals/             120 cases, rubrics và reproducible runner
+infra/             Compose, Nginx, images, backup/restore scripts
+reports/           reviewed baselines và release evidence
+docs/              architecture, ADR, roadmap, demo và troubleshooting
+```
+
+Đọc [roadmap](docs/implementation-roadmap.md) để xem checklist và bằng chứng theo work package. Tên portfolio đề xuất: **Stateful IT Support Agent with Evaluated RAG and Approval Workflows**.
