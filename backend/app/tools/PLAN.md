@@ -1,6 +1,6 @@
 # Tool schema, registry và executor
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: registry và governed executor P41 đã hoàn thành; approval/write nối ở P42–P44.
 Work packages: WP-06, WP-07, WP-08.
 Nguồn: [kế hoạch tổng](../../../plan.md), mục 9, 10, 11; [thứ tự triển khai](../../../docs/implementation-roadmap.md).
 
@@ -33,14 +33,14 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] TOOL-01: Định nghĩa strict schemas với extra=forbid, enum và length limits.
-- [ ] TOOL-02: Inject actor/run/approval từ trusted context, ngoài schema model.
-- [ ] TOOL-03: Dispatch RAG/MCP qua allowlist và kiểm tra quyền trước mỗi execution.
-- [ ] TOOL-04: Giới hạn timeout, retries, repeated arguments và result size.
-- [ ] TOOL-05: Ghi tool_calls, validate envelope success/failed/unknown và giữ call_id pairing.
+- [x] TOOL-01: Định nghĩa strict schemas với extra=forbid, enum và length limits.
+- [x] TOOL-02: Inject actor/run từ trusted context, ngoài schema model.
+- [x] TOOL-03: Dispatch RAG/MCP qua allowlist và kiểm tra quyền trước mỗi execution.
+- [x] TOOL-04: Giới hạn timeout, repeated arguments và result size.
+- [x] TOOL-05: Validate envelope success/failed/unknown và giữ call_id pairing.
 
 ## Điều kiện hoàn thành
 
-- [ ] Model không truyền được user_id/role/SQL/token/approval flag.
+- [x] Model không truyền được user_id/role/SQL/token/approval flag.
 - [ ] Wrong-owner device hoặc arguments thừa bị chặn trước side effect.
 - [ ] Tool receipt có nguồn từ service; text của model không đổi trạng thái ticket.
