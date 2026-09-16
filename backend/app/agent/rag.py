@@ -11,6 +11,7 @@ from app.agent.context.builder import ContextMessage, build_agent_context
 from app.agent.graph import SupportGraphNodes
 from app.agent.state import EvidenceState, SupportAgentState
 from app.auth.principal import Principal
+from app.observability import AIObserver, NoopAIObserver
 from app.providers.base import StructuredResponseProvider
 from app.providers.structured import EvidenceInput
 from app.rag.citations.sources import InvalidCitationError, build_evidence_output
@@ -54,6 +55,8 @@ class RAGGraphNodes:
         provider: StructuredResponseProvider,
         history: Sequence[ContextMessage] = (),
         minimum_score: float = 0.02,
+        observer: AIObserver | None = None,
+        model: str = "fake",
     ) -> None:
         self._session = session
         self._principal = principal
@@ -61,6 +64,8 @@ class RAGGraphNodes:
         self._provider = provider
         self._history = list(history)
         self._minimum_score = minimum_score
+        self._observer = observer or NoopAIObserver()
+        self._model = model
         self._hits: list[RetrievalHit] = []
         self._sources_by_id: dict[str, EvidenceInput] = {}
 
@@ -106,11 +111,30 @@ class RAGGraphNodes:
         return {"route": "generate" if state.get("evidence") else "no_answer"}
 
     async def generate_answer(self, state: SupportAgentState) -> dict[str, Any]:
-        response = await self._provider.generate_support_reply(
-            state["query"],
-            evidence=list(self._sources_by_id.values()),
-            history=[(item["role"], item["content"]) for item in state.get("history", [])],
-        )
+        run_id = state.get("run_id", "preview")
+        with self._observer.generation(
+            run_id=run_id,
+            actor_id=state.get("actor_id", str(self._principal.user_id)),
+            model=self._model,
+            evidence_count=len(self._sources_by_id),
+        ) as observation:
+            response = await self._provider.generate_support_reply(
+                state["query"],
+                evidence=list(self._sources_by_id.values()),
+                history=[(item["role"], item["content"]) for item in state.get("history", [])],
+                operation_id=(f"rag:{run_id}:generation:{state.get('model_calls', 0) + 1}"),
+            )
+            if observation is not None:
+                observation.update(
+                    output={
+                        "outcome": response.reply.outcome,
+                        "citation_count": len(response.reply.citations),
+                    },
+                    usage_details={
+                        "input_tokens": response.input_tokens,
+                        "output_tokens": response.output_tokens,
+                    },
+                )
         return {
             "answer": response.reply.answer,
             "citation_ids": response.reply.citations,

@@ -14,6 +14,7 @@ from app.config import Settings
 from app.db import Database
 from app.jobs.celery_app import celery_app
 from app.jobs.dispatch import CeleryRunDispatcher, RunDispatcher, UnavailableRunDispatcher
+from app.observability import create_ai_observer
 from app.providers import StructuredResponseProvider, create_provider
 from app.request_id import RequestIdMiddleware
 
@@ -32,7 +33,8 @@ def create_app(
         resolved_database = database
         if resolved_database is None and resolved_settings.database_url is not None:
             resolved_database = Database(resolved_settings.database_url.get_secret_value())
-        resolved_provider = provider or create_provider(resolved_settings)
+        resolved_provider = provider or create_provider(resolved_settings, resolved_database)
+        observer = create_ai_observer(resolved_settings)
         resolved_redis = redis_client
         if resolved_redis is None and resolved_settings.redis_url is not None:
             resolved_redis = Redis.from_url(
@@ -52,9 +54,11 @@ def create_app(
             if resolved_settings.redis_url is not None
             else UnavailableRunDispatcher()
         )
+        application.state.ai_observer = observer
         try:
             yield
         finally:
+            observer.close()
             if resolved_redis is not None:
                 await resolved_redis.aclose()
             if resolved_database is not None:

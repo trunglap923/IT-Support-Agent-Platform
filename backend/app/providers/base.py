@@ -36,5 +36,6 @@ class StructuredResponseProvider(TextGenerationProvider, Protocol):
         evidence: list[EvidenceInput],
         history: Sequence[tuple[str, str]] = (),
         max_output_tokens: int = 400,
+        operation_id: str | None = None,
     ) -> StructuredModelResponse:
         """Generate a validated support reply from server-controlled evidence."""

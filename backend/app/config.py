@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     ai_provider: AIProvider = AIProvider.FAKE
     openai_api_key: SecretStr | None = None
     openai_model: str = "gpt-4.1-mini-2025-04-14"
+    openai_input_price_per_million_usd: float = Field(default=0.40, ge=0)
+    openai_output_price_per_million_usd: float = Field(default=1.60, ge=0)
+    openai_price_version: str = "2026-09-openai-published"
     embedding_model: str = "text-embedding-3-small"
     embedding_dimensions: int = Field(default=1536, gt=0)
     embedding_input_price_per_million_usd: float = Field(default=0.02, ge=0)

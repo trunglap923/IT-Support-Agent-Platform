@@ -284,6 +284,7 @@ class UsageLedgerEntry(Base):
     __tablename__ = "usage_ledger"
     __table_args__ = (
         CheckConstraint("reserved_input_tokens > 0", name="reserved_tokens_positive"),
+        CheckConstraint("reserved_output_tokens >= 0", name="reserved_output_tokens_non_negative"),
         CheckConstraint("reserved_cost_usd >= 0", name="reserved_cost_non_negative"),
         CheckConstraint(
             "actual_cost_usd IS NULL OR actual_cost_usd >= 0", name="actual_cost_non_negative"
@@ -299,6 +300,8 @@ class UsageLedgerEntry(Base):
     status: Mapped[str] = mapped_column(String(20), index=True)
     reserved_input_tokens: Mapped[int] = mapped_column(Integer)
     actual_input_tokens: Mapped[int | None] = mapped_column(Integer)
+    reserved_output_tokens: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    actual_output_tokens: Mapped[int | None] = mapped_column(Integer)
     reserved_cost_usd: Mapped[Decimal] = mapped_column(Numeric(14, 8))
     actual_cost_usd: Mapped[Decimal | None] = mapped_column(Numeric(14, 8))
     provider_request_id: Mapped[str | None] = mapped_column(String(160))

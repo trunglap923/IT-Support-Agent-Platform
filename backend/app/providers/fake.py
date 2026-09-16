@@ -34,8 +34,9 @@ class FakeTextProvider:
         evidence: list[EvidenceInput],
         history: Sequence[tuple[str, str]] = (),
         max_output_tokens: int = 400,
+        operation_id: str | None = None,
     ) -> StructuredModelResponse:
-        del query, history, max_output_tokens
+        del query, history, max_output_tokens, operation_id
         if not evidence:
             reply = SupportReply(
                 outcome="no_answer",
