@@ -1,6 +1,6 @@
 # MCP server nội bộ
 
-Trạng thái: spike stdio/actor isolation M0 đã đạt; business tools vẫn thuộc WP-07.
+Trạng thái: business read server P40 đã hoàn thành; governed write tool thuộc WP-08.
 Work packages: WP-07, WP-08, WP-10.
 Nguồn: [kế hoạch tổng](../../../plan.md), mục 5.2, 10.3; [thứ tự triển khai](../../../docs/implementation-roadmap.md).
 
@@ -34,16 +34,16 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] MCP-01: Khóa SDK version sau spike; khai báo ba business schemas theo registry.
-- [ ] MCP-02: Tạo startup/shutdown và lấy current principal từ trusted actor/run.
-- [ ] MCP-03: Nối status/ticket read services với owner filters.
+- [x] MCP-01: Khóa SDK version sau spike; khai báo read schemas để registry kiểm tra.
+- [x] MCP-02: Tạo startup/shutdown và lấy current principal từ trusted actor/run.
+- [x] MCP-03: Nối status/ticket read services với owner filters.
 - [ ] MCP-04: Nối approved write: đọc approval_id từ executor metadata, validate hash/expiry/owner.
-- [ ] MCP-05: Chỉ ghi MCP messages ra stdout, safe logs ra stderr; đóng subprocess khi kết thúc hoặc timeout.
+- [x] MCP-05: Chỉ ghi MCP messages ra stdout; đóng subprocess sau mỗi execution segment.
 
 ## Điều kiện hoàn thành
 
 - [ ] Discovery đúng ba tên/schema; contract test gọi thật qua stdio.
-- [ ] Thiếu actor/run hoặc sai run owner bị từ chối.
+- [x] Thiếu actor/run hoặc sai run owner bị từ chối.
 - [ ] Subprocess không nhận OpenAI/Langfuse keys; crash-after-commit tra receipt trước retry.
 
 ## Bằng chứng spike M0

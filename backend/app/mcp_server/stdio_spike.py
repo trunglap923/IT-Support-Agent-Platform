@@ -8,7 +8,8 @@ import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from mcp import Client, StdioServerParameters
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
 
 from app.mcp_server.spike_models import ActorIdentity
 
@@ -39,7 +40,11 @@ async def probe_actor(*, actor_id: str, run_id: str) -> MCPActorProbe:
         env=isolated_server_environment(actor_id=actor_id, run_id=run_id),
         cwd=Path(__file__).resolve().parents[2],
     )
-    async with Client(parameters, read_timeout_seconds=10) as client:
+    async with (
+        stdio_client(parameters) as (read_stream, write_stream),
+        ClientSession(read_stream, write_stream) as client,
+    ):
+        await client.initialize()
         listed = await client.list_tools()
         discovered_tools = tuple(tool.name for tool in listed.tools)
         result = await client.call_tool("current_actor", {})
