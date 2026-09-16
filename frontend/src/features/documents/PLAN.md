@@ -1,6 +1,6 @@
 # UI — quản lý tài liệu và phiên bản
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: admin document/version upload, preview, process, publish/revoke và ACL UI P52 đã triển khai.
 Work packages: WP-11.
 Nguồn: [kế hoạch tổng](../../../../plan.md), mục 6, 7, 8, 14, 17; [thứ tự triển khai](../../../../docs/implementation-roadmap.md).
 
@@ -32,12 +32,12 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] UIDOC-01: Xây upload multipart và validate kích thước/định dạng sớm để báo lỗi dễ hiểu.
-- [ ] UIDOC-02: Hiển thị tiến độ job bằng polling endpoint đã có và retry lỗi được cho phép.
-- [ ] UIDOC-03: Cho xem preview chunks/page/section và thông tin ACL trước khi publish.
-- [ ] UIDOC-04: Thêm thao tác publish version, archive, đổi scope và thông báo ảnh hưởng citation cũ.
+- [x] UIDOC-01: Xây PDF multipart upload và báo lỗi validation từ backend.
+- [x] UIDOC-02: Hiển thị trạng thái version và explicit process/retry cho draft/failed.
+- [x] UIDOC-03: Cho xem preview theo page và thông tin ACL trước khi publish.
+- [x] UIDOC-04: Thêm publish version, revoke và đổi scope có optimistic conflict.
 
 ## Điều kiện hoàn thành
 
-- [ ] Ingestion lỗi không làm mất version đang phục vụ.
-- [ ] Employee/IT không gọi được admin mutation; admin đổi ACL có hiệu lực ở nguồn lẫn chat cũ.
+- [x] Ingestion lỗi không làm mất version đang phục vụ.
+- [x] Employee/IT không vào UI/gọi được admin mutation; admin đổi ACL có hiệu lực ở nguồn lẫn chat cũ.

@@ -133,6 +133,33 @@ textarea {
 .resolve-controls { display: flex; gap: 0.5rem; }
 .resolve-controls input { min-width: 280px; }
 
+.documents-page { display: grid; gap: 2rem; }
+.documents-page > header h1 { font-family: Georgia, serif; font-size: clamp(2.4rem, 5vw, 4.5rem); font-weight: 500; }
+.document-upload-panel,
+.document-grid > article,
+.document-preview { border: 1px solid rgb(22 34 28 / 12%); border-radius: 1rem; padding: 1.2rem; background: rgb(255 255 255 / 58%); }
+.document-upload-panel form { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.8rem; }
+.document-upload-panel label,
+.document-grid label,
+.document-grid details form { display: grid; gap: 0.35rem; color: #536158; font-size: 0.8rem; font-weight: 700; }
+.document-upload-panel input,
+.document-upload-panel select,
+.document-grid input,
+.document-grid select { border: 1px solid rgb(22 34 28 / 20%); border-radius: 0.65rem; padding: 0.7rem; background: #fbfaf6; }
+.document-grid { display: grid; gap: 1rem; }
+.document-grid > article > header { display: flex; justify-content: space-between; gap: 1rem; }
+.document-grid > article > header small { color: #68766e; text-transform: uppercase; }
+.document-grid > article > header span { align-self: start; border-radius: 999px; padding: 0.3rem 0.55rem; background: #e1e8df; font-size: 0.72rem; font-weight: 800; }
+.document-version-list { display: grid; gap: 0.5rem; margin: 1rem 0; }
+.document-version-list > div { display: flex; align-items: center; gap: 0.6rem; border-top: 1px solid rgb(22 34 28 / 10%); padding-top: 0.6rem; }
+.document-version-list span { margin-right: auto; color: #68766e; }
+.document-version-list button,
+.document-preview button,
+.document-grid details button { border: 1px solid rgb(22 34 28 / 20%); border-radius: 0.55rem; padding: 0.5rem 0.7rem; cursor: pointer; }
+.document-grid details form { grid-template-columns: repeat(3, 1fr); margin-top: 0.8rem; }
+.document-preview > div { display: flex; justify-content: space-between; }
+.document-preview article { border-top: 1px solid rgb(22 34 28 / 10%); padding-top: 0.8rem; }
+
 .app-frame {
   min-height: 100vh;
 }

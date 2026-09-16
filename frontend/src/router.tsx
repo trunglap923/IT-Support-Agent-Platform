@@ -4,6 +4,7 @@ import { AppShell } from "./components/AppShell";
 import { ChatPage } from "./features/chat/ChatPage";
 import { DashboardPage } from "./features/DashboardPage";
 import { LoginPage } from "./features/auth/LoginPage";
+import { DocumentsPage } from "./features/documents/DocumentsPage";
 import { RequireAuth } from "./features/auth/RequireAuth";
 import { TicketsPage } from "./features/tickets/TicketsPage";
 import { OperationsPage } from "./features/services/OperationsPage";
@@ -25,6 +26,7 @@ export const router = createBrowserRouter([
       { path: "chat", element: <ChatPage /> },
       { path: "tickets", element: <TicketsPage /> },
       { path: "operations", element: <OperationsPage /> },
+      { path: "admin/documents", element: <DocumentsPage /> },
     ],
   },
 ]);
