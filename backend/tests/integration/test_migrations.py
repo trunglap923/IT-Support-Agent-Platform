@@ -57,7 +57,7 @@ def test_alembic_upgrade_on_clean_database() -> None:
                 vector_version = connection.execute(
                     text("SELECT extversion FROM pg_extension WHERE extname = 'vector'")
                 ).scalar_one()
-            assert revision == "0005_run_state_events"
+            assert revision == "0006_documents"
             assert vector_version == "0.8.2"
         finally:
             target_engine.dispose()

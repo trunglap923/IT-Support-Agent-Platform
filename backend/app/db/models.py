@@ -49,6 +49,29 @@ class RunStatus(StrEnum):
     CANCELLED = "cancelled"
 
 
+class DocumentVisibility(StrEnum):
+    COMPANY = "company"
+    DEPARTMENT = "department"
+    IT_ONLY = "it_only"
+
+
+class DocumentVersionStatus(StrEnum):
+    DRAFT = "draft"
+    PROCESSING = "processing"
+    READY = "ready"
+    PUBLISHED = "published"
+    SUPERSEDED = "superseded"
+    FAILED = "failed"
+
+
+class IngestionJobStatus(StrEnum):
+    DRAFT = "draft"
+    QUEUED = "queued"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
 USER_ROLE_TYPE = Enum(
     UserRole,
     name="user_role",
@@ -64,6 +87,27 @@ RUN_KIND_TYPE = Enum(
 RUN_STATUS_TYPE = Enum(
     RunStatus,
     name="run_status",
+    native_enum=False,
+    create_constraint=True,
+    values_callable=lambda values: [value.value for value in values],
+)
+DOCUMENT_VISIBILITY_TYPE = Enum(
+    DocumentVisibility,
+    name="document_visibility",
+    native_enum=False,
+    create_constraint=True,
+    values_callable=lambda values: [value.value for value in values],
+)
+DOCUMENT_VERSION_STATUS_TYPE = Enum(
+    DocumentVersionStatus,
+    name="document_version_status",
+    native_enum=False,
+    create_constraint=True,
+    values_callable=lambda values: [value.value for value in values],
+)
+INGESTION_JOB_STATUS_TYPE = Enum(
+    IngestionJobStatus,
+    name="ingestion_job_status",
     native_enum=False,
     create_constraint=True,
     values_callable=lambda values: [value.value for value in values],
@@ -119,6 +163,111 @@ class AuthSession(Base):
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     user: Mapped[User] = relationship(back_populates="sessions")
+
+
+class Document(Base):
+    __tablename__ = "documents"
+    __table_args__ = (
+        CheckConstraint(
+            "(visibility = 'department') = (department_id IS NOT NULL)",
+            name="department_scope_matches_visibility",
+        ),
+        ForeignKeyConstraint(
+            ["current_version_id", "id"],
+            ["document_versions.id", "document_versions.document_id"],
+            name="fk_documents_current_version_owner",
+            use_alter=True,
+            ondelete="RESTRICT",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    document_key: Mapped[str] = mapped_column(String(120), unique=True)
+    title: Mapped[str] = mapped_column(String(240))
+    visibility: Mapped[DocumentVisibility] = mapped_column(DOCUMENT_VISIBILITY_TYPE)
+    department_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("departments.id", ondelete="RESTRICT"), index=True
+    )
+    archived: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    current_version_id: Mapped[UUID | None] = mapped_column(index=True)
+    access_version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class DocumentVersion(Base):
+    __tablename__ = "document_versions"
+    __table_args__ = (
+        UniqueConstraint("document_id", "version_label", name="uq_document_version_label"),
+        UniqueConstraint("id", "document_id", name="uq_document_versions_id_document"),
+        CheckConstraint("char_length(source_checksum) = 64", name="source_checksum_length"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    document_id: Mapped[UUID] = mapped_column(
+        ForeignKey("documents.id", ondelete="CASCADE"), index=True
+    )
+    version_label: Mapped[str] = mapped_column(String(40))
+    status: Mapped[DocumentVersionStatus] = mapped_column(
+        DOCUMENT_VERSION_STATUS_TYPE, default=DocumentVersionStatus.DRAFT
+    )
+    authority: Mapped[str] = mapped_column(String(80))
+    language: Mapped[str] = mapped_column(String(20))
+    media_type: Mapped[str] = mapped_column(String(100))
+    source_checksum: Mapped[str] = mapped_column(String(64))
+    storage_key: Mapped[str] = mapped_column(String(500))
+    source_url: Mapped[str | None] = mapped_column(String(500))
+    effective_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    parser_version: Mapped[str | None] = mapped_column(String(80))
+    chunker_version: Mapped[str | None] = mapped_column(String(80))
+    embedding_model: Mapped[str | None] = mapped_column(String(120))
+    embedding_dimensions: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class DocumentAcl(Base):
+    __tablename__ = "document_acl"
+    __table_args__ = (
+        UniqueConstraint("document_id", "department_id", name="uq_document_acl_department"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    document_id: Mapped[UUID] = mapped_column(
+        ForeignKey("documents.id", ondelete="CASCADE"), index=True
+    )
+    department_id: Mapped[UUID] = mapped_column(
+        ForeignKey("departments.id", ondelete="CASCADE"), index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class IngestionJob(Base):
+    __tablename__ = "ingestion_jobs"
+    __table_args__ = (
+        UniqueConstraint("document_version_id", "identity_hash", name="uq_ingestion_job_identity"),
+        CheckConstraint("progress >= 0 AND progress <= 100", name="progress_range"),
+        CheckConstraint("attempts >= 0", name="attempts_non_negative"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    document_version_id: Mapped[UUID] = mapped_column(
+        ForeignKey("document_versions.id", ondelete="CASCADE"), index=True
+    )
+    identity_hash: Mapped[str] = mapped_column(String(64))
+    status: Mapped[IngestionJobStatus] = mapped_column(
+        INGESTION_JOB_STATUS_TYPE, default=IngestionJobStatus.DRAFT
+    )
+    stage: Mapped[str] = mapped_column(String(40), default="created", server_default="created")
+    progress: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    error_code: Mapped[str | None] = mapped_column(String(80))
+    error_detail: Mapped[str | None] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Conversation(Base):
