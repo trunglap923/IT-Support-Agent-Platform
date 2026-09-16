@@ -1,6 +1,6 @@
 # Evaluation runner — chạy, chấm và lưu bằng chứng
 
-Trạng thái: có validator M0 và isolated PostgreSQL retrieval runner; agent execution còn WP-06/WP-13.
+Trạng thái: runner deterministic và live opt-in đã có; live semantic evaluation chưa được chạy.
 Work packages: WP-05, WP-06, WP-13.
 Nguồn: [kế hoạch tổng](../../plan.md), mục 16, 19, 20.4; [thứ tự triển khai](../../docs/implementation-roadmap.md).
 
@@ -36,14 +36,14 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] RUNNER-01: Tạo CLI chọn split/configuration/repetitions/output và validate trước khi chạy.
+- [x] RUNNER-01: Tạo CLI chọn split/configuration/repetitions/output và validate trước khi chạy.
 - [x] RUNNER-02: Thiết lập database tạm prefix `test_retrieval_eval_` và guard trước cleanup.
-- [ ] RUNNER-03: Chạy scripted conversation/approval/failure và đọc thay đổi DB để chấm side effects.
+- [ ] RUNNER-03: LangGraph RAG và scripted contract đã có; actual scoped DB-effect measurement còn ở P58.
 - [x] RUNNER-04: Thêm scorer deterministic retrieval/no-answer/scope có mẫu số; semantic review còn WP-06.
-- [ ] RUNNER-05: Giới hạn API spend/concurrency, checkpoint tiến độ eval để có thể tiếp tục có kiểm soát.
+- [x] RUNNER-05: Live mode opt-in, giới hạn call/output/cost; resume/checkpoint batch chưa cần cho quota nhỏ.
 
 ## Điều kiện hoàn thành
 
-- [ ] Chạy lại cùng fake seed cho kết quả nhất quán; live kết quả giữ cả lần lỗi và biến động.
+- [x] Chạy lại cùng fake seed cho kết quả nhất quán; live artifact giữ từng lần chạy.
 - [ ] Báo cáo ba cấu hình trên đúng nhóm task có thể so sánh.
-- [ ] Artifacts không chứa secret/raw checkpoint; live eval không tự chạy trong PR CI.
+- [x] Artifacts không chứa secret/raw checkpoint; live eval không tự chạy trong PR CI.

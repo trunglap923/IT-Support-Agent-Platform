@@ -19,7 +19,8 @@ FRONTEND_DOCKER = docker run --rm --user $(PROJECT_UID):$(PROJECT_GID) -e npm_co
 	frontend-install frontend-check frontend-install-docker frontend-check-docker \
 	frontend-e2e-docker \
 	dev-backend dev-frontend dev-frontend-docker dev-stop spike-openai-live \
-	spike-mcp-stdio spike-langgraph-postgres eval-validate knowledge-validate retrieval-baseline \
+	spike-mcp-stdio spike-langgraph-postgres eval-validate eval-agent-fake \
+	eval-agent-repro eval-agent-live knowledge-validate retrieval-baseline \
 	db-up db-down db-status redis-up redis-down redis-status services-up services-down \
 	migrate seed-demo-user wp02-integration-check wp03-integration-check \
 	wp10-integration-check backend-integration-check wp02-check wp03-check \
@@ -40,7 +41,10 @@ help:
 	@echo "  make spike-openai-live      Run three small paid Responses API probes (opt-in)"
 	@echo "  make spike-mcp-stdio        Verify MCP stdio discovery/call and actor isolation"
 	@echo "  make spike-langgraph-postgres  Verify pause/restart/resume (requires CHECKPOINT_DATABASE_URL)"
-	@echo "  make eval-validate           Validate the 30 offline M0 evaluation cases"
+	@echo "  make eval-validate           Validate all 120 versioned evaluation cases"
+	@echo "  make eval-agent-fake         Run deterministic development-split evaluation"
+	@echo "  make eval-agent-repro        Verify identical fake runs have the same digest"
+	@echo "  make eval-agent-live         Run 1 RAG case 3 times (paid and explicit opt-in)"
 	@echo "  make knowledge-validate      Validate corpus metadata, ACL rules and checksums"
 	@echo "  make retrieval-baseline      Run isolated PostgreSQL retrieval evaluation"
 	@echo "  make db-up                  Start local PostgreSQL/pgvector and wait until healthy"
@@ -184,6 +188,16 @@ spike-langgraph-postgres:
 
 eval-validate:
 	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --project backend --frozen python -m evals.runner.validate_cases
+
+eval-agent-fake: eval-validate
+	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --project backend --frozen python -m evals.runner.cli --mode fake --split development --output reports/raw/agent-evaluation-fake.json
+
+eval-agent-repro: eval-validate
+	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --project backend --frozen python -m evals.runner.repro_check
+
+eval-agent-live: eval-validate
+	@test "$${RUN_LIVE_EVAL:-0}" = "1" || (echo "Set RUN_LIVE_EVAL=1 to authorize paid evaluation."; exit 1)
+	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --project backend --frozen --env-file $(COMPOSE_ENV_FILE) python -m evals.runner.cli --mode live --split development --category rag --max-cases 1 --repetitions 3 --output reports/raw/agent-evaluation-live.json
 
 knowledge-validate:
 	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --directory backend --frozen python ../data/manifests/validate_corpus.py

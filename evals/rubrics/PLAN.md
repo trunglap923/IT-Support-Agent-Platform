@@ -1,6 +1,6 @@
 # Evaluation rubrics — cách chấm và release gates
 
-Trạng thái: retrieval rubric M2 đã chốt; answer/task/memory rubrics còn WP-06/WP-13.
+Trạng thái: retrieval, answer, task, memory và release-gate rubric v1 đã chốt.
 Work packages: WP-01, WP-05, WP-13.
 Nguồn: [kế hoạch tổng](../../plan.md), mục 19.3, 19.5; [thứ tự triển khai](../../docs/implementation-roadmap.md).
 
@@ -33,10 +33,10 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 ## Các bước triển khai
 
 - [x] RUBRIC-01: Định nghĩa công thức/mẫu số retrieval Recall@5/MRR/no-answer/scope; các rubric khác còn WP-06/WP-13.
-- [ ] RUBRIC-02: Viết ví dụ pass/fail cho claim thiếu bằng chứng và tool arguments sai.
+- [x] RUBRIC-02: Viết ví dụ pass/fail cho claim thiếu bằng chứng và tool arguments sai.
 - [ ] RUBRIC-03: Chốt cách đo latency với ba lượt đồng thời, tách approval wait và báo lỗi/cost.
-- [ ] RUBRIC-04: Thiết lập human review có checklist và ghi disagreement với auto-judge.
-- [ ] RUBRIC-05: Version rubric, áp dụng cùng phiên bản cho cấu hình được so sánh.
+- [x] RUBRIC-04: Thiết lập human review có checklist và ghi disagreement với auto-judge.
+- [x] RUBRIC-05: Version rubric `agent-eval-v1`; mọi case hiện tại dùng cùng phiên bản.
 
 ## Điều kiện hoàn thành
 
