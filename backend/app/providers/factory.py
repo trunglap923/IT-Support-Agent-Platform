@@ -1,12 +1,12 @@
 """Create the configured provider inside the application lifespan."""
 
 from app.config import AIProvider, Settings
-from app.providers.base import TextGenerationProvider
+from app.providers.base import StructuredResponseProvider
 from app.providers.fake import FakeTextProvider
 from app.providers.openai import build_openai_provider
 
 
-def create_provider(settings: Settings) -> TextGenerationProvider:
+def create_provider(settings: Settings) -> StructuredResponseProvider:
     if settings.ai_provider is AIProvider.FAKE:
         return FakeTextProvider()
 
