@@ -114,6 +114,14 @@ class TicketIssueType(StrEnum):
     OTHER = "other"
 
 
+class ApprovalStatus(StrEnum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    EXECUTED = "executed"
+    EXPIRED = "expired"
+
+
 USER_ROLE_TYPE = Enum(
     UserRole,
     name="user_role",
@@ -454,6 +462,36 @@ class RunEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class ApprovalRequest(Base):
+    __tablename__ = "approval_requests"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'approved', 'rejected', 'executed', 'expired')",
+            name="approval_status_allowlist",
+        ),
+        CheckConstraint("length(arguments_hash) = 64", name="approval_hash_length"),
+        Index("ix_approval_owner_status_expiry", "owner_id", "status", "expires_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    action_id: Mapped[str] = mapped_column(String(120), unique=True)
+    run_id: Mapped[UUID] = mapped_column(
+        ForeignKey("agent_runs.id", ondelete="CASCADE"), index=True
+    )
+    owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    tool_name: Mapped[str] = mapped_column(String(80))
+    canonical_args: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    arguments_hash: Mapped[str] = mapped_column(String(64))
+    schema_version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    status: Mapped[str] = mapped_column(String(20), default="pending", server_default="pending")
+    version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    decided_by: Mapped[UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    executed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class Message(Base):
     __tablename__ = "messages"
 
@@ -525,7 +563,9 @@ class Ticket(Base):
     conversation_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("conversations.id", ondelete="SET NULL")
     )
-    approval_id: Mapped[UUID | None] = mapped_column(unique=True)
+    approval_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("approval_requests.id", ondelete="RESTRICT"), unique=True
+    )
     source: Mapped[str] = mapped_column(String(20), default="seed", server_default="seed")
     title: Mapped[str] = mapped_column(String(160))
     description: Mapped[str] = mapped_column(Text)
