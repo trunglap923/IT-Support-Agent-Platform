@@ -121,6 +121,17 @@ textarea {
 .ticket-list article h3 { margin: 0.45rem 0; }
 .ticket-list article p { margin-bottom: 0; color: #536158; }
 .notice-banner { border-radius: 0.8rem; padding: 0.9rem 1rem; color: #1f5b3b; background: #e0efe4; }
+.operations-page { display: grid; gap: 2.5rem; }
+.operations-page header h1 { font-family: Georgia, serif; font-size: clamp(2.4rem, 5vw, 4.5rem); font-weight: 500; }
+.service-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.8rem; }
+.service-grid article { display: grid; gap: 0.65rem; border: 1px solid rgb(22 34 28 / 12%); border-radius: 1rem; padding: 1rem; background: rgb(255 255 255 / 58%); }
+.service-grid select,
+.service-grid input,
+.resolve-controls input { border: 1px solid rgb(22 34 28 / 20%); border-radius: 0.6rem; padding: 0.65rem; background: #fbfaf6; }
+.service-grid button,
+.ticket-list button { justify-self: start; border: 0; border-radius: 0.6rem; padding: 0.65rem 0.85rem; color: white; background: #173f2d; cursor: pointer; }
+.resolve-controls { display: flex; gap: 0.5rem; }
+.resolve-controls input { min-width: 280px; }
 
 .app-frame {
   min-height: 100vh;

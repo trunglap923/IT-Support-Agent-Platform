@@ -47,6 +47,7 @@ export function AppShell() {
               {item.label}
             </NavLink>
           ))}
+          {user?.role !== "employee" ? <NavLink className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")} to="/operations">Vận hành</NavLink> : null}
         </nav>
         <div className="account-menu">
           <span>{user?.display_name}</span>

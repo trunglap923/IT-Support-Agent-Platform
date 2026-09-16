@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -15,11 +15,25 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.agent.approval_checkpoint import ApprovalCheckpointError, pause_ticket_approval
 from app.api.approvals import ApprovalResponse, approval_response
 from app.auth.csrf import require_csrf
-from app.db.models import AgentRun, ApprovalRequest, Conversation, RunKind, RunStatus
+from app.auth.policies import require_roles
+from app.db.models import (
+    AgentRun,
+    ApprovalRequest,
+    Conversation,
+    RunKind,
+    RunStatus,
+    TicketStatus,
+    UserRole,
+)
 from app.dependencies import CurrentPrincipal, get_database, get_db_session
 from app.repositories.runs import RunRepository
 from app.services.approvals import ApprovalService
-from app.services.tickets import TicketReadService
+from app.services.tickets import (
+    TicketOperationConflictError,
+    TicketOperationNotFoundError,
+    TicketOperationService,
+    TicketReadService,
+)
 from app.tools.schemas import CreateTicketArguments
 
 router = APIRouter(prefix="/tickets", tags=["tickets"])
@@ -36,6 +50,15 @@ class TicketResponse(BaseModel):
     severity: str
     status: str
     resolution_note: str | None
+    version: int
+
+
+class TicketTransitionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    action: Literal["start", "resolve", "reopen"]
+    expected_version: int = Field(ge=1)
+    resolution_note: str | None = Field(default=None, max_length=4_000)
 
 
 class TicketDraftRequest(CreateTicketArguments):
@@ -55,6 +78,54 @@ async def list_my_tickets(
 ) -> list[TicketResponse]:
     tickets = await TicketReadService().list_owned(session, principal=principal)
     return [TicketResponse.model_validate(ticket) for ticket in tickets]
+
+
+@router.get(
+    "/queue",
+    response_model=list[TicketResponse],
+    dependencies=[Depends(require_roles(UserRole.IT, UserRole.ADMIN))],
+)
+async def list_ticket_queue(
+    principal: CurrentPrincipal,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    ticket_status: TicketStatus | None = None,
+) -> list[TicketResponse]:
+    tickets = await TicketReadService().list_visible(
+        session,
+        principal=principal,
+        status=ticket_status,
+    )
+    return [TicketResponse.model_validate(ticket) for ticket in tickets]
+
+
+@router.post(
+    "/{ticket_id}/transition",
+    response_model=TicketResponse,
+    dependencies=[Depends(require_csrf), Depends(require_roles(UserRole.IT, UserRole.ADMIN))],
+)
+async def transition_ticket(
+    ticket_id: UUID,
+    payload: TicketTransitionRequest,
+    principal: CurrentPrincipal,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> TicketResponse:
+    try:
+        ticket = await TicketOperationService().transition(
+            session,
+            principal=principal,
+            ticket_id=ticket_id,
+            action=payload.action,
+            expected_version=payload.expected_version,
+            resolution_note=payload.resolution_note,
+        )
+    except TicketOperationNotFoundError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Ticket was not found"
+        ) from error
+    except TicketOperationConflictError as error:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
+    await session.commit()
+    return TicketResponse.model_validate(ticket)
 
 
 @router.post(

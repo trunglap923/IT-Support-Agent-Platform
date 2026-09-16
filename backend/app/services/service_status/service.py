@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from uuid import UUID
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -46,3 +48,21 @@ class ServiceStatusService:
     async def list(self, session: AsyncSession) -> list[ServiceState]:
         statement = select(ServiceState).order_by(ServiceState.service_id)
         return list((await session.scalars(statement)).all())
+
+    async def update(
+        self,
+        session: AsyncSession,
+        *,
+        service_id: str,
+        status: str,
+        message: str,
+        fault_mode: str,
+        updated_by: UUID,
+    ) -> ServiceState:
+        item = await self.get(session, service_id=service_id)
+        item.status = status
+        item.message = message.strip()
+        item.fault_mode = fault_mode
+        item.updated_by = updated_by
+        await session.flush()
+        return item

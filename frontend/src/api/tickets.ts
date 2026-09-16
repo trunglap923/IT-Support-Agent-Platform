@@ -28,6 +28,7 @@ export interface Ticket {
   severity: string;
   status: string;
   resolution_note: string | null;
+  version: number;
 }
 
 export interface TicketDraftResponse {

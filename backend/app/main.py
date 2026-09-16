@@ -11,6 +11,7 @@ from app.api.auth import router as auth_router
 from app.api.conversations import router as conversations_router
 from app.api.health import router as health_router
 from app.api.runs import router as runs_router
+from app.api.service_status import router as service_status_router
 from app.api.tickets import router as tickets_router
 from app.config import Settings
 from app.db import Database
@@ -79,6 +80,7 @@ def create_app(
     application.include_router(approvals_router, prefix="/api/v1")
     application.include_router(conversations_router, prefix="/api/v1")
     application.include_router(runs_router, prefix="/api/v1")
+    application.include_router(service_status_router, prefix="/api/v1")
     application.include_router(tickets_router, prefix="/api/v1")
     return application
 

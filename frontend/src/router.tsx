@@ -6,6 +6,7 @@ import { DashboardPage } from "./features/DashboardPage";
 import { LoginPage } from "./features/auth/LoginPage";
 import { RequireAuth } from "./features/auth/RequireAuth";
 import { TicketsPage } from "./features/tickets/TicketsPage";
+import { OperationsPage } from "./features/services/OperationsPage";
 
 export const router = createBrowserRouter([
   {
@@ -23,6 +24,7 @@ export const router = createBrowserRouter([
       { index: true, element: <DashboardPage /> },
       { path: "chat", element: <ChatPage /> },
       { path: "tickets", element: <TicketsPage /> },
+      { path: "operations", element: <OperationsPage /> },
     ],
   },
 ]);
