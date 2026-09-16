@@ -27,17 +27,17 @@
   "properties": {
     "case_id": {
       "type": "string",
-      "pattern": "^m0-[0-9]{3}$"
+      "pattern": "^eval-[0-9]{3}$"
     },
     "split": {
-      "const": "development"
+      "enum": ["development", "holdout"]
     },
     "scenario_group": {
       "type": "string",
       "pattern": "^[a-z][a-z0-9_]+$"
     },
     "category": {
-      "enum": ["citations", "no_answer", "permission", "tool_safety"]
+      "enum": ["rag", "permission", "tool", "approval", "memory", "failure"]
     },
     "language": {
       "enum": ["vi", "en"]
@@ -64,7 +64,7 @@
       "type": "object"
     },
     "document_snapshot": {
-      "const": "m0-corpus-v1"
+      "const": "demo-corpus-v1"
     },
     "messages": {
       "type": "array",
@@ -93,7 +93,8 @@
         "access_denied",
         "needs_approval",
         "ticket_created",
-        "action_rejected"
+        "action_rejected",
+        "recovered"
       ]
     },
     "allowed_tool_sequences": {
@@ -168,7 +169,7 @@
             "enum": ["create", "update", "delete"]
           },
           "resource": {
-            "enum": ["ticket", "memory"]
+            "enum": ["ticket", "memory", "run"]
           },
           "owner_key": {
             "type": "string",
@@ -194,7 +195,7 @@
       }
     },
     "rubric_version": {
-      "const": "m0-v1"
+      "const": "agent-eval-v1"
     }
   }
 }

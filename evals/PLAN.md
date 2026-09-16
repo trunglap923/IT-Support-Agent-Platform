@@ -1,6 +1,6 @@
 # Evaluation — đo chất lượng và điều kiện release
 
-Trạng thái: schema/30 case M0 và PostgreSQL retrieval baseline M2 đã có; live agent runner còn chờ WP-06/WP-13.
+Trạng thái: schema/120 case split 80/40 và retrieval baseline đã có; agent runner thuộc P57.
 Work packages: WP-01, WP-05, WP-06, WP-13.
 Nguồn: [kế hoạch tổng](../plan.md), mục 19, 21, 22; [thứ tự triển khai](../docs/implementation-roadmap.md).
 
@@ -10,7 +10,7 @@ Chứng minh chất lượng bằng bộ ca có đáp án và tác động DB, t
 
 ## Hợp đồng và trách nhiệm
 
-- M0 viết 30 ca đầu; M6 đủ 120 ca, 80 development + 40 holdout, group-aware split.
+- M6 có 120 ca, 80 development + 40 holdout, group-aware split và checksum manifest.
 - So sánh RAG baseline; agent + tools; agent + tools + memory trên cùng điều kiện thích hợp.
 - Live evaluation có quota guard và opt-in; security/tool effects chấm bằng code, câu trả lời cần rubric/human review.
 
@@ -39,5 +39,5 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Điều kiện hoàn thành
 
-- [ ] 120 ca đúng split/nhóm, kết quả có model/prompt/corpus version.
+- [x] 120 ca đúng split/nhóm; runner P57 sẽ gắn model/prompt/corpus version vào kết quả.
 - [ ] Release gates được báo cả mẫu số, phương pháp và giới hạn; không thay ngưỡng để hợp kết quả.

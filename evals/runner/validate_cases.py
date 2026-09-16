@@ -11,14 +11,15 @@ from typing import Any
 from jsonschema import Draft202012Validator, FormatChecker
 
 EVALS_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_CASES = EVALS_ROOT / "cases" / "development.jsonl"
+DEFAULT_CASES = (
+    EVALS_ROOT / "cases" / "development.jsonl",
+    EVALS_ROOT / "cases" / "holdout.jsonl",
+)
 DEFAULT_SCHEMA = EVALS_ROOT / "cases" / "schema.json"
-EXPECTED_M0_COUNTS = {
-    "citations": 8,
-    "no_answer": 7,
-    "permission": 7,
-    "tool_safety": 8,
-}
+EXPECTED_CATEGORY_COUNTS = dict.fromkeys(
+    ("rag", "permission", "tool", "approval", "memory", "failure"), 20
+)
+EXPECTED_SPLIT_COUNTS = {"development": 80, "holdout": 40}
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -48,10 +49,25 @@ def validate_semantics(cases: list[dict[str, Any]]) -> None:
         raise ValueError("case_id values must be unique")
 
     counts = Counter(str(case["category"]) for case in cases)
-    if counts != Counter(EXPECTED_M0_COUNTS):
+    if counts != Counter(EXPECTED_CATEGORY_COUNTS):
         raise ValueError(
-            f"expected category counts {EXPECTED_M0_COUNTS}, got {dict(counts)}"
+            f"expected category counts {EXPECTED_CATEGORY_COUNTS}, got {dict(counts)}"
         )
+    split_counts = Counter(str(case["split"]) for case in cases)
+    if split_counts != Counter(EXPECTED_SPLIT_COUNTS):
+        raise ValueError(
+            f"expected split counts {EXPECTED_SPLIT_COUNTS}, got {dict(split_counts)}"
+        )
+    group_splits: dict[str, set[str]] = {}
+    for case in cases:
+        group_splits.setdefault(str(case["scenario_group"]), set()).add(
+            str(case["split"])
+        )
+    leaked_groups = sorted(
+        group for group, splits in group_splits.items() if len(splits) != 1
+    )
+    if leaked_groups:
+        raise ValueError(f"scenario groups cross splits: {leaked_groups}")
 
     for case in cases:
         case_id = str(case["case_id"])
@@ -61,22 +77,17 @@ def validate_semantics(cases: list[dict[str, Any]]) -> None:
         forbidden = case["forbidden_actions"]
         outcome = case["expected_outcome"]
 
-        if category == "citations":
-            if (
-                not evidence
-                or not case["required_answer_facts"]
-                or outcome != "answered"
+        if category == "rag":
+            if outcome == "answered" and (
+                not evidence or not case["required_answer_facts"]
             ):
                 raise ValueError(
-                    f"{case_id}: citation case needs evidence, facts and answered outcome"
+                    f"{case_id}: answered RAG case needs evidence and facts"
                 )
-        elif category == "no_answer":
-            if (
-                evidence
-                or outcome not in {"abstain", "clarify"}
-                or "invent_policy" not in forbidden
+            if outcome in {"abstain", "clarify"} and (
+                evidence or "invent_policy" not in forbidden
             ):
-                raise ValueError(f"{case_id}: invalid no-answer ground truth")
+                raise ValueError(f"{case_id}: invalid RAG no-answer ground truth")
         elif category == "permission":
             if (
                 outcome != "access_denied"
@@ -85,50 +96,75 @@ def validate_semantics(cases: list[dict[str, Any]]) -> None:
                 raise ValueError(
                     f"{case_id}: permission case must deny cross-scope disclosure"
                 )
-        elif category == "tool_safety" and not any(
+        elif category == "tool" and not any(
             action in forbidden
             for action in (
-                "write_without_approval",
                 "call_unlisted_tool",
+                "disclose_cross_scope_data",
                 "trust_unverified_context",
             )
         ):
+            raise ValueError(f"{case_id}: tool case lacks a core safety prohibition")
+        elif category == "approval" and "write_without_approval" not in forbidden:
             raise ValueError(
-                f"{case_id}: tool-safety case lacks a core safety prohibition"
+                f"{case_id}: approval case must prohibit unapproved writes"
             )
+        elif category == "memory" and not any(
+            action in forbidden
+            for action in (
+                "write_memory_without_consent",
+                "reuse_deleted_memory",
+                "cross_device_memory",
+            )
+        ):
+            raise ValueError(f"{case_id}: memory case lacks lifecycle protection")
+        elif category == "failure" and not case["injected_failures"]:
+            raise ValueError(f"{case_id}: failure case needs injected_failures")
 
-        if outcome != "ticket_created" and changes:
-            raise ValueError(f"{case_id}: unexpected DB changes for {outcome}")
         if outcome == "ticket_created" and (
             len(changes) != 1 or changes[0]["approval_required"] is not True
         ):
             raise ValueError(f"{case_id}: ticket creation needs one approved DB effect")
+        for change in changes:
+            if change["resource"] == "ticket" and category != "approval":
+                raise ValueError(
+                    f"{case_id}: ticket effect belongs to approval category"
+                )
+            if change["resource"] == "memory" and category != "memory":
+                raise ValueError(f"{case_id}: memory effect belongs to memory category")
+            if change["resource"] == "run" and category != "failure":
+                raise ValueError(f"{case_id}: run effect belongs to failure category")
 
 
-def validate(cases_path: Path, schema_path: Path) -> Counter[str]:
+def validate(cases_paths: list[Path], schema_path: Path) -> Counter[str]:
     schema = load_json(schema_path)
     Draft202012Validator.check_schema(schema)
     validator = Draft202012Validator(schema, format_checker=FormatChecker())
-    cases = load_cases(cases_path)
-    for line_number, case in enumerate(cases, start=1):
-        errors = sorted(validator.iter_errors(case), key=lambda error: list(error.path))
-        if errors:
-            details = "; ".join(error.message for error in errors)
-            raise ValueError(f"{cases_path}:{line_number}: {details}")
+    cases: list[dict[str, Any]] = []
+    for cases_path in cases_paths:
+        loaded = load_cases(cases_path)
+        for line_number, case in enumerate(loaded, start=1):
+            errors = sorted(
+                validator.iter_errors(case), key=lambda error: list(error.path)
+            )
+            if errors:
+                details = "; ".join(error.message for error in errors)
+                raise ValueError(f"{cases_path}:{line_number}: {details}")
+        cases.extend(loaded)
     validate_semantics(cases)
     return Counter(str(case["category"]) for case in cases)
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--cases", type=Path, default=DEFAULT_CASES)
+    parser.add_argument("--cases", action="append", type=Path)
     parser.add_argument("--schema", type=Path, default=DEFAULT_SCHEMA)
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
-    counts = validate(args.cases, args.schema)
+    counts = validate(args.cases or list(DEFAULT_CASES), args.schema)
     print(f"Validated {sum(counts.values())} cases: {dict(sorted(counts.items()))}")
 
 
