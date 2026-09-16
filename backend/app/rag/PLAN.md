@@ -1,6 +1,6 @@
 # RAG và knowledge lifecycle
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: ingestion/chunk storage M2 đã triển khai; retrieval/citations theo WP-05.
 Work packages: WP-04, WP-05, WP-11.
 Nguồn: [kế hoạch tổng](../../../plan.md), mục 6, 8; [thứ tự triển khai](../../../docs/implementation-roadmap.md).
 
@@ -33,7 +33,7 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] RAG-01: Hoàn thành ingestion và chunking với dữ liệu do dự án sở hữu.
+- [x] RAG-01: Hoàn thành ingestion và chunking với dữ liệu do dự án sở hữu.
 - [ ] RAG-02: Tạo embedding space thống nhất và scoped hybrid retrieval.
 - [ ] RAG-03: Bổ sung citation/source endpoints và xử lý câu hỏi thiếu căn cứ.
 - [ ] RAG-04: Nối admin preview/publish/archive; đo retrieval baseline trước reranker.

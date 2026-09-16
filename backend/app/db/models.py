@@ -8,9 +8,11 @@ from enum import StrEnum
 from typing import Any
 from uuid import UUID, uuid4
 
+from pgvector.sqlalchemy import VECTOR
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
+    Computed,
     DateTime,
     Enum,
     ForeignKey,
@@ -24,7 +26,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -304,6 +306,38 @@ class UsageLedgerEntry(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+
+class DocumentChunk(Base):
+    __tablename__ = "document_chunks"
+    __table_args__ = (
+        UniqueConstraint("version_id", "ordinal", name="uq_document_chunk_ordinal"),
+        UniqueConstraint("version_id", "content_hash", name="uq_document_chunk_content_hash"),
+        CheckConstraint("ordinal >= 0", name="ordinal_non_negative"),
+        CheckConstraint("token_count > 0 AND token_count <= 800", name="token_count_range"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    version_id: Mapped[UUID] = mapped_column(
+        ForeignKey("document_versions.id", ondelete="CASCADE"), index=True
+    )
+    ordinal: Mapped[int] = mapped_column(Integer)
+    page_number: Mapped[int | None] = mapped_column(Integer)
+    section: Mapped[str | None] = mapped_column(String(240))
+    source_path: Mapped[str] = mapped_column(String(500))
+    source_token_start: Mapped[int] = mapped_column(Integer)
+    source_token_end: Mapped[int] = mapped_column(Integer)
+    content: Mapped[str] = mapped_column(Text)
+    token_count: Mapped[int] = mapped_column(Integer)
+    content_hash: Mapped[str] = mapped_column(String(64))
+    embedding_model: Mapped[str] = mapped_column(String(120))
+    embedding_dimensions: Mapped[int] = mapped_column(Integer)
+    embedding: Mapped[list[float]] = mapped_column(VECTOR(1536))
+    search_vector: Mapped[str] = mapped_column(
+        TSVECTOR,
+        Computed("to_tsvector('simple', content)", persisted=True),
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class Conversation(Base):
