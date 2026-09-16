@@ -79,3 +79,63 @@ class DocumentRepository:
         self, session: AsyncSession, *, version_id: UUID
     ) -> DocumentVersion | None:
         return await session.get(DocumentVersion, version_id)
+
+    async def create_version(
+        self,
+        session: AsyncSession,
+        *,
+        document: Document,
+        version_label: str,
+        authority: str,
+        language: str,
+        media_type: str,
+        source_checksum: str,
+        storage_key: str,
+        effective_at: datetime,
+        expires_at: datetime | None,
+        identity_hash: str,
+    ) -> tuple[DocumentVersion, IngestionJob]:
+        version = DocumentVersion(
+            document_id=document.id,
+            version_label=version_label,
+            status=DocumentVersionStatus.DRAFT,
+            authority=authority,
+            language=language,
+            media_type=media_type,
+            source_checksum=source_checksum,
+            storage_key=storage_key,
+            effective_at=effective_at,
+            expires_at=expires_at,
+        )
+        session.add(version)
+        await session.flush()
+        job = IngestionJob(
+            document_version_id=version.id,
+            identity_hash=identity_hash,
+            status=IngestionJobStatus.DRAFT,
+        )
+        session.add(job)
+        await session.flush()
+        return version, job
+
+    async def list_documents(self, session: AsyncSession) -> list[Document]:
+        return list(
+            (
+                await session.scalars(
+                    select(Document).order_by(Document.updated_at.desc(), Document.id.desc())
+                )
+            ).all()
+        )
+
+    async def list_versions(
+        self, session: AsyncSession, *, document_id: UUID
+    ) -> list[DocumentVersion]:
+        return list(
+            (
+                await session.scalars(
+                    select(DocumentVersion)
+                    .where(DocumentVersion.document_id == document_id)
+                    .order_by(DocumentVersion.created_at.desc(), DocumentVersion.id.desc())
+                )
+            ).all()
+        )

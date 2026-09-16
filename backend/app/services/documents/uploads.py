@@ -46,6 +46,22 @@ class UploadMetadata(BaseModel):
         return self
 
 
+class VersionUploadMetadata(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    version_label: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]*$", max_length=40)
+    authority: str = Field(min_length=1, max_length=80)
+    language: str = Field(default="vi", pattern=r"^[a-z]{2}(?:-[A-Z]{2})?$", max_length=20)
+    effective_at: datetime
+    expires_at: datetime | None = None
+
+    @model_validator(mode="after")
+    def validate_dates(self) -> VersionUploadMetadata:
+        if self.expires_at is not None and self.expires_at <= self.effective_at:
+            raise ValueError("expires_at must be later than effective_at")
+        return self
+
+
 class DocumentUploadError(RuntimeError):
     def __init__(self, code: str, message: str) -> None:
         super().__init__(message)
@@ -169,6 +185,66 @@ class DocumentUploadService:
             return None
         extracted = self._parser.parse(self.resolve_storage_key(version.storage_key))
         return self._preview(extracted, size=extracted.byte_size)
+
+    async def create_version(
+        self,
+        session: AsyncSession,
+        *,
+        document_id: UUID,
+        upload: UploadFile,
+        metadata: VersionUploadMetadata,
+    ) -> DocumentDraft:
+        if upload.content_type != PDF_MEDIA_TYPE:
+            raise DocumentUploadError("unsupported_media_type", "Only application/pdf is allowed")
+        document = await session.get(Document, document_id)
+        if document is None:
+            raise DocumentUploadError("document_not_found", "Document was not found")
+
+        storage_key = self._new_storage_key()
+        final_path = self.resolve_storage_key(storage_key)
+        temporary_path = final_path.with_suffix(".part")
+        final_path.parent.mkdir(parents=True, exist_ok=True)
+        checksum = hashlib.sha256()
+        size = 0
+        try:
+            with temporary_path.open("xb") as destination:
+                size = await self._copy_bounded(upload, destination, checksum)
+                destination.flush()
+                os.fsync(destination.fileno())
+            os.replace(temporary_path, final_path)
+            extracted = self._parser.parse(final_path)
+            identity_payload = (
+                f"{document.document_key}\0{metadata.version_label}\0{checksum.hexdigest()}"
+            )
+            version, job = await DocumentRepository().create_version(
+                session,
+                document=document,
+                version_label=metadata.version_label,
+                authority=metadata.authority.strip(),
+                language=metadata.language,
+                media_type=PDF_MEDIA_TYPE,
+                source_checksum=checksum.hexdigest(),
+                storage_key=storage_key,
+                effective_at=metadata.effective_at,
+                expires_at=metadata.expires_at,
+                identity_hash=hashlib.sha256(identity_payload.encode()).hexdigest(),
+            )
+            return DocumentDraft(
+                document=document,
+                version=version,
+                job=job,
+                preview=self._preview(extracted, size=size),
+            )
+        except PdfExtractionError as error:
+            self._unlink(temporary_path)
+            self._unlink(final_path)
+            raise DocumentUploadError(error.code.value, str(error)) from error
+        except Exception:
+            self._unlink(temporary_path)
+            self._unlink(final_path)
+            raise
+        finally:
+            await upload.close()
 
     def resolve_storage_key(self, storage_key: str) -> Path:
         candidate = (self._storage_root / storage_key).resolve()

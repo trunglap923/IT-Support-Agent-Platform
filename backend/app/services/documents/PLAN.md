@@ -1,6 +1,6 @@
 # Xuất bản tài liệu và ACL
 
-Trạng thái: upload PDF an toàn và admin draft preview P50 đã triển khai; publication lifecycle thuộc P51.
+Trạng thái: upload/preview P50 và transactional publish/version/revoke/ACL lifecycle P51 đã triển khai.
 Work packages: WP-04, WP-05, WP-11.
 Nguồn: [kế hoạch tổng](../../../../plan.md), mục 6, 8, 13, 14; [thứ tự triển khai](../../../../docs/implementation-roadmap.md).
 
@@ -35,14 +35,15 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 - [x] DOC-01: Create document/version/job từ admin upload và metadata đã validate.
 - [x] DOC-02a: Provide bounded PDF draft preview endpoint qua service method.
-- [ ] DOC-02b: Provide ingestion status/retry endpoint ở P51.
-- [ ] DOC-03: Publish trong transaction khóa document, check expected version và switch current_version_id.
-- [ ] DOC-04: Archive/ACL changes tăng access_version và corpus_revision.
-- [ ] DOC-05: Gate source/download/history reads theo ACL mới nhất; phối hợp cleanup để giữ provenance.
+- [x] DOC-02b: Provide explicit ingestion processing/status response; retry completed job idempotent.
+- [x] DOC-03: Publish trong transaction khóa document, check expected version và switch current_version_id.
+- [x] DOC-04a: Revoke/ACL changes tăng document access_version và optimistic version.
+- [ ] DOC-04b: Thêm global corpus_revision nếu cần cache retrieval liên process.
+- [x] DOC-05: Gate retrieval/history reads theo ACL mới nhất; history có nguồn mất quyền bị redaction.
 
 ## Điều kiện hoàn thành
 
 - [x] Upload/parse thất bại không tạo draft hoặc file ngoài storage root.
-- [ ] Ingest thất bại không ảnh hưởng current source.
-- [ ] Publish wrong-document version hoặc stale version bị chặn.
-- [ ] Đổi ACL giữa retrieve/final/download không lộ title/snippet/text trái quyền.
+- [x] Ingest thất bại không ảnh hưởng current source.
+- [x] Publish wrong-document version hoặc stale version bị chặn.
+- [x] Đổi ACL/revoke không lộ title/snippet/text trong retrieval hoặc lịch sử đã persist.

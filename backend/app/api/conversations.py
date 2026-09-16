@@ -20,6 +20,7 @@ from app.services.conversations.submission import (
     RunRequestConflictError,
     RunSubmissionService,
 )
+from app.services.documents.access import redact_revoked_message_citations
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 
@@ -59,14 +60,18 @@ def _conversation_response(value: Conversation) -> ConversationResponse:
     return ConversationResponse(id=value.id, title=value.title)
 
 
-def _message_response(value: Message) -> MessageResponse:
+def _message_response(
+    value: Message,
+    override: tuple[str, str | None, list[dict[str, object]]] | None = None,
+) -> MessageResponse:
+    content, outcome, citations = override or (value.content, value.outcome, value.citations)
     return MessageResponse(
         id=value.id,
         run_id=value.run_id,
         role=value.role,
-        content=value.content,
-        outcome=value.outcome,
-        citations=value.citations,
+        content=content,
+        outcome=outcome,
+        citations=citations,
     )
 
 
@@ -118,7 +123,12 @@ async def list_messages(
         conversation_id=conversation_id,
         owner_id=principal.user_id,
     )
-    return [_message_response(value) for value in values]
+    redactions = await redact_revoked_message_citations(
+        session,
+        principal=principal,
+        messages=values,
+    )
+    return [_message_response(value, redactions.get(value.id)) for value in values]
 
 
 @router.post(

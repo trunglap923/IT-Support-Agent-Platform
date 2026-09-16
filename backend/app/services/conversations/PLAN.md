@@ -46,4 +46,4 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [x] Gửi cùng request hai lần chỉ có một run; race insert được unique constraint chặn.
 - [x] SSE replay đọc events theo owner/cursor và không gọi agent.
 - [x] Worker lỗi vẫn truy được persisted run status/event.
-- [ ] Recheck ACL khi render citation lịch sử sau document revoke ở WP-11.
+- [x] Recheck ACL khi render citation lịch sử sau document revoke ở WP-11.

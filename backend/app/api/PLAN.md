@@ -44,7 +44,8 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [x] API-03: Tạo GET run snapshot/events hỗ trợ Last-Event-ID/after_sequence, heartbeat và ownership.
 - [x] API-04a: Bổ sung routes approval, ticket IT/service status và manual ticket draft.
 - [x] API-04b1: Bổ sung admin PDF upload và draft preview routes.
-- [ ] API-04b2: Bổ sung publish/ACL và memory routes ở P51/WP-12.
+- [x] API-04b2a: Bổ sung document version/process/publish/revoke/ACL routes.
+- [ ] API-04b2b: Bổ sung memory routes ở WP-12.
 - [ ] API-05: Chuẩn hóa 401/403/404/409/410/413/422/429/503, cursor pagination và Retry-After.
 
 ## Điều kiện hoàn thành

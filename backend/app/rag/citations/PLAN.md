@@ -33,11 +33,12 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [x] CITE-01: Tạo source DTO từ chunks thực tế; không dùng URL/title model tự sinh.
 - [x] CITE-02: Validate citation ID thuộc retrieval allowlist; ACL recheck cuối nối ở WP-06.
 - [ ] CITE-03: Repair tối đa một lần trong run budget; nếu vẫn sai thì abstain/hỏi thêm.
-- [ ] CITE-04: Nối message_sources để kiểm tra lại historical messages khi ACL thay đổi.
+- [x] CITE-04a: Recheck document/version từ persisted citation IDs khi đọc history và redact cả answer nếu mất quyền.
+- [ ] CITE-04b: Chuẩn hóa citation relation riêng nếu cần audit/query vượt JSONB.
 - [ ] CITE-05: Cấp download/excerpt qua authenticated API, archive/retired source có trạng thái rõ.
 
 ## Điều kiện hoàn thành
 
 - [ ] Citation không tồn tại/sai version/sai quyền bị chặn.
-- [ ] Rút ACL sau retrieval không làm lộ source trong answer hoặc lịch sử đọc lại.
+- [x] Rút ACL/revoke sau retrieval không làm lộ source hoặc nội dung answer trong lịch sử đọc lại.
 - [ ] Markdown page=null; PDF page number bắt đầu từ 1; link source do server cấp.
