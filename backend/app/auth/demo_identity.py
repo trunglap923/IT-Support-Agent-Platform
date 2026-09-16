@@ -25,6 +25,10 @@ async def ensure_demo_identity(session: AsyncSession, *, password: str) -> User:
     repository = UserRepository()
     user = await repository.get_by_email(session, DEMO_EMAIL)
     if user is not None:
+        # This command is an explicit development seed operation. Make the
+        # stored credential converge to DEMO_SEED_PASSWORD on every run.
+        user.password_hash = hash_password(password)
+        await session.flush()
         return user
 
     user = User(

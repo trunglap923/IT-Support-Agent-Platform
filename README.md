@@ -45,7 +45,7 @@ không reset database development đang dùng.
 
 Demo identity tối thiểu dùng email `employee.engineering@example.com`. Lệnh seed đọc
 password từ `DEMO_SEED_PASSWORD`, lưu Argon2 hash và không ghi password vào source/log.
-Chạy lại lệnh không nhân đôi user.
+Chạy lại lệnh không nhân đôi user và cập nhật hash theo password hiện tại trong `.env`.
 
 Sau khi migrate và seed, mở http://127.0.0.1:5173 rồi đăng nhập bằng email trên và đúng
 password bạn đã đặt ở `DEMO_SEED_PASSWORD`. Trình duyệt phải dùng đúng host

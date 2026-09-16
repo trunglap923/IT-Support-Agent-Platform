@@ -20,9 +20,7 @@ def test_demo_identity_is_hashed_idempotent_and_queryable(
                 first_id = first.id
 
             async with database.session() as session, session.begin():
-                second = await ensure_demo_identity(
-                    session, password="correct-horse-battery-staple"
-                )
+                second = await ensure_demo_identity(session, password="updated-demo-password")
                 count = await session.scalar(select(func.count()).select_from(User))
                 found = await UserRepository().get_by_email(session, DEMO_EMAIL.upper())
 
@@ -32,7 +30,8 @@ def test_demo_identity_is_hashed_idempotent_and_queryable(
             assert found.role is UserRole.EMPLOYEE
             assert found.memory_enabled is False
             assert found.password_hash != "correct-horse-battery-staple"
-            assert verify_password("correct-horse-battery-staple", found.password_hash)
+            assert verify_password("updated-demo-password", found.password_hash)
+            assert not verify_password("correct-horse-battery-staple", found.password_hash)
         finally:
             await database.close()
 
