@@ -1,6 +1,6 @@
 # Ticket và hàng đợi IT
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: read/write/transition service và recovery WP-07–WP-10 đã triển khai.
 Work packages: WP-07, WP-08, WP-09, WP-10.
 Nguồn: [kế hoạch tổng](../../../../plan.md), mục 3, 10, 11.2, 11.3; [thứ tự triển khai](../../../../docs/implementation-roadmap.md).
 
@@ -31,14 +31,15 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] TKT-01: Implement own-ticket read và IT scoped list/detail.
-- [ ] TKT-02: Validate title/description/severity/issue_type/device owner.
-- [ ] TKT-03: Create-from-approved-action recheck owner/hash/expiry và execution ownership.
-- [ ] TKT-04: Return existing receipt trước retry write; không báo thành công khi outcome unknown.
-- [ ] TKT-05: Implement IT status updates bằng expected version và ticket_events; nối incident records đang tồn tại.
+- [x] TKT-01: Implement own-ticket read và IT scoped list.
+- [x] TKT-02a: Validate title/description/severity/issue_type.
+- [ ] TKT-02b: Validate device owner sau khi device schema được triển khai ở WP-12.
+- [x] TKT-03: Create-from-approved-action recheck owner/hash/expiry và execution ownership.
+- [x] TKT-04: Return existing receipt trước retry write; không báo thành công khi outcome unknown.
+- [x] TKT-05: Implement IT status updates bằng expected version và ticket_events.
 
 ## Điều kiện hoàn thành
 
-- [ ] Double-click/concurrent job/crash-after-commit đều cho đúng một ticket.
-- [ ] User không đóng/xóa ticket qua agent; IT scope không vượt phòng ban.
-- [ ] Ticket created không tự được coi là incident resolved.
+- [x] Double-click/concurrent job/crash-after-commit đều cho đúng một ticket.
+- [x] User không đóng/xóa ticket qua agent; IT scope không vượt phòng ban.
+- [x] Ticket created không tự được coi là incident resolved.

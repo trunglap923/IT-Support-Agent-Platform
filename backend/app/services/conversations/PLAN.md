@@ -1,6 +1,6 @@
 # Conversation, run và event store
 
-Trạng thái: persistence WP-02 và state/event/enqueue/SSE WP-03 đã có; history/final response thuộc WP-06.
+Trạng thái: persistence, history/final response, event/SSE và lease recovery WP-02–WP-10 đã có.
 Work packages: WP-02, WP-03, WP-06, WP-10.
 Nguồn: [kế hoạch tổng](../../../../plan.md), mục 9.1, 13, 14.3, 15; [thứ tự triển khai](../../../../docs/implementation-roadmap.md).
 
@@ -33,15 +33,17 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] CONV-01: Implement create/list conversation và owner-filtered message history.
+- [x] CONV-01: Implement create/list conversation và owner-filtered message history.
 - [x] CONV-02: Tạo message+queued run cùng transaction, trả run cũ cho request replay hợp lệ.
 - [x] CONV-03a: Tạo validated status/version transitions, terminal states và idempotent event sequence.
-- [ ] CONV-03b: Thêm worker lease/heartbeat và stale recovery đầy đủ ở WP-10.
-- [ ] CONV-04: Implement finalized message/outcome và liên kết source/feedback.
+- [x] CONV-03b: Thêm worker lease/heartbeat và stale recovery đầy đủ ở WP-10.
+- [x] CONV-04a: Implement finalized message/outcome và citation source payload.
+- [ ] CONV-04b: Nối user feedback vào message/run.
 - [ ] CONV-05: Cancel chỉ queued/waiting_approval; chốt expiry để không giữ conversation kẹt mãi.
 
 ## Điều kiện hoàn thành
 
 - [x] Gửi cùng request hai lần chỉ có một run; race insert được unique constraint chặn.
 - [x] SSE replay đọc events theo owner/cursor và không gọi agent.
-- [ ] Lịch sử trái ACL bị ẩn qua citation policy; worker lỗi vẫn truy được status.
+- [x] Worker lỗi vẫn truy được persisted run status/event.
+- [ ] Recheck ACL khi render citation lịch sử sau document revoke ở WP-11.

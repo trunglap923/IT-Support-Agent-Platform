@@ -24,7 +24,12 @@ async def execute_approval_resume_run(
         run = await repository.get_for_update(session, run_id=run_id)
         if run is None:
             return "missing"
-        if run.status is not RunStatus.RESUME_QUEUED:
+        resumable = run.status is RunStatus.RESUME_QUEUED or (
+            run.status is RunStatus.RUNNING
+            and worker_id is not None
+            and run.lease_owner == worker_id
+        )
+        if not resumable:
             return "duplicate"
         if worker_id is not None and run.lease_owner != worker_id:
             return "lease_lost"
@@ -42,16 +47,17 @@ async def execute_approval_resume_run(
             )
         )
         if approval is None:
-            raise LookupError("Run has no decided approval")
+            return "not_approval"
         actor_id = run.actor_id
         checkpoint_thread_id = run.checkpoint_thread_id
-        await state.transition(
-            session,
-            run_id=run.id,
-            actor_id=actor_id,
-            target=RunStatus.RUNNING,
-            operation_id=f"approval-resume-claim:{approval.id}",
-        )
+        if run.status is RunStatus.RESUME_QUEUED:
+            await state.transition(
+                session,
+                run_id=run.id,
+                actor_id=actor_id,
+                target=RunStatus.RUNNING,
+                operation_id=f"approval-resume-claim:{approval.id}",
+            )
 
     async_url = database.engine.url.render_as_string(hide_password=False)
     await asyncio.to_thread(

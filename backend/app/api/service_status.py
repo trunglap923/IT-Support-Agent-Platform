@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated, Literal, cast
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.csrf import require_csrf
 from app.auth.policies import require_roles
+from app.config import Settings
 from app.db.models import ServiceState, UserRole
 from app.dependencies import CurrentPrincipal, get_db_session
 from app.services.service_status import ServiceStatusNotFoundError, ServiceStatusService
@@ -55,14 +56,21 @@ async def list_service_states(
 @router.patch(
     "/{service_id}",
     response_model=ServiceStateResponse,
-    dependencies=[Depends(require_csrf), Depends(require_roles(UserRole.IT, UserRole.ADMIN))],
+    dependencies=[Depends(require_csrf), Depends(require_roles(UserRole.ADMIN))],
 )
 async def update_service_state(
     service_id: str,
     payload: ServiceStateUpdate,
+    request: Request,
     principal: CurrentPrincipal,
     session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> ServiceStateResponse:
+    settings = cast(Settings, request.app.state.settings)
+    if not settings.demo_mode:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Service simulation is disabled",
+        )
     try:
         item = await ServiceStatusService().update(
             session,

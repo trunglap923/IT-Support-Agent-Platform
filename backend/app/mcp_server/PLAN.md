@@ -42,9 +42,10 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Điều kiện hoàn thành
 
-- [ ] Discovery đúng ba tên/schema; contract test gọi thật qua stdio.
+- [x] Discovery đúng hai read tool/schema WP-07; contract test gọi thật qua stdio.
+- [ ] Approved `create_ticket` write được expose qua MCP nếu kiến trúc chuyển write khỏi application worker.
 - [x] Thiếu actor/run hoặc sai run owner bị từ chối.
-- [ ] Subprocess không nhận OpenAI/Langfuse keys; crash-after-commit tra receipt trước retry.
+- [x] Subprocess không nhận OpenAI/Langfuse keys; application worker tra receipt trước retry write.
 
 ## Bằng chứng spike M0
 

@@ -1,6 +1,6 @@
 # Draft và xác nhận hành động
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: approval lifecycle, checkpoint resume và receipt recovery WP-08–WP-10 đã triển khai.
 Work packages: WP-08, WP-10.
 Nguồn: [kế hoạch tổng](../../../../plan.md), mục 11, 14, 15; [thứ tự triển khai](../../../../docs/implementation-roadmap.md).
 
@@ -32,14 +32,14 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] APR-01: Validate draft từ model hoặc manual form bằng cùng schema.
-- [ ] APR-02: Upsert draft idempotent theo action_id, chỉ phát preview khi graph pause đã lưu.
-- [ ] APR-03: Approve/reject bằng row lock/version, xác minh owner/account/expiry.
-- [ ] APR-04: Khóa arguments đã duyệt, enqueue resume bằng DB decision.
+- [x] APR-01: Validate draft từ model hoặc manual form bằng cùng schema.
+- [x] APR-02: Upsert draft idempotent theo action_id, chỉ phát preview khi graph pause đã lưu.
+- [x] APR-03: Approve/reject bằng row lock/version, xác minh owner/account/expiry.
+- [x] APR-04: Khóa arguments đã duyệt, enqueue resume bằng DB decision.
 - [ ] APR-05: Sửa draft bằng hủy rồi tạo mới; expire pending run và phát event.
 
 ## Điều kiện hoàn thành
 
-- [ ] Sai owner/version/hash/expiry/inactive user không tạo ticket.
-- [ ] Hai approve đồng thời không tạo hai action; replay đúng trả trạng thái cũ.
-- [ ] Checkpoint/browser refresh không làm mất preview, browser không tự gửi LangGraph Command.
+- [x] Sai owner/version/hash/expiry/inactive user không tạo ticket.
+- [x] Hai approve đồng thời không tạo hai action; replay đúng trả trạng thái cũ.
+- [x] Checkpoint/browser refresh không làm mất preview, browser không tự gửi LangGraph Command.

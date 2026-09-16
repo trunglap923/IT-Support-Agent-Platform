@@ -82,13 +82,14 @@ async def execute_support_run(
                 operation_id=f"worker-claim:{run_id}",
             )
 
-    if claim.previous_status is RunStatus.RESUME_QUEUED:
+    if claim.previous_status in {RunStatus.RESUME_QUEUED, RunStatus.RUNNING}:
         resumed = await execute_approval_resume_run(
             database,
             run_id=run_id,
             worker_id=execution_worker_id,
         )
-        return WorkerResult(run_id=run_id, status=resumed)
+        if resumed != "not_approval":
+            return WorkerResult(run_id=run_id, status=resumed)
 
     try:
         async with database.session() as session:

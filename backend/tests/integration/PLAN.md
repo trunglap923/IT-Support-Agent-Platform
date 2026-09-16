@@ -1,6 +1,6 @@
 # Integration và failure tests
 
-Trạng thái: WP-02 database/auth cùng WP-03 run/enqueue/SSE/Redis integration đã có; failure suites các WP sau chưa triển khai.
+Trạng thái: WP-02/03 integration và WP-08/10 approval, ticket, lease/recovery failure suites đã triển khai.
 Work packages: WP-02, WP-03, WP-05, WP-08, WP-10, WP-12.
 Nguồn: [kế hoạch tổng](../../../plan.md), mục 19.1, 19.4; [thứ tự triển khai](../../../docs/implementation-roadmap.md).
 
@@ -38,13 +38,13 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [x] INT-02a: Test session/CSRF/RBAC và conversation/run ownership ở API/repository/DB.
 - [x] INT-02b: Test SSE ownership, cursor/reconnect và không tạo thêm run khi đọc lại.
 - [x] INT-02c: Test readiness PostgreSQL/Redis và login rate limit/fail-closed với Redis thật.
-- [ ] INT-03: Test duplicate approve, worker crash sau commit và receipt recovery.
+- [x] INT-03: Test duplicate approve, worker crash sau commit và receipt recovery.
 - [x] INT-04a: Test commit/enqueue race, duplicate worker claim và delivery qua Redis thật.
-- [ ] INT-04b: Test stale lease, crash recovery và checkpoint resume đầy đủ ở WP-10.
+- [x] INT-04b: Test stale lease, crash recovery và checkpoint resume đầy đủ ở WP-10.
 - [ ] INT-05: Test publish/ACL change trong run và delete memory trong extraction.
 
 ## Điều kiện hoàn thành
 
-- [ ] Không lộ cross-user/department data trong regressions.
-- [ ] Một approval đúng một ticket dưới concurrency và retry.
-- [ ] Cleanup tests chỉ tác động resources của suite.
+- [x] Không lộ cross-user/department data trong regressions WP-02–WP-10.
+- [x] Một approval đúng một ticket dưới concurrency và retry.
+- [x] Cleanup tests chỉ tác động database/Redis resources do suite tạo.

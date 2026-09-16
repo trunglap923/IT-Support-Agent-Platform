@@ -1,6 +1,6 @@
 # Trạng thái dịch vụ giả lập
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: simulated status read/update service và role checks WP-07–WP-10 đã triển khai.
 Work packages: WP-07, WP-10.
 Nguồn: [kế hoạch tổng](../../../../plan.md), mục 3, 6.1, 10, 15.4; [thứ tự triển khai](../../../../docs/implementation-roadmap.md).
 
@@ -31,13 +31,13 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] STATUS-01: Seed ba service records ổn định trong service_states.
-- [ ] STATUS-02: Read current status kèm timestamp và safe envelope.
-- [ ] STATUS-03: Thêm demo fault modes none/timeout/error; fault không sửa policy/identity.
-- [ ] STATUS-04: Validate admin update và ghi audit.
+- [x] STATUS-01: Seed ba service records ổn định trong service_states.
+- [x] STATUS-02: Read current status kèm timestamp và safe envelope.
+- [x] STATUS-03: Thêm demo fault modes none/timeout/error; fault không sửa policy/identity.
+- [x] STATUS-04: Validate admin-only update trong demo mode và ghi người cập nhật.
 
 ## Điều kiện hoàn thành
 
-- [ ] UC-02 dùng MCP status tool, không trả từ RAG.
-- [ ] Unknown/timeout không được render thành healthy.
-- [ ] Registry healthy không bị diễn giải thành máy user kết nối chắc chắn thành công.
+- [x] UC-02 dùng MCP status tool, không trả từ RAG.
+- [x] Unknown/timeout không được render thành healthy.
+- [x] Registry healthy chỉ là simulated service state, không là kết luận về thiết bị user.

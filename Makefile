@@ -3,6 +3,7 @@ NPM ?= npm
 PYTHON_VERSION ?= 3.12
 UV_CACHE_DIR ?= /tmp/it-support-agent-uv-cache
 NODE_IMAGE ?= node:22-bookworm-slim@sha256:83f487e0a63425e5b4d146fb5e5be574bcbe1b7b843d3ebafdd95eaf7767a7e5
+PLAYWRIGHT_IMAGE ?= mcr.microsoft.com/playwright:v1.63.0-noble
 BACKEND_DEV_HOST ?= 0.0.0.0
 BACKEND_DEV_PORT ?= 8000
 FRONTEND_DEV_PORT ?= 5173
@@ -16,11 +17,12 @@ FRONTEND_DOCKER = docker run --rm --user $(PROJECT_UID):$(PROJECT_GID) -e npm_co
 
 .PHONY: help bootstrap check backend-sync backend-format backend-check \
 	frontend-install frontend-check frontend-install-docker frontend-check-docker \
+	frontend-e2e-docker \
 	dev-backend dev-frontend dev-frontend-docker dev-stop spike-openai-live \
 	spike-mcp-stdio spike-langgraph-postgres eval-validate knowledge-validate retrieval-baseline \
 	db-up db-down db-status redis-up redis-down redis-status services-up services-down \
 	migrate seed-demo-user wp02-integration-check wp03-integration-check \
-	backend-integration-check wp02-check wp03-check \
+	wp10-integration-check backend-integration-check wp02-check wp03-check \
 	worker-agent worker-background scheduler
 
 help:
@@ -30,6 +32,7 @@ help:
 	@echo "  make backend-check          Format check, lint, typecheck and tests"
 	@echo "  make frontend-check         Lint, typecheck, tests and build"
 	@echo "  make frontend-check-docker  Same frontend checks with Node 22 in Docker"
+	@echo "  make frontend-e2e-docker    Run ticket/approval browser tests in pinned Playwright"
 	@echo "  make dev-backend            Run FastAPI at http://127.0.0.1:8000"
 	@echo "  make dev-frontend           Run Vite at http://127.0.0.1:5173"
 	@echo "  make dev-frontend-docker    Run Vite in the managed development container"
@@ -55,6 +58,7 @@ help:
 	@echo "  make seed-demo-user         Create the minimal hashed demo login account"
 	@echo "  make wp02-integration-check  Run DB/migration/auth/ownership tests in isolated databases"
 	@echo "  make wp03-integration-check  Run run-state/enqueue/SSE/Redis service integration tests"
+	@echo "  make wp10-integration-check  Run MCP/approval/ticket/recovery integration tests"
 	@echo "  make backend-integration-check  Run all service integration tests"
 	@echo "  make wp02-check             Run all WP-02 backend and frontend checks"
 	@echo "  make wp03-check             Run all WP-03 backend, service and frontend checks"
@@ -82,7 +86,20 @@ wp02-integration-check:
 wp03-integration-check:
 	REDIS_URL=$(or $(TEST_REDIS_URL),redis://127.0.0.1:6379/15) TEST_REDIS_URL=$(or $(TEST_REDIS_URL),redis://127.0.0.1:6379/15) REQUIRE_DATABASE_TESTS=1 REQUIRE_REDIS_TESTS=1 UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --directory backend --frozen --env-file $(COMPOSE_ENV_FILE) pytest tests/integration/test_run_state_store.py tests/integration/test_run_enqueue.py tests/integration/test_sse_api.py tests/integration/test_redis_dispatch.py tests/integration/test_health_readiness.py tests/integration/test_auth_rate_limit.py
 
-backend-integration-check: wp02-integration-check wp03-integration-check
+wp10-integration-check:
+	REDIS_URL=$(or $(TEST_REDIS_URL),redis://127.0.0.1:6379/15) TEST_REDIS_URL=$(or $(TEST_REDIS_URL),redis://127.0.0.1:6379/15) REQUIRE_DATABASE_TESTS=1 REQUIRE_REDIS_TESTS=1 UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --directory backend --frozen --env-file $(COMPOSE_ENV_FILE) pytest \
+		tests/integration/test_business_reads.py \
+		tests/integration/test_mcp_business_reads.py \
+		tests/integration/test_approval_lifecycle.py \
+		tests/integration/test_approval_checkpoint_resume.py \
+		tests/integration/test_ticket_api.py \
+		tests/integration/test_ticket_write.py \
+		tests/integration/test_operations_api.py \
+		tests/integration/test_redis_dispatch.py \
+		tests/integration/test_workflow_recovery.py \
+		tests/integration/test_workflow_failure_recovery.py
+
+backend-integration-check: wp02-integration-check wp03-integration-check wp10-integration-check
 
 wp02-check: backend-check wp02-integration-check frontend-check-docker
 
@@ -105,6 +122,9 @@ frontend-check-docker: frontend-install-docker
 	$(FRONTEND_DOCKER) npm run typecheck
 	$(FRONTEND_DOCKER) npm run test
 	$(FRONTEND_DOCKER) npm run build
+
+frontend-e2e-docker: frontend-install-docker
+	docker run --rm --ipc=host --user $(PROJECT_UID):$(PROJECT_GID) -e npm_config_cache=/tmp/npm-cache -v $(CURDIR)/frontend:/app -w /app $(PLAYWRIGHT_IMAGE) npm run test:e2e
 
 dev-backend:
 	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --directory backend --frozen --env-file $(CURDIR)/.env uvicorn app.main:app --reload --host $(BACKEND_DEV_HOST) --port $(BACKEND_DEV_PORT)

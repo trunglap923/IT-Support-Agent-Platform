@@ -105,9 +105,18 @@ def resume_ticket_approval(
             "approval_id": str(approval_id),
             "arguments_hash": arguments_hash,
         }
-        if not snapshot.next or any(values.get(key) != value for key, value in expected.items()):
+        if any(values.get(key) != value for key, value in expected.items()):
             raise ApprovalCheckpointError("Checkpoint does not match the approved action")
-        result = cast(TicketApprovalState, graph.invoke(Command(resume=approved), config=config))
+        if snapshot.next:
+            result = cast(
+                TicketApprovalState,
+                graph.invoke(Command(resume=approved), config=config),
+            )
+        else:
+            # A worker can crash after LangGraph persisted the resume but before the
+            # application transaction finalized the run. Treat the matching terminal
+            # checkpoint as a durable receipt so a reclaimed lease can finish safely.
+            result = cast(TicketApprovalState, values)
     if result.get("approved") is not approved:
         raise ApprovalCheckpointError("Checkpoint resumed with an unexpected decision")
     return result

@@ -1,6 +1,6 @@
 # Kiểm thử trình duyệt end-to-end
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: Playwright foundation và ticket/approval/operations role journeys WP-09 đã triển khai local.
 Work packages: WP-06, WP-09, WP-11, WP-12, WP-13.
 Nguồn: [kế hoạch tổng](../../plan.md), mục 4, 19, 22; [thứ tự triển khai](../../docs/implementation-roadmap.md).
 
@@ -35,13 +35,15 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] E2E-01: Dựng Playwright server/fixtures đăng nhập theo role.
+- [x] E2E-01: Dựng Playwright server và session mocks theo role.
 - [ ] E2E-02: Kiểm thử chat/citation/refusal và reconnect, refresh trong waiting_approval.
-- [ ] E2E-03: Kiểm thử approve hai lần, reject/expire, manual ticket form và IT update.
+- [x] E2E-03a: Kiểm thử approve/reject, manual ticket form và IT resolve/reopen.
+- [ ] E2E-03b: Bổ sung browser race cho approve hai lần và expiry.
 - [ ] E2E-04: Kiểm thử admin upload/publish/ACL và memory cross-conversation/consent/delete.
-- [ ] E2E-05: Thu screenshot/trace khi thất bại, tránh token/cookie hoặc dữ liệu nhạy cảm trong artifact.
+- [x] E2E-05: Thu screenshot/trace khi thất bại; suite dùng identity/token giả không nhạy cảm.
 
 ## Điều kiện hoàn thành
 
-- [ ] Các luồng chính chạy lặp lại trong CI với dữ liệu cô lập.
-- [ ] Negative cases URL đoán/sai role/citation revoke và duplicate submit đều pass.
+- [ ] Các luồng chính chạy lặp lại trong CI với dữ liệu cô lập (CI remote đang tạm hoãn).
+- [x] Sai role cho operations/service update bị chặn trong browser/API regression.
+- [ ] Bổ sung URL đoán, citation revoke và duplicate browser submit ở các WP liên quan.

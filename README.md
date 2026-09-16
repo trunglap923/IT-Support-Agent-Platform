@@ -18,6 +18,11 @@ PostgreSQL/Redis integration tests đạt; frontend lint/typecheck, 10 tests và
 build đạt. Dataset M0 có 30/30 case hợp lệ và Responses live đạt cả ba contract. Workflow
 GitHub Actions chưa được chạy theo yêu cầu hiện tại.
 
+WP-04–WP-06 đã bổ sung ingestion/retrieval, RAG chat và quan sát usage. WP-07–WP-10
+đã có business read services, MCP stdio, governed tools, approval/ticket transaction,
+giao diện ticket/IT, lease/reconcile và failure recovery. Browser E2E kiểm tra employee,
+IT và admin bằng fake API.
+
 ## Chạy development
 
 Yêu cầu: Python 3.12, uv 0.11.x và Docker; hoặc Node 22.23.2 + npm trên host.
@@ -59,23 +64,31 @@ cp .env.example .env
 make backend-sync
 make backend-check
 make frontend-check-docker
+make frontend-e2e-docker
 make wp03-integration-check
+make wp10-integration-check
 ~~~
 
 `wp02-integration-check` và `wp03-integration-check` tạo database PostgreSQL tạm có tên
 ngẫu nhiên rồi xóa sau test. WP-03 dùng `TEST_REDIS_URL` ở database 15 và chỉ cleanup
 queue test; các lệnh không migrate/reset database demo. `backend-integration-check` chạy
-cả hai nhóm. Chạy `make wp02-check` hoặc `make wp03-check` khi các service tương ứng đã
+cả các nhóm WP-02, WP-03 và WP-07–WP-10. Chạy `make wp02-check` hoặc `make wp03-check` khi các service tương ứng đã
 healthy.
+
+`make frontend-e2e-docker` dùng image Playwright 1.63.0 khớp dependency frontend,
+khởi động Vite riêng cho suite và chạy các hành trình approval/ticket/operations bằng dữ
+liệu giả lập. Suite không thay đổi database development và không gọi OpenAI.
+`make wp10-integration-check` tạo database PostgreSQL tạm và dùng Redis DB 15 để kiểm tra
+MCP, approval/checkpoint, ticket transaction, lease/reconcile và failure recovery.
 
 Celery có hai worker riêng và một beat scheduler. Sau `make services-up`, có thể mở ba
 terminal khác nhau để chạy `make worker-agent`, `make worker-background` và
 `make scheduler`. Chỉ chạy một scheduler cho một environment; queue payload chỉ chứa ID,
 còn PostgreSQL là nguồn trạng thái.
 
-Sau khi đăng nhập, route `/chat?run_id=<UUID>` hiển thị snapshot và event SSE của một run
-đã tồn tại. UI tạo conversation/message và final answer sẽ được nối ở WP-06; màn hình
-WP-03 hiện chỉ kiểm chứng luồng theo dõi/reconnect, không tự tạo run mới.
+Sau khi đăng nhập, route `/chat` cho phép tạo conversation/message, theo dõi run bằng SSE
+và hiển thị câu trả lời/citation. Route `/tickets` cung cấp ticket cá nhân và approval;
+`/operations` dành cho IT/admin, nhưng chỉ admin được đổi service state mô phỏng.
 
 Chạy hai terminal để xem giao diện. Backend development bind vào `0.0.0.0` để
 frontend trong Docker có thể gọi API qua Docker host gateway; frontend chỉ được

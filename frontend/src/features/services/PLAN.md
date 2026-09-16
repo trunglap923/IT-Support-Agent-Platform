@@ -1,6 +1,6 @@
 # UI — trạng thái dịch vụ mô phỏng
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: simulated status list và admin-only controls WP-09 đã triển khai.
 Work packages: WP-07, WP-09.
 Nguồn: [kế hoạch tổng](../../../../plan.md), mục 3, 4, 7, 10, 14; [thứ tự triển khai](../../../../docs/implementation-roadmap.md).
 
@@ -30,12 +30,13 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] UISIM-01: Hiển thị trạng thái, thông điệp và updated_at cho các dịch vụ trong seed.
-- [ ] UISIM-02: Thêm form admin cập nhật theo enum/schema của backend.
-- [ ] UISIM-03: Hiển thị xác nhận cập nhật thật và audit reference nếu API cung cấp.
+- [x] UISIM-01: Hiển thị trạng thái, thông điệp và updated_at cho các dịch vụ trong seed.
+- [x] UISIM-02: Thêm form admin cập nhật theo enum/schema của backend; IT chỉ đọc.
+- [x] UISIM-03a: Hiển thị xác nhận cập nhật thành công.
+- [ ] UISIM-03b: Hiển thị audit reference khi API cung cấp receipt riêng.
 - [ ] UISIM-04: Kiểm tra chat đọc giá trị mới sau admin update, không giữ cache sai.
 
 ## Điều kiện hoàn thành
 
-- [ ] Kịch bản VPN outage có thể bật/tắt lại mà không sửa code.
-- [ ] Employee/IT không sửa được service state dù gọi API trực tiếp.
+- [x] Kịch bản VPN outage có thể bật/tắt lại mà không sửa code.
+- [x] Employee/IT không sửa được service state dù gọi API trực tiếp.

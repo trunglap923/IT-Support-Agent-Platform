@@ -42,5 +42,6 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 ## Điều kiện hoàn thành
 
 - [x] Model không truyền được user_id/role/SQL/token/approval flag.
-- [ ] Wrong-owner device hoặc arguments thừa bị chặn trước side effect.
-- [ ] Tool receipt có nguồn từ service; text của model không đổi trạng thái ticket.
+- [x] Arguments thừa và trusted-context fields bị chặn trước side effect.
+- [ ] Wrong-owner device được kiểm tra khi device schema có ở WP-12.
+- [x] Tool receipt có nguồn từ service; text của model không đổi trạng thái ticket.

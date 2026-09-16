@@ -1,6 +1,6 @@
 # LangGraph runtime
 
-Trạng thái: bounded RAG graph topology/context contract WP-06 đã có; approval/checkpoint business flow còn WP-08.
+Trạng thái: bounded RAG graph WP-06 và approval interrupt/checkpoint/receipt recovery WP-08–WP-10 đã có.
 Work packages: WP-06, WP-08, WP-10, WP-12.
 Nguồn: [kế hoạch tổng](../../../plan.md), mục 9, 11, 12; [thứ tự triển khai](../../../docs/implementation-roadmap.md).
 
@@ -35,16 +35,18 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 ## Các bước triển khai
 
 - [x] AG-01: Định nghĩa state serializable, schema_version và status/outcome tách biệt.
-- [ ] AG-02: Xây graph load → decision → read tool/final reply, dùng context builder.
-- [ ] AG-03: Thêm propose idempotent → interrupt → recheck → write → receipt nodes.
+- [x] AG-02a: Xây RAG graph load → retrieve → evidence decision → final reply, dùng context builder.
+- [ ] AG-02b: Route service/ticket read tools từ support graph theo model decision.
+- [x] AG-03: Thêm approval graph interrupt → recheck actor/hash → write → receipt.
 - [x] AG-04: Áp dụng tối đa 4 model calls, 4 retrieval calls và recursion=24; write/deadline nối ở WP-08.
-- [ ] AG-05: Nối PostgreSQL checkpointer, run locking, replay receipt và memory job sau khi final persist.
+- [x] AG-05a: Nối PostgreSQL checkpointer, run locking và replay receipt.
+- [ ] AG-05b: Enqueue memory extraction sau khi final persist ở WP-12.
 
 ## Điều kiện hoàn thành
 
 - [ ] UC-01/02/03/04/09 hoạt động đúng và graph kết thúc khi hết budget.
-- [ ] Restart/resume dùng đúng checkpoint; không có write trước interrupt.
-- [ ] Graph replay không tạo thêm ticket và không dùng quyền từ state cũ.
+- [x] Restart/resume dùng đúng checkpoint; không có write trước interrupt.
+- [x] Graph replay không tạo thêm ticket và actor/hash được đối chiếu lại từ database.
 
 ## Bằng chứng spike M0
 

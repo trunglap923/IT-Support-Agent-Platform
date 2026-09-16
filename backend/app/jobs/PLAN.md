@@ -1,6 +1,6 @@
 # Workers, scheduler và recovery
 
-Trạng thái: Celery queues/scheduler và fake task foundation đã có; DB claim/reconcile được bổ sung trong WP-03.
+Trạng thái: Celery queues/scheduler, DB claim, lease/heartbeat và reconcile/recovery WP-10 đã triển khai.
 Work packages: WP-03, WP-04, WP-08, WP-10, WP-12.
 Nguồn: [kế hoạch tổng](../../../plan.md), mục 15, 20.2; [thứ tự triển khai](../../../docs/implementation-roadmap.md).
 
@@ -38,12 +38,15 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [x] JOB-01: Route agent/background queues, JSON serialization, prefetch=1 và bounded time limits.
 - [x] JOB-02: Commit queued record trước enqueue; periodic reconcile chạy mỗi 30 giây.
 - [x] JOB-03a: Claim worker bằng row lock + idempotency event; delivery trùng không chạy lại run.
-- [ ] JOB-03b: Thêm heartbeat/lease và stale recovery đầy đủ ở WP-10.
-- [ ] JOB-04: Nối checkpoint/receipt recovery và expire approval; job failures có safe error code.
+- [x] JOB-03b: Thêm heartbeat/lease và stale recovery đầy đủ ở WP-10.
+- [x] JOB-04a: Nối checkpoint/receipt recovery; timeout và exhausted attempts có safe error code.
+- [ ] JOB-04b: Thêm maintenance job chủ động expire approval đang pending.
 - [ ] JOB-05: Chạy cleanup theo retention/epoch, đóng clients/subprocess đúng vòng đời.
 
 ## Điều kiện hoàn thành
 
 - [x] Mất Redis giữa commit/enqueue giữ run queued và được reconcile sau phục hồi.
-- [ ] Duplicate delivery/crash không tạo thêm ticket hoặc active memory đã xóa.
-- [ ] OpenAI calls/retries còn chịu budget toàn run; job attempt tối đa 3.
+- [x] Duplicate delivery/crash không tạo thêm ticket.
+- [ ] Duplicate delivery/crash không phục hồi active memory đã xóa (thuộc WP-12).
+- [x] Job attempt tối đa 3 và stale lease hết hạn có thể được worker khác reclaim.
+- [ ] OpenAI calls/retries còn chịu budget toàn run trong worker production.

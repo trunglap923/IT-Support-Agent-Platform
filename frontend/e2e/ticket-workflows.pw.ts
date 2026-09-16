@@ -10,6 +10,7 @@ const employee = {
 };
 
 const itUser = { ...employee, email: "it.engineering@example.com", display_name: "IT Engineer", role: "it" };
+const adminUser = { ...employee, email: "admin@example.com", display_name: "Admin", role: "admin" };
 
 function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
@@ -82,7 +83,7 @@ test("employee creates, approves and rejects ticket drafts", async ({ page }) =>
   await expect(page.getByText("Đã từ chối bản nháp.")).toBeVisible();
 });
 
-test("IT resolves, reopens tickets and updates service state", async ({ page }) => {
+test("IT resolves and reopens tickets", async ({ page }) => {
   await mockSession(page, itUser);
   let ticket = {
     id: "33333333-3333-3333-3333-333333333333",
@@ -95,7 +96,7 @@ test("IT resolves, reopens tickets and updates service state", async ({ page }) 
     resolution_note: null as string | null,
     version: 1,
   };
-  let service = {
+  const service = {
     service_id: "vpn",
     status: "healthy",
     message: "VPN is operating normally.",
@@ -111,10 +112,6 @@ test("IT resolves, reopens tickets and updates service state", async ({ page }) 
     ticket = { ...ticket, status: nextStatus, version: ticket.version + 1, resolution_note: body.action === "resolve" ? body.resolution_note : null };
     await json(route, ticket);
   });
-  await page.route("**/api/v1/service-status/vpn", async (route) => {
-    service = { ...service, ...route.request().postDataJSON() };
-    await json(route, service);
-  });
 
   await page.goto("/operations");
   await page.getByRole("button", { name: "Bắt đầu xử lý" }).click();
@@ -124,6 +121,26 @@ test("IT resolves, reopens tickets and updates service state", async ({ page }) 
   await page.getByRole("button", { name: "Reopen" }).click();
   await expect(page.getByText(/IT-E2E-1 · open/)).toBeVisible();
 
+  await expect(page.getByLabel("Trạng thái vpn")).toBeDisabled();
+  await expect(page.getByText("Chỉ quản trị viên được thay đổi trạng thái mô phỏng.")).toBeVisible();
+});
+
+test("admin updates simulated service state", async ({ page }) => {
+  await mockSession(page, adminUser);
+  let service = {
+    service_id: "vpn",
+    status: "healthy",
+    message: "VPN is operating normally.",
+    fault_mode: "none",
+    updated_at: "2026-09-16T00:00:00Z",
+  };
+  await page.route("**/api/v1/tickets/queue", (route) => json(route, []));
+  await page.route("**/api/v1/service-status", (route) => json(route, [service]));
+  await page.route("**/api/v1/service-status/vpn", async (route) => {
+    service = { ...service, ...route.request().postDataJSON() };
+    await json(route, service);
+  });
+  await page.goto("/operations");
   await page.getByLabel("Trạng thái vpn").selectOption("degraded");
   await page.getByLabel("Thông báo vpn").fill("VPN latency is elevated.");
   await page.getByRole("button", { name: "Lưu" }).click();

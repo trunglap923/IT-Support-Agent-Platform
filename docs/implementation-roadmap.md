@@ -14,9 +14,13 @@ Nguồn yêu cầu: [plan.md](../plan.md), đặc biệt mục 21.1. Bản đồ
 - [x] WP-04: corpus, document schema, PDF parse, deterministic chunk, guarded embeddings và idempotent ingestion đã đạt local.
 - [x] WP-05: scoped hybrid retrieval, citation allowlist, no-answer behavior và baseline có mẫu số đã đạt local.
 - [x] WP-06: bounded RAG graph, structured provider, chat API/UI, citations, usage guard và Langfuse adapter đã triển khai local.
+- [x] WP-07: business read services, MCP stdio và governed tool execution đã đạt local.
+- [x] WP-08: approval lifecycle, checkpoint resume và idempotent ticket transaction đã đạt local.
+- [x] WP-09: approval/ticket/IT operations UI cùng browser E2E theo role đã đạt local.
+- [x] WP-10: lease, retry, reconcile, crash/receipt recovery và failure tests đã đạt local.
 
-WP-01, compatibility M0 và WP-02..WP-06 đã hoàn thành ở local; CI remote được tạm hoãn
-theo yêu cầu hiện tại. WP-07..WP-14 chưa hoàn thành. Responses
+WP-01, compatibility M0 và WP-02..WP-10 đã hoàn thành ở local; CI remote được tạm hoãn
+theo yêu cầu hiện tại. WP-11..WP-14 chưa hoàn thành. Responses
 live, MCP stdio, PostgreSQL checkpointer, seed contract và 30 evaluation cases đều có bằng
 chứng. Paid/live checks vẫn là opt-in và không chạy trong CI.
 
@@ -75,6 +79,27 @@ Bằng chứng local ngày 2026-09-16: Ruff/mypy, 56 backend tests không cần 
 PostgreSQL migration/chat/RAG/ledger/enqueue integration tests đạt; frontend
 lint/typecheck, 12 tests và production build đạt. Báo cáo tại
 `reports/rag-chat-baseline.md`; đây là functional wiring baseline, không phải live AI quality.
+
+## Checklist WP-07–WP-10
+
+- [x] P39: service status và ticket read services có ownership/role filtering.
+- [x] P40: MCP stdio read server với trusted actor/run context và environment allowlist.
+- [x] P41: strict tool registry/executor, bounded timeout/repeat/result và contract tests.
+- [x] P42: approval draft có expiry, canonical argument hash và approve/reject API.
+- [x] P43: LangGraph pause/resume đúng checkpoint, actor, approval và arguments.
+- [x] P44: ticket write transaction có unique approval receipt và replay idempotency.
+- [x] P45: approval card, ticket cá nhân và manual ticket draft cùng một approval path.
+- [x] P46: IT queue/resolve/reopen và service status UI; chỉ admin đổi trạng thái demo.
+- [x] P47: browser E2E create/approve/reject/resolve/reopen và role denial.
+- [x] P48: run lease/heartbeat, bounded retry và reconcile queued/stale work.
+- [x] P49: duplicate/timeout/worker-crash/receipt-recovery failure tests.
+
+Bằng chứng local ngày 2026-09-16: backend format/lint/mypy và 70 test không cần service
+đạt; target WP-10 đạt 12 PostgreSQL/Redis integration tests; Redis restart rồi dispatch và
+reconcile vẫn đạt. Frontend lint/typecheck, 14 unit tests, production build và 4 Playwright
+journeys theo employee/IT/admin đều đạt. GitHub Actions chưa được chạy theo yêu cầu hiện
+tại. Cleanup approval định kỳ và các phần memory/document admin vẫn thuộc WP sau, không
+được tính là hoàn tất ở đây.
 
 ## Cách dùng kế hoạch
 

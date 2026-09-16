@@ -1,6 +1,6 @@
 # Contract tests
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: MCP stdio và governed tool registry/executor contracts WP-07 đã triển khai.
 Work packages: WP-01, WP-06, WP-07, WP-08.
 Nguồn: [kế hoạch tổng](../../../plan.md), mục 10, 14, 16, 19.1; [thứ tự triển khai](../../../docs/implementation-roadmap.md).
 
@@ -31,12 +31,12 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] CTR-01: So khớp discovery ba business tools với allowlist và schema đã pin.
-- [ ] CTR-02: Kiểm tra strict schema, extra forbidden fields và result envelope.
-- [ ] CTR-03: Test MCP context thiếu/sai owner và logging không phá stdout.
+- [x] CTR-01: So khớp discovery hai MCP read tools với registry bốn model capabilities và schema đã pin.
+- [x] CTR-02: Kiểm tra strict schema, extra forbidden fields và result envelope.
+- [x] CTR-03: Test MCP context thiếu/sai owner, actor isolation và stdout protocol.
 - [ ] CTR-04: Kiểm tra OpenAPI response models đủ để frontend generate types.
 
 ## Điều kiện hoàn thành
 
-- [ ] Schema drift khiến test fail trước khi deploy.
-- [ ] Tool call/result IDs được giữ đúng; wrong args không đến business write.
+- [x] Schema drift giữa MCP read discovery và registry khiến contract test fail.
+- [x] Tool call/result IDs được giữ đúng; wrong args không đến business write.

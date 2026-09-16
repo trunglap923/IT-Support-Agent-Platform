@@ -83,11 +83,11 @@ export function OperationsPage() {
           {services.map((service) => (
             <article key={service.service_id}>
               <h3>{service.service_id}</h3>
-              <select aria-label={`Trạng thái ${service.service_id}`} value={service.status} onChange={(event) => setServices((current) => current.map((item) => item.service_id === service.service_id ? { ...item, status: event.target.value as ServiceState["status"] } : item))}>
+              <select aria-label={`Trạng thái ${service.service_id}`} disabled={user?.role !== "admin"} value={service.status} onChange={(event) => setServices((current) => current.map((item) => item.service_id === service.service_id ? { ...item, status: event.target.value as ServiceState["status"] } : item))}>
                 <option value="healthy">Healthy</option><option value="degraded">Degraded</option><option value="down">Down</option><option value="unknown">Unknown</option>
               </select>
-              <input aria-label={`Thông báo ${service.service_id}`} value={service.message} onChange={(event) => setServices((current) => current.map((item) => item.service_id === service.service_id ? { ...item, message: event.target.value } : item))} />
-              <button onClick={() => void saveService(service)} type="button">Lưu</button>
+              <input aria-label={`Thông báo ${service.service_id}`} disabled={user?.role !== "admin"} value={service.message} onChange={(event) => setServices((current) => current.map((item) => item.service_id === service.service_id ? { ...item, message: event.target.value } : item))} />
+              {user?.role === "admin" ? <button onClick={() => void saveService(service)} type="button">Lưu</button> : <small>Chỉ quản trị viên được thay đổi trạng thái mô phỏng.</small>}
             </article>
           ))}
         </div>

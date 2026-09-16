@@ -35,6 +35,14 @@ def test_it_queue_transitions_service_status_and_role_scope(
                     department_id=employee.department_id,
                     active=True,
                 )
+                admin_user = User(
+                    email="admin@example.com",
+                    display_name="Demo Admin",
+                    password_hash=hash_password(PASSWORD),
+                    role=UserRole.ADMIN,
+                    department_id=employee.department_id,
+                    active=True,
+                )
                 finance_user = User(
                     email="finance-user@example.com",
                     display_name="Finance User",
@@ -43,7 +51,7 @@ def test_it_queue_transitions_service_status_and_role_scope(
                     department_id=finance.id,
                     active=True,
                 )
-                session.add_all([it_user, finance_user])
+                session.add_all([it_user, admin_user, finance_user])
                 await session.flush()
                 session.add_all(
                     [
@@ -135,7 +143,28 @@ def test_it_queue_transitions_service_status_and_role_scope(
 
         services = it_client.get("/api/v1/service-status")
         assert services.status_code == 200
-        updated = it_client.patch(
+        denied_update = it_client.patch(
+            "/api/v1/service-status/vpn",
+            json={
+                "status": "degraded",
+                "message": "VPN latency is elevated in the demo.",
+                "fault_mode": "timeout",
+            },
+            headers=headers,
+        )
+        assert denied_update.status_code == 403
+
+    with TestClient(create_app(settings=settings), base_url=ORIGIN) as admin_client:
+        login = admin_client.post(
+            "/api/v1/auth/login",
+            json={"email": "admin@example.com", "password": PASSWORD},
+            headers={"Origin": ORIGIN},
+        )
+        headers = {
+            "Origin": ORIGIN,
+            "X-CSRF-Token": login.json()["csrf_token"],
+        }
+        updated = admin_client.patch(
             "/api/v1/service-status/vpn",
             json={
                 "status": "degraded",
