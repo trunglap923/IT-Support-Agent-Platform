@@ -105,7 +105,7 @@ def build_support_graph(nodes: SupportGraphNodes) -> Any:
     # LangGraph's overloads do not currently accept our generic async node alias,
     # even though it is a supported runtime callable.
     builder.add_node("load_context", cast(Any, _with_step(nodes.load_context)))
-    builder.add_node("rewrite_query", cast(Any, _bounded_model(nodes.rewrite_query)))
+    builder.add_node("rewrite_query", cast(Any, _with_step(nodes.rewrite_query)))
     builder.add_node("retrieve", cast(Any, _bounded_retrieval(nodes.retrieve)))
     builder.add_node("decide_evidence", cast(Any, _with_step(nodes.decide_evidence)))
     builder.add_node("generate_answer", cast(Any, _bounded_model(nodes.generate_answer)))

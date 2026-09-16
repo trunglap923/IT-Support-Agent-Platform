@@ -37,6 +37,7 @@ class SupportAgentState(TypedDict, total=False):
     context_estimated_tokens: int
     context_truncated: bool
     evidence: list[EvidenceState]
+    citations: list[EvidenceState]
     answer: str
     citation_ids: list[str]
     outcome: str
@@ -46,3 +47,6 @@ class SupportAgentState(TypedDict, total=False):
     step_count: int
     validation_errors: list[str]
     stop_reason: str
+    provider_request_id: str
+    input_tokens: int
+    output_tokens: int

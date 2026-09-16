@@ -86,7 +86,7 @@ def test_graph_generates_answer_with_bounded_retry() -> None:
         )
         assert result["outcome"] == "answered"
         assert result["citation_ids"] == ["src_1"]
-        assert result["model_calls"] == 3
+        assert result["model_calls"] == 2
         assert result["retrieval_calls"] == 1
         assert result["step_count"] < 24
 
