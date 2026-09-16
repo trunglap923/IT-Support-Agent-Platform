@@ -42,11 +42,11 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [x] INFRA-02: Tách API/worker runtime env; migration credential chỉ được truyền vào one-shot command.
 - [x] INFRA-03: Proxy SPA + /api cùng origin; tắt buffering và đặt timeout thích hợp cho SSE.
 - [x] INFRA-04: Nối Celery queues agent/background và một scheduler có health dependency.
-- [ ] INFRA-05: Thêm backup DB + document files/manifest và restore drill vào DB/volume test riêng; ghi recovery limitations.
+- [x] INFRA-05: Backup DB + document archive có checksum manifest; restore drill chỉ dùng DB/volume tạm và ghi recovery limitations.
 - [x] INFRA-06: Root Makefile có các command tái lập; test/eval/clean verification dùng Compose project và volume cô lập.
 
 ## Điều kiện hoàn thành
 
 - [x] Máy sạch chạy build/migrate/seed và đủ 7 service bằng `make clean-verify`, dùng fake AI và dữ liệu tạm.
 - [ ] Restart worker/Redis không mất ticket receipt hoặc làm trùng write.
-- [ ] Restore vào target test được đối chiếu dữ liệu/chunks/citations; không chạm DB đang dùng.
+- [x] Restore vào target test đối chiếu Alembic revision, row counts gồm chunks/messages và checksum mọi document; không chạm DB đang dùng.
