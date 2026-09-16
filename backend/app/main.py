@@ -11,6 +11,7 @@ from app.api.auth import router as auth_router
 from app.api.conversations import router as conversations_router
 from app.api.documents import router as documents_router
 from app.api.health import router as health_router
+from app.api.memory import router as memory_router
 from app.api.runs import router as runs_router
 from app.api.service_status import router as service_status_router
 from app.api.tickets import router as tickets_router
@@ -77,6 +78,7 @@ def create_app(
     application.state.settings = resolved_settings
     application.add_middleware(RequestIdMiddleware)
     application.include_router(health_router, prefix="/api/v1")
+    application.include_router(memory_router, prefix="/api/v1")
     application.include_router(auth_router, prefix="/api/v1")
     application.include_router(approvals_router, prefix="/api/v1")
     application.include_router(conversations_router, prefix="/api/v1")

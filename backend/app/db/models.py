@@ -122,6 +122,20 @@ class ApprovalStatus(StrEnum):
     EXPIRED = "expired"
 
 
+class MemoryExtractionStatus(StrEnum):
+    PENDING = "pending"
+    COMPLETED = "completed"
+    DISCARDED = "discarded"
+    FAILED = "failed"
+
+
+class MemoryCandidateStatus(StrEnum):
+    PENDING = "pending"
+    CONFIRMED = "confirmed"
+    REJECTED = "rejected"
+    EXPIRED = "expired"
+
+
 USER_ROLE_TYPE = Enum(
     UserRole,
     name="user_role",
@@ -509,6 +523,128 @@ class Message(Base):
         JSONB, default=list, server_default="[]"
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class MemoryConsentEvent(Base):
+    __tablename__ = "memory_consent_events"
+    __table_args__ = (CheckConstraint("epoch >= 0", name="memory_consent_epoch_non_negative"),)
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    enabled: Mapped[bool] = mapped_column(Boolean)
+    epoch: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class MemoryExtractionJob(Base):
+    __tablename__ = "memory_extraction_jobs"
+    __table_args__ = (
+        CheckConstraint("captured_epoch >= 0", name="memory_job_epoch_non_negative"),
+        CheckConstraint(
+            "status IN ('pending', 'completed', 'discarded', 'failed')",
+            name="memory_job_status_allowlist",
+        ),
+        UniqueConstraint("source_message_id", name="uq_memory_job_source_message"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    run_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("agent_runs.id", ondelete="SET NULL"), index=True
+    )
+    source_message_id: Mapped[UUID] = mapped_column(
+        ForeignKey("messages.id", ondelete="CASCADE"), index=True
+    )
+    captured_epoch: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(20), default="pending", server_default="pending")
+    error_code: Mapped[str | None] = mapped_column(String(80))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class MemoryCandidate(Base):
+    __tablename__ = "memory_candidates"
+    __table_args__ = (
+        CheckConstraint(
+            "kind IN ('profile', 'preference', 'device')",
+            name="memory_candidate_kind_allowlist",
+        ),
+        CheckConstraint(
+            "status IN ('pending', 'confirmed', 'rejected', 'expired')",
+            name="memory_candidate_status_allowlist",
+        ),
+        UniqueConstraint("job_id", "kind", "key", name="uq_memory_candidate_job_key"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    job_id: Mapped[UUID] = mapped_column(
+        ForeignKey("memory_extraction_jobs.id", ondelete="CASCADE"), index=True
+    )
+    owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    source_conversation_id: Mapped[UUID] = mapped_column(
+        ForeignKey("conversations.id", ondelete="CASCADE"), index=True
+    )
+    kind: Mapped[str] = mapped_column(String(20))
+    key: Mapped[str] = mapped_column(String(40))
+    value: Mapped[str] = mapped_column(String(240))
+    evidence: Mapped[str] = mapped_column(String(500))
+    status: Mapped[str] = mapped_column(String(20), default="pending", server_default="pending")
+    version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class MemoryFact(Base):
+    __tablename__ = "memory_facts"
+    __table_args__ = (
+        CheckConstraint(
+            "kind IN ('profile', 'preference', 'device')", name="memory_fact_kind_allowlist"
+        ),
+        CheckConstraint("scope IN ('global', 'device')", name="memory_fact_scope_allowlist"),
+        CheckConstraint(
+            "(scope = 'device') = (device_id IS NOT NULL)",
+            name="memory_fact_device_scope_matches",
+        ),
+        Index(
+            "uq_memory_fact_global_active",
+            "owner_id",
+            "kind",
+            "key",
+            unique=True,
+            postgresql_where=text("scope = 'global' AND deleted_at IS NULL"),
+        ),
+        Index(
+            "uq_memory_fact_device_active",
+            "owner_id",
+            "device_id",
+            "kind",
+            "key",
+            unique=True,
+            postgresql_where=text("scope = 'device' AND deleted_at IS NULL"),
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    candidate_id: Mapped[UUID] = mapped_column(
+        ForeignKey("memory_candidates.id", ondelete="RESTRICT"), unique=True
+    )
+    source_conversation_id: Mapped[UUID] = mapped_column(
+        ForeignKey("conversations.id", ondelete="CASCADE"), index=True
+    )
+    kind: Mapped[str] = mapped_column(String(20))
+    key: Mapped[str] = mapped_column(String(40))
+    value: Mapped[str] = mapped_column(String(240))
+    scope: Mapped[str] = mapped_column(String(20), default="global", server_default="global")
+    device_id: Mapped[UUID | None] = mapped_column(index=True)
+    version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
 
 class ServiceState(Base):

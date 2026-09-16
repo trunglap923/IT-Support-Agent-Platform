@@ -1,6 +1,6 @@
 # Memory qua nhiều cuộc trò chuyện
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: P53 hoàn thành; P54/P55 đang chờ.
 Work packages: WP-12.
 Nguồn: [kế hoạch tổng](../../../plan.md), mục 12, 17.2, 19; [thứ tự triển khai](../../../docs/implementation-roadmap.md).
 
@@ -33,8 +33,8 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] MEM-01: Định nghĩa allowlist OS/version/device label/language và provenance.
-- [ ] MEM-02: Extract chỉ user messages mới; một call/run trong budget riêng.
+- [x] MEM-01: Định nghĩa allowlist OS/version/device label/language và provenance.
+- [x] MEM-02: Extract chỉ user messages mới; deterministic fake extractor tạo pending candidate.
 - [ ] MEM-03: Implement accept/reject/edit revision, TTL pending 7 ngày/active 90 ngày.
 - [ ] MEM-04: Implement toggle/delete cùng epoch update; kiểm tra lại consent/epoch trước commit.
 - [ ] MEM-05: Retrieve tối đa năm fact/ba incident; ticket resolved chỉ cập nhật incident còn tồn tại.
