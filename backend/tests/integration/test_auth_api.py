@@ -9,7 +9,7 @@ from sqlalchemy import update
 from app.auth.demo_identity import ensure_demo_identity
 from app.config import Settings
 from app.db import Database
-from app.db.models import AuthSession
+from app.db.models import AuthSession, User
 from app.main import create_app
 
 PASSWORD = "correct-horse-battery-staple"
@@ -106,6 +106,42 @@ def test_expired_session_is_rejected(migrated_database_url: str) -> None:
                 await database.close()
 
         asyncio.run(expire())
+        assert client.get("/api/v1/auth/me").status_code == 401
+
+
+def test_existing_session_is_rejected_after_account_deactivation(
+    migrated_database_url: str,
+) -> None:
+    seed_identity(migrated_database_url)
+    settings = Settings(
+        database_url=migrated_database_url,
+        cookie_secure=False,
+        allowed_web_origin=ORIGIN,
+    )
+
+    with TestClient(create_app(settings=settings)) as client:
+        login = client.post(
+            "/api/v1/auth/login",
+            json={"email": "employee.engineering@example.com", "password": PASSWORD},
+            headers={"Origin": ORIGIN},
+        )
+        assert login.status_code == 200
+        assert settings.session_cookie_name in client.cookies
+
+        async def deactivate_account() -> None:
+            database = Database(migrated_database_url)
+            try:
+                async with database.session() as session, session.begin():
+                    await session.execute(
+                        update(User)
+                        .where(User.email == "employee.engineering@example.com")
+                        .values(active=False)
+                    )
+            finally:
+                await database.close()
+
+        asyncio.run(deactivate_account())
+
         assert client.get("/api/v1/auth/me").status_code == 401
 
 

@@ -1,6 +1,6 @@
 # Đăng nhập và phân quyền
 
-Trạng thái: user/password, session, CSRF và role policies WP-02 đã triển khai; chờ integration gate.
+Trạng thái: user/password, session, CSRF và role policies WP-02 đã triển khai và đạt PostgreSQL integration gate local.
 Work packages: WP-02, WP-05, WP-08.
 Nguồn: [kế hoạch tổng](../../../plan.md), mục 3, 14, 17; [thứ tự triển khai](../../../docs/implementation-roadmap.md).
 
@@ -46,4 +46,5 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 - [x] Repository và DB constraint ngăn hai user đọc/tạo run trên conversation của nhau; ticket/memory kiểm tra ở WP tương ứng.
 - [ ] IT staff chỉ quản lý ticket đúng phòng ban; document ACL áp dụng ở retrieval.
-- [ ] Account inactive không thể resume write; credential errors không lộ account tồn tại.
+- [x] Account inactive bị từ chối ngay cả khi session cũ còn hạn.
+- [ ] Kiểm chứng credential errors không lộ account tồn tại; implementation hiện dùng generic error và dummy hash.

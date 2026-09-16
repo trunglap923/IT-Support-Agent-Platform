@@ -9,11 +9,11 @@ Nguồn yêu cầu: [plan.md](../plan.md), đặc biệt mục 21.1. Bản đồ
 - [x] Có README, bản đồ kiến trúc, ADR cấu trúc, kịch bản demo và cấu hình mẫu không chứa secret.
 - [x] WP-01: runtime/dependencies, lockfiles và local install/lint/typecheck/test/build đã đạt; chờ CI remote đầu tiên sau push.
 - [x] M0: hoàn tất spike provider/MCP/checkpointer, seed spec và 30 evaluation cases.
-- [ ] WP-02: implementation đã đủ; chờ chạy lại PostgreSQL integration, frontend Docker checks và CI remote trước khi đóng WP.
+- [x] WP-02: database/auth/ownership integration và frontend checks đã đạt local; CI remote được tạm hoãn.
 - [x] WP-03: Redis/Celery, durable run events, commit-then-enqueue, SSE và frontend reconnect đã đạt local; chờ CI remote sau push.
 
-WP-01, compatibility M0 và WP-03 đã hoàn thành ở local. Theo yêu cầu hiện tại, WP-02
-đã commit nhưng verification được tạm hoãn; WP-04..WP-14 chưa hoàn thành. Responses
+WP-01, compatibility M0, WP-02 và WP-03 đã hoàn thành ở local; CI remote được tạm hoãn
+theo yêu cầu hiện tại. WP-04..WP-14 chưa hoàn thành. Responses
 live, MCP stdio, PostgreSQL checkpointer, seed contract và 30 evaluation cases đều có bằng
 chứng. Paid/live checks vẫn là opt-in và không chạy trong CI.
 
@@ -30,6 +30,17 @@ chứng. Paid/live checks vẫn là opt-in và không chạy trong CI.
 Bằng chứng local ngày 2026-09-16: Ruff/mypy đạt; 14 unit tests WP-03 và 5 integration
 tests PostgreSQL/Redis đạt; frontend lint/typecheck, 9 tests và production build đạt.
 GitHub Actions chỉ được xác nhận remote sau khi push.
+
+## Bằng chứng WP-02
+
+- [x] Migration từ PostgreSQL database sạch, identity repository và password hash.
+- [x] Login đúng/sai, session expiry/revocation, cookie flags, CSRF và RBAC denial.
+- [x] Session còn hạn bị từ chối ngay khi tài khoản chuyển sang inactive.
+- [x] Conversation/run ownership ngăn truy cập chéo người dùng.
+- [x] Frontend login/logout/route protection tests và production build.
+
+Bằng chứng local ngày 2026-09-16: 9 PostgreSQL integration tests đạt. GitHub Actions
+không được chạy trong lượt này theo yêu cầu.
 
 ## Cách dùng kế hoạch
 

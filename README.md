@@ -6,16 +6,17 @@ Portfolio trợ lý IT: trả lời có nguồn, kiểm tra dịch vụ mô ph�
 
 Đã khởi tạo cây thư mục và **57 kế hoạch module**. Mỗi `PLAN.md` có phạm vi, hợp đồng, tệp cần viết, phần phụ thuộc, checklist có mã và điều kiện hoàn thành.
 
-WP-01, compatibility M0 và WP-03 đã hoàn thành ở local. WP-02 đã được triển khai và
-commit gồm PostgreSQL/pgvector, Alembic, Argon2, session-cookie, CSRF/RBAC,
-conversation/run persistence và login UI; việc chạy lại gate WP-02 đang được tạm hoãn.
+WP-01, compatibility M0, WP-02 và WP-03 đã hoàn thành ở local. WP-02 gồm
+PostgreSQL/pgvector, Alembic, Argon2, session-cookie, CSRF/RBAC, conversation/run
+persistence và login UI. Gate WP-02 đạt 9 PostgreSQL integration tests, bao gồm
+regression vô hiệu hóa tài khoản khi session cũ vẫn còn hạn.
 
 WP-03 bổ sung Redis AOF/noeviction, Celery agent/background workers, durable run state và
 event store, commit-then-enqueue/reconcile, owner-scoped SSE cùng màn hình theo dõi run có
 bounded reconnect. Kết quả ngày 2026-09-16: Ruff/mypy đạt, 14 unit tests WP-03 và 5
 PostgreSQL/Redis integration tests đạt; frontend lint/typecheck, 9 tests và production
 build đạt. Dataset M0 có 30/30 case hợp lệ và Responses live đạt cả ba contract. Workflow
-GitHub Actions chỉ được xác nhận remote sau khi push.
+GitHub Actions chưa được chạy theo yêu cầu hiện tại.
 
 ## Chạy development
 
