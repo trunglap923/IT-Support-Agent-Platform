@@ -11,9 +11,11 @@ Nguồn yêu cầu: [plan.md](../plan.md), đặc biệt mục 21.1. Bản đồ
 - [x] M0: hoàn tất spike provider/MCP/checkpointer, seed spec và 30 evaluation cases.
 - [x] WP-02: database/auth/ownership integration và frontend checks đã đạt local; CI remote được tạm hoãn.
 - [x] WP-03: Redis/Celery, durable run events, commit-then-enqueue, SSE và frontend reconnect đã đạt local; chờ CI remote sau push.
+- [x] WP-04: corpus, document schema, PDF parse, deterministic chunk, guarded embeddings và idempotent ingestion đã đạt local.
+- [x] WP-05: scoped hybrid retrieval, citation allowlist, no-answer behavior và baseline có mẫu số đã đạt local.
 
-WP-01, compatibility M0, WP-02 và WP-03 đã hoàn thành ở local; CI remote được tạm hoãn
-theo yêu cầu hiện tại. WP-04..WP-14 chưa hoàn thành. Responses
+WP-01, compatibility M0 và WP-02..WP-05 đã hoàn thành ở local; CI remote được tạm hoãn
+theo yêu cầu hiện tại. WP-06..WP-14 chưa hoàn thành. Responses
 live, MCP stdio, PostgreSQL checkpointer, seed contract và 30 evaluation cases đều có bằng
 chứng. Paid/live checks vẫn là opt-in và không chạy trong CI.
 
@@ -42,6 +44,22 @@ GitHub Actions chỉ được xác nhận remote sau khi push.
 Bằng chứng local ngày 2026-09-16: 9 PostgreSQL integration tests đạt. GitHub Actions
 không được chạy trong lượt này theo yêu cầu.
 
+## Checklist WP-04/WP-05
+
+- [x] P23: corpus IT tự viết, provenance/license manifest và checksum validator.
+- [x] P24: document/version/ACL/ingestion-job schema, migration và ownership constraint.
+- [x] P25: bounded PDF text extraction, physical page metadata và stable error codes.
+- [x] P26: deterministic chunk IDs, source spans, hard cap và overlap tests.
+- [x] P27: fake/OpenAI embedding adapters và atomic PostgreSQL usage reservation.
+- [x] P28: parse → chunk → embed → store pipeline; completed retry không nhân đôi chunk.
+- [x] P29: exact vector + full-text retrieval dùng chung ACL/current-version predicate.
+- [x] P30: server-owned citation DTO, source allowlist và no-answer behavior.
+- [x] P31: isolated PostgreSQL baseline có Recall@5/MRR/no-answer/scope denominators.
+
+Bằng chứng local ngày 2026-09-16 nằm tại `reports/retrieval-baseline.md`. Fake embedding
+chỉ dùng kiểm tra wiring tái lập; đánh giá semantic với OpenAI vẫn là live evaluation opt-in
+ở WP-06/WP-13.
+
 ## Cách dùng kế hoạch
 
 1. Chọn WP nhỏ nhất có các điều kiện phụ thuộc đã đủ; đọc dòng tương ứng bên dưới.
@@ -58,7 +76,7 @@ không được chạy trong lượt này theo yêu cầu.
 - [x] Khởi tạo `backend/pyproject.toml` và `frontend/package.json`, chọn phiên bản tương thích rồi tạo lockfiles bằng package manager.
 - [x] Tạo backend app factory/config/health tối thiểu và frontend shell/router; chưa thêm nghiệp vụ chưa dùng.
 - [x] Thiết kế fake-provider config để tests không cần paid keys; OpenAI mode fail rõ khi thiếu key và chưa được gọi từ API.
-- [ ] Trước paid embedding/chat đầu tiên, bắt buộc nối DB/budget guard; phần này thuộc WP-04/WP-06.
+- [x] Paid embedding đã có DB reservation/usage ledger; paid chat guard hoàn thiện ở WP-06.
 - [x] Kiểm chứng Responses plain/structured/tool contract offline với strict schema và token cap.
 - [x] Chạy Responses live bằng target opt-in; CI không có key và không chạy paid spike.
 - [x] Smoke-test MCP stdio discovery/call và actor isolation qua hai subprocess.

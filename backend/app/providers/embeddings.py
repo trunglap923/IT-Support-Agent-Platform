@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import math
+import re
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -39,7 +40,7 @@ def validate_embedding_input(texts: list[str]) -> None:
 
 
 class FakeEmbeddingProvider:
-    def __init__(self, *, dimensions: int = 1536, model: str = "fake-embedding-v1") -> None:
+    def __init__(self, *, dimensions: int = 1536, model: str = "fake-embedding-v2") -> None:
         if dimensions <= 0:
             raise ValueError("Embedding dimensions must be positive")
         self._dimensions = dimensions
@@ -49,11 +50,12 @@ class FakeEmbeddingProvider:
         validate_embedding_input(texts)
         vectors: list[tuple[float, ...]] = []
         for text in texts:
-            seed = hashlib.shake_256(text.encode("utf-8")).digest(self._dimensions * 2)
-            values = [
-                int.from_bytes(seed[index : index + 2], "big") / 32767.5 - 1
-                for index in range(0, len(seed), 2)
-            ]
+            values = [0.0] * self._dimensions
+            for token in re.findall(r"\w+", text.casefold()):
+                digest = hashlib.blake2b(token.encode("utf-8"), digest_size=8).digest()
+                index = int.from_bytes(digest[:4], "big") % self._dimensions
+                sign = 1.0 if digest[4] & 1 else -1.0
+                values[index] += sign
             norm = math.sqrt(sum(value * value for value in values)) or 1.0
             vectors.append(tuple(value / norm for value in values))
         return EmbeddingBatch(

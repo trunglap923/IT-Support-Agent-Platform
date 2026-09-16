@@ -17,7 +17,7 @@ FRONTEND_DOCKER = docker run --rm --user $(PROJECT_UID):$(PROJECT_GID) -e npm_co
 .PHONY: help bootstrap check backend-sync backend-format backend-check \
 	frontend-install frontend-check frontend-install-docker frontend-check-docker \
 	dev-backend dev-frontend dev-frontend-docker dev-stop spike-openai-live \
-	spike-mcp-stdio spike-langgraph-postgres eval-validate knowledge-validate \
+	spike-mcp-stdio spike-langgraph-postgres eval-validate knowledge-validate retrieval-baseline \
 	db-up db-down db-status redis-up redis-down redis-status services-up services-down \
 	migrate seed-demo-user wp02-integration-check wp03-integration-check \
 	backend-integration-check wp02-check wp03-check \
@@ -39,6 +39,7 @@ help:
 	@echo "  make spike-langgraph-postgres  Verify pause/restart/resume (requires CHECKPOINT_DATABASE_URL)"
 	@echo "  make eval-validate           Validate the 30 offline M0 evaluation cases"
 	@echo "  make knowledge-validate      Validate corpus metadata, ACL rules and checksums"
+	@echo "  make retrieval-baseline      Run isolated PostgreSQL retrieval evaluation"
 	@echo "  make db-up                  Start local PostgreSQL/pgvector and wait until healthy"
 	@echo "  make db-down                Stop containers; preserve the PostgreSQL volume"
 	@echo "  make db-status              Show local Compose service status"
@@ -156,6 +157,9 @@ eval-validate:
 
 knowledge-validate:
 	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --directory backend --frozen python ../data/manifests/validate_corpus.py
+
+retrieval-baseline:
+	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --project backend --frozen --env-file $(COMPOSE_ENV_FILE) python -m evals.runner.retrieval_baseline
 
 db-up:
 	$(COMPOSE) --file $(COMPOSE_FILE) --env-file $(COMPOSE_ENV_FILE) up --detach --wait postgres

@@ -9,8 +9,17 @@
       "document_key": "vpn-setup", "version_label": "v1", "title": "Demo VPN setup",
       "path": "vpn-setup-v1.md", "media_type": "text/markdown", "authority": "it",
       "language": "vi-en", "visibility": "company", "department_key": null,
-      "effective_at": "2026-01-01T00:00:00Z", "expires_at": null,
+      "effective_at": "2025-01-01T00:00:00Z", "expires_at": "2025-12-31T23:59:59Z",
       "checksum": "sha256:35c8fd39c3c24fd3ad93db8dc915cb2a6854dea34c2690ab2116d4196446112d",
+      "source": {"kind": "self-authored", "owner": "it-support-agent-platform", "url": null},
+      "license": "CC-BY-4.0"
+    },
+    {
+      "document_key": "vpn-setup", "version_label": "v2", "title": "Thiết lập VPN demo",
+      "path": "vpn-setup-v2.md", "media_type": "text/markdown", "authority": "it",
+      "language": "vi-en", "visibility": "company", "department_key": null,
+      "effective_at": "2026-01-01T00:00:00Z", "expires_at": null,
+      "checksum": "sha256:65d0b4fee3e3571ceb0520cece58b17ba8af223b67d58b10dc803f2103747508",
       "source": {"kind": "self-authored", "owner": "it-support-agent-platform", "url": null},
       "license": "CC-BY-4.0"
     },
