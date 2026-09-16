@@ -37,6 +37,7 @@ backups/
 *.log
 reports/raw/
 reports/tmp/
+reports/ci/
 
 # Editor/OS scratch files.
 .DS_Store

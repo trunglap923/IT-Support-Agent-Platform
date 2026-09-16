@@ -374,9 +374,7 @@ def build_case(group: Group, variant: int, case_number: int) -> dict[str, Any]:
         },
         "initial_state": {**group.state, "variant": variant},
         "document_snapshot": "demo-corpus-v1",
-        "messages": [
-            {"role": "user", "content": f"{group.prompt} {VARIANTS[variant - 1]}"}
-        ],
+        "messages": [{"role": "user", "content": f"{group.prompt} {VARIANTS[variant - 1]}"}],
         "expected_outcome": group.outcome,
         "allowed_tool_sequences": [list(group.tools)],
         "forbidden_actions": list(group.forbidden),
@@ -400,8 +398,7 @@ def write_dataset() -> None:
         selected = [case for case in cases if case["split"] == split]
         target.write_text(
             "".join(
-                json.dumps(case, ensure_ascii=False, sort_keys=True) + "\n"
-                for case in selected
+                json.dumps(case, ensure_ascii=False, sort_keys=True) + "\n" for case in selected
             ),
             encoding="utf-8",
         )

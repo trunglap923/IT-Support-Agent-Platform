@@ -1,6 +1,6 @@
 # CI — kiểm tra chất lượng không cần API trả phí
 
-Trạng thái: CI foundation cùng PostgreSQL/Redis integration WP-03 đã có; E2E/eval mở rộng theo các WP sau.
+Trạng thái: pipeline release verification đã tách migration, integration, contracts, E2E, images và secret scan; chờ lần chạy GitHub Actions đầu tiên.
 Work packages: WP-01, WP-03, WP-09, WP-13, WP-14.
 Nguồn: [kế hoạch tổng](../../plan.md), mục 19, 20, 22; [thứ tự triển khai](../../docs/implementation-roadmap.md).
 
@@ -32,11 +32,13 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [x] CI-01: Thêm lint/typecheck/format checks backend và frontend sau WP-01.
 - [x] CI-02a: Chạy unit + API/MCP contract, migration upgrade và integration với PostgreSQL/pgvector.
 - [x] CI-02b: Thêm Redis service, broker delivery test và fake-mode run integration ở WP-03.
-- [ ] CI-03: Thêm browser E2E khi có UI, phân nhóm job để lỗi dễ xác định.
-- [ ] CI-04: Kiểm tra liên kết kế hoạch, schema seed/eval và secret scanning phù hợp.
-- [ ] CI-05: Upload report/trace đã lọc khi fail; đặt timeout và quyền workflow tối thiểu.
+- [x] CI-03: Browser E2E có job riêng; backend unit/contracts/migration/integration và frontend được phân nhóm.
+- [x] CI-04: Kiểm tra schema evaluation/reproducibility và scan credential pattern trên tracked files.
+- [x] CI-05: Upload JUnit/trace/build log chỉ khi fail; mọi job có timeout và workflow chỉ có `contents: read`.
 
 ## Điều kiện hoàn thành
 
-- [ ] PR checks không dùng mạng model trả phí và fail đúng khi contract/security regression.
-- [ ] Fresh dependency install, migrations và app build được kiểm tra, không có test rỗng báo pass giả.
+- [x] Workflow không nhận paid API key, ép fake provider và có contract/security regression jobs rõ ràng.
+- [x] Fresh locked dependency install, clean migration và cả hai production image build đều là required workflow jobs.
+
+Local validation chỉ xác nhận syntax, command và cùng test suite; trạng thái GitHub-hosted vẫn phải chờ workflow chạy sau push, không được tính là bằng chứng remote pass.

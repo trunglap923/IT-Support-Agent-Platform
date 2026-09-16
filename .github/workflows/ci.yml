@@ -13,22 +13,151 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  UV_VERSION: "0.11.32"
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION_FILE: frontend/.nvmrc
+  APP_ENV: test
+  AI_PROVIDER: fake
+
 jobs:
-  backend:
-    name: Backend · Python 3.12 + services
+  secret-scan:
+    name: Security · tracked secrets
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Scan tracked files without printing values
+        run: python infra/scripts/scan_secrets.py
+
+  backend-quality:
+    name: Backend · static and unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4a
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - name: Install locked dependencies
+        run: uv --system-certs sync --directory backend --python "$PYTHON_VERSION" --frozen --all-groups
+      - name: Check formatting
+        run: uv run --directory backend --frozen ruff format --check app tests ../evals ../infra/scripts
+      - name: Lint
+        run: uv run --directory backend --frozen ruff check app tests ../evals ../infra/scripts
+      - name: Typecheck
+        run: uv run --directory backend --frozen mypy app
+      - name: Run non-service tests
+        run: |
+          mkdir -p reports/ci
+          uv run --directory backend --frozen pytest --ignore=tests/integration --ignore=tests/contract --junitxml=../reports/ci/backend-unit.xml
+      - name: Upload failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-unit-failure
+          path: reports/ci/backend-unit.xml
+          if-no-files-found: ignore
+          retention-days: 7
+
+  contracts:
+    name: Contracts · MCP, tools and schemas
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4a
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - name: Install locked dependencies
+        run: uv --system-certs sync --directory backend --python "$PYTHON_VERSION" --frozen --all-groups
+      - name: Run contract suite and dataset schema validation
+        run: |
+          mkdir -p reports/ci
+          uv run --directory backend --frozen pytest tests/contract tests/test_openai_responses_spike.py --junitxml=../reports/ci/contracts.xml
+          uv run --project backend --frozen python -m evals.runner.validate_cases
+          uv run --project backend --frozen python -m evals.runner.repro_check
+      - name: Upload failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: contract-failure
+          path: reports/ci/contracts.xml
+          if-no-files-found: ignore
+          retention-days: 7
+
+  migrations:
+    name: Database · clean migration
     runs-on: ubuntu-latest
     timeout-minutes: 10
     services:
       postgres:
         image: pgvector/pgvector:0.8.2-pg17-bookworm@sha256:feb68f4f15446397d8cac7f4fe48fe4586de83160d1fc48b46283312d1a33966
         env:
-          POSTGRES_DB: it_support_agent_test
-          POSTGRES_USER: it_support_agent_test
-          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: migration_test
+          POSTGRES_USER: migration_runner
+          POSTGRES_PASSWORD: ci-only-migration-password
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U it_support_agent_test -d it_support_agent_test"
+          --health-cmd "pg_isready -U migration_runner -d migration_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      MIGRATION_DATABASE_URL: postgresql+psycopg://migration_runner:ci-only-migration-password@127.0.0.1:5432/migration_test
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4a
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - name: Install locked dependencies
+        run: uv --system-certs sync --directory backend --python "$PYTHON_VERSION" --frozen --all-groups
+      - name: Upgrade a clean database to head
+        working-directory: backend
+        run: uv run --frozen alembic upgrade head
+      - name: Assert one current Alembic revision
+        working-directory: backend
+        run: test "$(uv run --frozen alembic current | tail -n 1)" = "0016_message_feedback (head)"
+
+  integration:
+    name: Services · PostgreSQL and Redis integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.2-pg17-bookworm@sha256:feb68f4f15446397d8cac7f4fe48fe4586de83160d1fc48b46283312d1a33966
+        env:
+          POSTGRES_DB: it_support_agent_test
+          POSTGRES_USER: integration_runner
+          POSTGRES_PASSWORD: ci-only-integration-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U integration_runner -d it_support_agent_test"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 12
@@ -42,9 +171,7 @@ jobs:
           --health-timeout 3s
           --health-retries 12
     env:
-      APP_ENV: test
-      AI_PROVIDER: fake
-      TEST_DATABASE_ADMIN_URL: postgresql+psycopg://it_support_agent_test:ci-only-password@127.0.0.1:5432/it_support_agent_test
+      TEST_DATABASE_ADMIN_URL: postgresql+psycopg://integration_runner:ci-only-integration-password@127.0.0.1:5432/it_support_agent_test
       REDIS_URL: redis://127.0.0.1:6379/0
       TEST_REDIS_URL: redis://127.0.0.1:6379/15
       REQUIRE_DATABASE_TESTS: "1"
@@ -55,48 +182,106 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install uv
-        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4a
         with:
-          version: "0.11.32"
+          version: ${{ env.UV_VERSION }}
           enable-cache: true
           cache-dependency-glob: backend/uv.lock
       - name: Install locked dependencies
-        run: uv --system-certs sync --directory backend --python 3.12 --frozen --all-groups
-      - name: Check formatting
-        run: uv run --directory backend --frozen ruff format --check .
-      - name: Lint
-        run: uv run --directory backend --frozen ruff check .
-      - name: Typecheck
-        run: uv run --directory backend --frozen mypy app
-      - name: Test
-        run: uv run --directory backend --frozen pytest
-      - name: Validate evaluation dataset
-        run: uv run --project backend --frozen python -m evals.runner.validate_cases
+        run: uv --system-certs sync --directory backend --python "$PYTHON_VERSION" --frozen --all-groups
+      - name: Run required service tests
+        run: |
+          mkdir -p reports/ci
+          uv run --directory backend --frozen pytest tests/integration --junitxml=../reports/ci/integration.xml
+      - name: Upload failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: integration-failure
+          path: reports/ci/integration.xml
+          if-no-files-found: ignore
+          retention-days: 7
 
   frontend:
-    name: Frontend · Node 22
+    name: Frontend · static, unit and build
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version-file: frontend/.nvmrc
+          node-version-file: ${{ env.NODE_VERSION_FILE }}
           cache: npm
           cache-dependency-path: frontend/package-lock.json
           package-manager-cache: false
       - name: Install locked dependencies
         working-directory: frontend
         run: npm ci
-      - name: Lint
+      - name: Lint and typecheck
         working-directory: frontend
-        run: npm run lint
-      - name: Typecheck
+        run: npm run lint && npm run typecheck
+      - name: Unit tests with report
         working-directory: frontend
-        run: npm run typecheck
-      - name: Test
-        working-directory: frontend
-        run: npm run test
-      - name: Build
+        run: npm run test -- --reporter=default --reporter=junit --outputFile.junit=test-results/vitest.xml
+      - name: Production build
         working-directory: frontend
         run: npm run build
+      - name: Upload failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: frontend-failure
+          path: frontend/test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
+  browser-e2e:
+    name: Browser · deterministic workflows
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install locked dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Run browser workflows
+        working-directory: frontend
+        run: npm run test:e2e
+      - name: Upload failure traces
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-e2e-failure
+          path: |
+            frontend/test-results
+            frontend/playwright-report
+          if-no-files-found: ignore
+          retention-days: 7
+
+  docker-images:
+    name: Images · production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build production images
+        run: |
+          set -o pipefail
+          docker build --target production --file backend/Dockerfile --tag it-support-agent-api:ci . 2>&1 | tee backend-image.log
+          docker build --file frontend/Dockerfile --tag it-support-agent-web:ci . 2>&1 | tee frontend-image.log
+      - name: Verify non-root users and healthchecks
+        run: |
+          test "$(docker image inspect it-support-agent-api:ci --format '{{.Config.User}}')" = "app:app"
+          test "$(docker image inspect it-support-agent-web:ci --format '{{.Config.User}}')" = "101:101"
+          test "$(docker image inspect it-support-agent-api:ci --format '{{json .Config.Healthcheck.Test}}')" != "null"
+          test "$(docker image inspect it-support-agent-web:ci --format '{{json .Config.Healthcheck.Test}}')" != "null"
+      - name: Upload failure build logs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: docker-build-failure
+          path: "*-image.log"
+          if-no-files-found: ignore
+          retention-days: 7
