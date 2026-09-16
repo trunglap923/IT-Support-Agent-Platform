@@ -19,6 +19,17 @@ PASSWORD = "correct-horse-battery-staple"
 ORIGIN = "http://testserver"
 
 
+class RecordingDispatcher:
+    def __init__(self) -> None:
+        self.enqueued: list[UUID] = []
+
+    async def ensure_available(self) -> None:
+        return None
+
+    async def enqueue_run(self, run_id: UUID) -> None:
+        self.enqueued.append(run_id)
+
+
 def test_canonical_argument_hash_is_order_independent() -> None:
     first, first_hash = canonical_argument_hash({"b": 2, "a": "one"})
     second, second_hash = canonical_argument_hash({"a": "one", "b": 2})
@@ -117,7 +128,10 @@ def test_approval_api_enforces_owner_csrf_expiry_and_single_decision(
         cookie_secure=False,
         allowed_web_origin=ORIGIN,
     )
-    with TestClient(create_app(settings=settings), base_url=ORIGIN) as client:
+    dispatcher = RecordingDispatcher()
+    with TestClient(
+        create_app(settings=settings, run_dispatcher=dispatcher), base_url=ORIGIN
+    ) as client:
         login = client.post(
             "/api/v1/auth/login",
             json={"email": "employee.engineering@example.com", "password": PASSWORD},

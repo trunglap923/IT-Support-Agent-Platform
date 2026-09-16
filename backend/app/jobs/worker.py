@@ -19,6 +19,7 @@ from app.providers.fake import FakeTextProvider
 from app.rag.retrieval.query import HybridRetriever
 from app.repositories.runs import RunRepository
 from app.repositories.users import UserRepository
+from app.services.approvals.resume import execute_approval_resume_run
 from app.services.conversations.run_state import RunStateService
 
 
@@ -53,6 +54,9 @@ async def execute_support_run(
         run = await repository.get_by_id(session, run_id=run_id)
         if run is None:
             return WorkerResult(run_id=run_id, status="missing")
+        if run.status is RunStatus.RESUME_QUEUED:
+            resumed = await execute_approval_resume_run(database, run_id=run_id)
+            return WorkerResult(run_id=run_id, status=resumed)
         actor_id = run.actor_id
         conversation_id = run.conversation_id
 

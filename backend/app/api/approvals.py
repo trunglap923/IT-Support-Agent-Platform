@@ -3,22 +3,24 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated, Literal, cast
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.csrf import require_csrf
-from app.db.models import ApprovalRequest
+from app.db.models import ApprovalRequest, RunStatus
 from app.dependencies import CurrentPrincipal, get_db_session
+from app.jobs.dispatch import BrokerUnavailableError, RunDispatcher
 from app.services.approvals import (
     ApprovalConflictError,
     ApprovalExpiredError,
     ApprovalNotFoundError,
     ApprovalService,
 )
+from app.services.conversations.run_state import RunStateService
 
 router = APIRouter(prefix="/approvals", tags=["approvals"])
 
@@ -71,6 +73,7 @@ async def get_approval(
 async def decide_approval(
     approval_id: UUID,
     payload: ApprovalDecisionRequest,
+    request: Request,
     principal: CurrentPrincipal,
     session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> ApprovalResponse:
@@ -81,6 +84,20 @@ async def decide_approval(
             owner_id=principal.user_id,
             decision=payload.decision,
             expected_version=payload.expected_version,
+        )
+        await RunStateService().transition(
+            session,
+            run_id=approval.run_id,
+            actor_id=principal.user_id,
+            target=(
+                RunStatus.RESUME_QUEUED if payload.decision == "approve" else RunStatus.COMPLETED
+            ),
+            operation_id=f"approval-decision:{approval.id}",
+            outcome="approval_rejected" if payload.decision == "reject" else None,
+            safe_payload={
+                "approval_id": str(approval.id),
+                "decision": payload.decision,
+            },
         )
     except ApprovalNotFoundError as error:
         raise HTTPException(
@@ -94,4 +111,13 @@ async def decide_approval(
     except ApprovalConflictError as error:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
     await session.commit()
+    if payload.decision == "approve":
+        dispatcher = cast(RunDispatcher, request.app.state.run_dispatcher)
+        try:
+            await dispatcher.enqueue_run(approval.run_id)
+        except BrokerUnavailableError as error:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Approval was saved but resume delivery is unavailable",
+            ) from error
     return approval_response(approval)
