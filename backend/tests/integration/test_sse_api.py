@@ -138,6 +138,7 @@ def test_sse_replay_cursor_ownership_and_no_side_effects(
     run_id, owner_email, outsider_email = seed_terminal_run(migrated_database_url)
     settings = Settings(
         database_url=migrated_database_url,
+        auth_login_rate_limit_enabled=False,
         cookie_secure=False,
         allowed_web_origin=ORIGIN,
         sse_poll_interval_seconds=0.01,

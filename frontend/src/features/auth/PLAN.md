@@ -32,7 +32,7 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 ## Các bước triển khai
 
 - [x] UIAUTH-01a: Tạo form login và thông báo credential sai.
-- [ ] UIAUTH-01b: Hiển thị rate-limited sau khi backend có Redis limiter.
+- [x] UIAUTH-01b: Hiển thị lỗi rate-limited riêng khi backend trả `429`.
 - [x] UIAUTH-02: Bootstrap session + CSRF; hiển thị role/phòng ban để demo ACL.
 - [x] UIAUTH-03: Đăng xuất và xóa toàn bộ cache chứa dữ liệu riêng.
 - [x] UIAUTH-04a: Session hết hạn khi bootstrap chuyển về login.

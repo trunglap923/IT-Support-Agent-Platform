@@ -32,6 +32,7 @@ def test_login_me_logout_and_invalid_credentials(migrated_database_url: str) -> 
     seed_identity(migrated_database_url)
     settings = Settings(
         database_url=migrated_database_url,
+        auth_login_rate_limit_enabled=False,
         cookie_secure=False,
         allowed_web_origin=ORIGIN,
     )
@@ -79,6 +80,7 @@ def test_expired_session_is_rejected(migrated_database_url: str) -> None:
     seed_identity(migrated_database_url)
     settings = Settings(
         database_url=migrated_database_url,
+        auth_login_rate_limit_enabled=False,
         cookie_secure=False,
         allowed_web_origin=ORIGIN,
     )
@@ -115,6 +117,7 @@ def test_existing_session_is_rejected_after_account_deactivation(
     seed_identity(migrated_database_url)
     settings = Settings(
         database_url=migrated_database_url,
+        auth_login_rate_limit_enabled=False,
         cookie_secure=False,
         allowed_web_origin=ORIGIN,
     )
@@ -149,6 +152,7 @@ def test_csrf_origin_cookie_flags_and_role_denial(migrated_database_url: str) ->
     seed_identity(migrated_database_url)
     settings = Settings(
         database_url=migrated_database_url,
+        auth_login_rate_limit_enabled=False,
         cookie_secure=False,
         allowed_web_origin=ORIGIN,
     )
@@ -190,6 +194,7 @@ def test_secure_cookie_flags_when_enabled(migrated_database_url: str) -> None:
     seed_identity(migrated_database_url)
     settings = Settings(
         database_url=migrated_database_url,
+        auth_login_rate_limit_enabled=False,
         cookie_secure=True,
         allowed_web_origin=secure_origin,
     )

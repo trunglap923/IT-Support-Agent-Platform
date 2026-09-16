@@ -39,7 +39,7 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [x] AUTH-03a: Tạo dependency role policy và deny role không phù hợp.
 - [ ] AUTH-03b: Tạo policies owner, IT ticket scope và document ACL ở WP tương ứng.
 - [x] AUTH-04a: Implement CSRF synchronizer token và Origin validation.
-- [ ] AUTH-04b: Implement Redis login/rate limiting ở WP-03.
+- [x] AUTH-04b: Implement Redis login rate limiting, hashed bucket, Retry-After và fail-closed khi Redis lỗi.
 - [ ] AUTH-05: Dùng cùng policy ở read HTTP, source download, MCP calls và approval execution.
 
 ## Điều kiện hoàn thành

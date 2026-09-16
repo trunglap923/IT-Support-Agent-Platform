@@ -86,4 +86,26 @@ describe("LoginPage", () => {
 
     expect(await screen.findByText("Trang riêng")).toBeInTheDocument();
   });
+
+  it("shows a dedicated message when login is rate limited", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(null, { status: 401 }))
+      .mockResolvedValueOnce(new Response(null, { status: 429 }));
+    vi.stubGlobal("fetch", fetchMock);
+    renderLogin();
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Đăng nhập" })).toBeEnabled());
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: loginResult.user.email },
+    });
+    fireEvent.change(screen.getByLabelText("Mật khẩu"), {
+      target: { value: "wrong-password" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Đăng nhập" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Bạn đã thử đăng nhập quá nhiều lần. Vui lòng chờ rồi thử lại.",
+    );
+  });
 });

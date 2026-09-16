@@ -9,11 +9,17 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, Field
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.csrf import require_csrf, require_trusted_origin
 from app.auth.policies import require_roles
 from app.auth.principal import Principal
+from app.auth.rate_limit import (
+    LoginRateLimiter,
+    LoginRateLimitExceeded,
+    LoginRateLimitUnavailable,
+)
 from app.auth.sessions import authenticate_user, create_session, hash_token
 from app.config import Settings
 from app.db.models import UserRole
@@ -99,12 +105,54 @@ async def login(
     session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> LoginResponse:
     settings = cast(Settings, request.app.state.settings)
+    limiter: LoginRateLimiter | None = None
+    client_identifier = request.client.host if request.client is not None else "unknown"
+    if settings.auth_login_rate_limit_enabled:
+        redis_client = cast(Redis | None, getattr(request.app.state, "redis", None))
+        if redis_client is None:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Authentication protection is unavailable",
+            )
+        limiter = LoginRateLimiter(
+            redis_client,
+            max_attempts=settings.auth_login_max_attempts,
+            window_seconds=settings.auth_login_window_seconds,
+        )
+        try:
+            await limiter.consume(
+                email=payload.email,
+                client_identifier=client_identifier,
+            )
+        except LoginRateLimitExceeded as error:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many login attempts",
+                headers={"Retry-After": str(error.retry_after_seconds)},
+            ) from error
+        except LoginRateLimitUnavailable as error:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Authentication protection is unavailable",
+            ) from error
+
     user = await authenticate_user(session, email=payload.email, password=payload.password)
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
         )
+    if limiter is not None:
+        try:
+            await limiter.reset(
+                email=payload.email,
+                client_identifier=client_identifier,
+            )
+        except LoginRateLimitUnavailable as error:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Authentication protection is unavailable",
+            ) from error
     new_session = await create_session(
         session,
         user=user,

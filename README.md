@@ -13,8 +13,8 @@ regression vô hiệu hóa tài khoản khi session cũ vẫn còn hạn.
 
 WP-03 bổ sung Redis AOF/noeviction, Celery agent/background workers, durable run state và
 event store, commit-then-enqueue/reconcile, owner-scoped SSE cùng màn hình theo dõi run có
-bounded reconnect. Kết quả ngày 2026-09-16: Ruff/mypy đạt, 14 unit tests WP-03 và 5
-PostgreSQL/Redis integration tests đạt; frontend lint/typecheck, 9 tests và production
+bounded reconnect. Kết quả ngày 2026-09-16: Ruff/mypy và unit tests đạt, 8
+PostgreSQL/Redis integration tests đạt; frontend lint/typecheck, 10 tests và production
 build đạt. Dataset M0 có 30/30 case hợp lệ và Responses live đạt cả ba contract. Workflow
 GitHub Actions chưa được chạy theo yêu cầu hiện tại.
 
@@ -38,6 +38,9 @@ make seed-demo-user
 `make services-up`/`make services-down` quản lý cả hai service. Redis chỉ publish trên
 loopback, bật AOF `everysec` và `noeviction` để không âm thầm loại queue key.
 Không dùng password development cho môi trường khác và không commit `.env`.
+
+Login mặc định giới hạn 5 lần thử trong 5 phút theo bucket email + client IP đã băm.
+Đăng nhập thành công xóa bucket; khi Redis không sẵn sàng, login fail-closed với `503`.
 
 Alembic dùng riêng `MIGRATION_DATABASE_URL` với driver `postgresql+psycopg`; ứng dụng dùng
 `DATABASE_URL` với `postgresql+asyncpg`. Migration test tạo và xóa một database cô lập,

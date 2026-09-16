@@ -59,6 +59,9 @@ class Settings(BaseSettings):
     session_cookie_name: str = "it_support_session"
     csrf_cookie_name: str = "it_support_csrf"
     session_ttl_hours: int = Field(default=8, gt=0, le=24)
+    auth_login_rate_limit_enabled: bool = True
+    auth_login_max_attempts: int = Field(default=5, gt=0, le=100)
+    auth_login_window_seconds: int = Field(default=300, gt=0, le=3600)
     cookie_secure: bool = False
     allowed_web_origin: str = "http://127.0.0.1:5173"
 

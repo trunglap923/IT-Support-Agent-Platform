@@ -27,8 +27,8 @@ chứng. Paid/live checks vẫn là opt-in và không chạy trong CI.
 - [x] P21: Frontend typed SSE client, bounded reconnect, status/error UI và tests.
 - [x] P22: CI PostgreSQL/Redis services, required integration targets và tài liệu vận hành.
 
-Bằng chứng local ngày 2026-09-16: Ruff/mypy đạt; 14 unit tests WP-03 và 5 integration
-tests PostgreSQL/Redis đạt; frontend lint/typecheck, 9 tests và production build đạt.
+Bằng chứng local ngày 2026-09-16: Ruff/mypy và unit tests đạt; 8 integration tests
+PostgreSQL/Redis đạt; frontend lint/typecheck, 10 tests và production build đạt.
 GitHub Actions chỉ được xác nhận remote sau khi push.
 
 ## Bằng chứng WP-02

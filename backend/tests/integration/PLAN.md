@@ -37,6 +37,7 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [x] INT-01: Upgrade migrations trên database tạm và seed minimal identity fixtures.
 - [x] INT-02a: Test session/CSRF/RBAC và conversation/run ownership ở API/repository/DB.
 - [x] INT-02b: Test SSE ownership, cursor/reconnect và không tạo thêm run khi đọc lại.
+- [x] INT-02c: Test readiness PostgreSQL/Redis và login rate limit/fail-closed với Redis thật.
 - [ ] INT-03: Test duplicate approve, worker crash sau commit và receipt recovery.
 - [x] INT-04a: Test commit/enqueue race, duplicate worker claim và delivery qua Redis thật.
 - [ ] INT-04b: Test stale lease, crash recovery và checkpoint resume đầy đủ ở WP-10.

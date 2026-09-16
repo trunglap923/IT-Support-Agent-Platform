@@ -34,6 +34,12 @@ async function parseError(response: Response): Promise<ApiError> {
   if (response.status === 403) {
     return new ApiError("Yêu cầu bảo mật không hợp lệ. Hãy tải lại trang.", response.status);
   }
+  if (response.status === 429) {
+    return new ApiError(
+      "Bạn đã thử đăng nhập quá nhiều lần. Vui lòng chờ rồi thử lại.",
+      response.status,
+    );
+  }
   return new ApiError("Không thể kết nối tới máy chủ.", response.status);
 }
 
