@@ -1,6 +1,6 @@
 # Manifest — metadata, ACL và snapshot dữ liệu
 
-Trạng thái: có seed manifest schema M0; corpus snapshot/validator chưa triển khai.
+Trạng thái: có seed schema M0 và corpus snapshot/validator M2.
 Work packages: WP-01, WP-04, WP-05, WP-13.
 Nguồn: [kế hoạch tổng](../../plan.md), mục 6.3, 8, 13, 19; [thứ tự triển khai](../../docs/implementation-roadmap.md).
 
@@ -31,10 +31,10 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] MANIFEST-01: Định nghĩa schema dựa đúng mục 6 kế hoạch tổng và validate các file dữ liệu.
-- [ ] MANIFEST-02: Kiểm tra tham chiếu path/id, checksum, ngày hiệu lực và giới hạn scope.
+- [x] MANIFEST-01: Định nghĩa schema dựa đúng mục 6 kế hoạch tổng và validate các file dữ liệu.
+- [x] MANIFEST-02: Kiểm tra tham chiếu path/id, checksum, ngày hiệu lực và giới hạn scope.
 - [ ] MANIFEST-03: Ghi snapshot corpus/chunker/preprocess version cho mỗi lần evaluation.
-- [ ] MANIFEST-04: Lưu provenance/license nếu dùng tài liệu công khai; không đưa API key vào source URL.
+- [x] MANIFEST-04: Lưu provenance/license; corpus đầu tiên chỉ dùng nội dung tự viết.
 
 ## Điều kiện hoàn thành
 

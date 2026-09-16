@@ -1,6 +1,6 @@
 # Knowledge corpus — nội dung tài liệu demo
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: corpus Markdown M2 ban đầu đã có; PDF fixtures được tạo riêng trong test parser.
 Work packages: WP-01, WP-04, WP-05, WP-13.
 Nguồn: [kế hoạch tổng](../../plan.md), mục 6, 8, 19; [thứ tự triển khai](../../docs/implementation-roadmap.md).
 
@@ -34,11 +34,11 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] KNOW-01: Viết danh mục tài liệu theo issue/visibility và required facts dùng đánh giá.
+- [x] KNOW-01: Viết danh mục tài liệu theo issue/visibility và required facts dùng đánh giá.
 - [ ] KNOW-02: Soạn Markdown trước, chuẩn bị ít nhất ba PDF có text với page mapping ổn định.
-- [ ] KNOW-03: Tạo cặp version thay đổi chính sách để test current-version và expiry.
+- [x] KNOW-03: Tạo cặp version thay đổi chính sách để test current-version và expiry.
 - [ ] KNOW-04: Đặt tài liệu độc hại/malformed dành test trong fixture cô lập, không publish corpus demo mặc định.
-- [ ] KNOW-05: Review tính nhất quán giữa hướng dẫn, service ids, severity và quy trình ticket.
+- [x] KNOW-05: Review tính nhất quán giữa hướng dẫn, service ids, severity và quy trình ticket.
 
 ## Điều kiện hoàn thành
 

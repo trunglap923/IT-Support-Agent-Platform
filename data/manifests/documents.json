@@ -1,0 +1,99 @@
+{
+  "snapshot": {
+    "id": "m2-corpus-v1",
+    "created_at": "2026-09-16T00:00:00Z",
+    "license_policy": "self-authored-only"
+  },
+  "documents": [
+    {
+      "document_key": "vpn-setup", "version_label": "v1", "title": "Demo VPN setup",
+      "path": "vpn-setup-v1.md", "media_type": "text/markdown", "authority": "it",
+      "language": "vi-en", "visibility": "company", "department_key": null,
+      "effective_at": "2026-01-01T00:00:00Z", "expires_at": null,
+      "checksum": "sha256:35c8fd39c3c24fd3ad93db8dc915cb2a6854dea34c2690ab2116d4196446112d",
+      "source": {"kind": "self-authored", "owner": "it-support-agent-platform", "url": null},
+      "license": "CC-BY-4.0"
+    },
+    {
+      "document_key": "vpn-troubleshooting", "version_label": "v1", "title": "Demo VPN troubleshooting",
+      "path": "vpn-troubleshooting-v1.md", "media_type": "text/markdown", "authority": "it",
+      "language": "en", "visibility": "company", "department_key": null,
+      "effective_at": "2026-01-01T00:00:00Z", "expires_at": null,
+      "checksum": "sha256:9a98a0b7f181bdbc48a063b360500b79d0bb89f66c502027e949bd912ee7e742",
+      "source": {"kind": "self-authored", "owner": "it-support-agent-platform", "url": null},
+      "license": "CC-BY-4.0"
+    },
+    {
+      "document_key": "docker-registry", "version_label": "v1", "title": "Demo Docker Registry",
+      "path": "docker-registry-v1.md", "media_type": "text/markdown", "authority": "it",
+      "language": "en", "visibility": "company", "department_key": null,
+      "effective_at": "2026-01-01T00:00:00Z", "expires_at": null,
+      "checksum": "sha256:8358c5a57ee14b8bcd0890ee7545d1185c25b053baf6253ae7ee2eecd9fbeddf",
+      "source": {"kind": "self-authored", "owner": "it-support-agent-platform", "url": null},
+      "license": "CC-BY-4.0"
+    },
+    {
+      "document_key": "docker-troubleshooting", "version_label": "v1", "title": "Docker troubleshooting",
+      "path": "docker-troubleshooting-v1.md", "media_type": "text/markdown", "authority": "it",
+      "language": "en", "visibility": "company", "department_key": null,
+      "effective_at": "2026-01-01T00:00:00Z", "expires_at": null,
+      "checksum": "sha256:ae183658d1bc8f044fc29bce9afd4626998128bd669ee5e34f2636f472a36ad7",
+      "source": {"kind": "self-authored", "owner": "it-support-agent-platform", "url": null},
+      "license": "CC-BY-4.0"
+    },
+    {
+      "document_key": "gitlab-access", "version_label": "v3", "title": "GitLab access for the demo company",
+      "path": "gitlab-access-v3.md", "media_type": "text/markdown", "authority": "security",
+      "language": "vi-en", "visibility": "company", "department_key": null,
+      "effective_at": "2026-01-01T00:00:00Z", "expires_at": null,
+      "checksum": "sha256:4bd5aa491b7d85309da3824b693331bf2a345287aaaa85bfcc45338eb9e4be5f",
+      "source": {"kind": "self-authored", "owner": "it-support-agent-platform", "url": null},
+      "license": "CC-BY-4.0"
+    },
+    {
+      "document_key": "it-escalation", "version_label": "v1", "title": "IT escalation guide",
+      "path": "it-escalation-v1.md", "media_type": "text/markdown", "authority": "it",
+      "language": "en", "visibility": "company", "department_key": null,
+      "effective_at": "2026-01-01T00:00:00Z", "expires_at": null,
+      "checksum": "sha256:64503d722a482c80233043767ed8fb4223020376bedd241d1a8185fa0158ba20",
+      "source": {"kind": "self-authored", "owner": "it-support-agent-platform", "url": null},
+      "license": "CC-BY-4.0"
+    },
+    {
+      "document_key": "docker-registry-token-policy", "version_label": "v1", "title": "Registry token policy (retired)",
+      "path": "docker-registry-token-policy-v1.md", "media_type": "text/markdown", "authority": "security",
+      "language": "en", "visibility": "company", "department_key": null,
+      "effective_at": "2025-01-01T00:00:00Z", "expires_at": "2025-12-31T23:59:59Z",
+      "checksum": "sha256:c0681eecd9ff5b3ee7aa002b6c0ed2a53594b29d6f44b3da4a7fa750dd2d8923",
+      "source": {"kind": "self-authored", "owner": "it-support-agent-platform", "url": null},
+      "license": "CC-BY-4.0"
+    },
+    {
+      "document_key": "docker-registry-token-policy", "version_label": "v2", "title": "Registry token policy",
+      "path": "docker-registry-token-policy-v2.md", "media_type": "text/markdown", "authority": "security",
+      "language": "vi", "visibility": "company", "department_key": null,
+      "effective_at": "2026-01-01T00:00:00Z", "expires_at": null,
+      "checksum": "sha256:56c308a3ae5cd84be5c213bfe706669413a9869ef6b7d8e8b238c20290f0fbd8",
+      "source": {"kind": "self-authored", "owner": "it-support-agent-platform", "url": null},
+      "license": "CC-BY-4.0"
+    },
+    {
+      "document_key": "engineering-oncall", "version_label": "v1", "title": "Engineering on-call notes",
+      "path": "engineering-oncall-v1.md", "media_type": "text/markdown", "authority": "engineering",
+      "language": "en", "visibility": "department", "department_key": "engineering",
+      "effective_at": "2026-01-01T00:00:00Z", "expires_at": null,
+      "checksum": "sha256:5cf6f9114eaad87295823be6484e7f73ed7c49c0f325a46c7958668204b38c3d",
+      "source": {"kind": "self-authored", "owner": "it-support-agent-platform", "url": null},
+      "license": "CC-BY-4.0"
+    },
+    {
+      "document_key": "it-service-recovery", "version_label": "v1", "title": "IT-only service recovery runbook",
+      "path": "it-service-recovery-v1.md", "media_type": "text/markdown", "authority": "it",
+      "language": "en", "visibility": "it_only", "department_key": null,
+      "effective_at": "2026-01-01T00:00:00Z", "expires_at": null,
+      "checksum": "sha256:2063b67bab0da71dbefe3dd7ff1e2b26ccad205271f03d36ea06d59396c88a0d",
+      "source": {"kind": "self-authored", "owner": "it-support-agent-platform", "url": null},
+      "license": "CC-BY-4.0"
+    }
+  ]
+}

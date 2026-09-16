@@ -1,6 +1,6 @@
 # Dữ liệu — bộ demo độc lập
 
-Trạng thái: contract dữ liệu M0 đã chốt; chưa có fixture/seed command.
+Trạng thái: corpus IT tự viết và manifest M2 đã có; seed nghiệp vụ đầy đủ còn chờ WP-07.
 Work packages: WP-01, WP-04, WP-07, WP-13.
 Nguồn: [kế hoạch tổng](../plan.md), mục 3, 6, 19; [thứ tự triển khai](../docs/implementation-roadmap.md).
 
@@ -32,7 +32,7 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 - [x] DATA-01: Chốt identifiers ổn định, persona, thiết bị và vocabulary dùng chung.
 - [ ] DATA-02: Tạo seed tối thiểu cho M1/M2 rồi mở rộng ticket và memory scenarios theo mốc.
-- [ ] DATA-03: Kiểm tra không có secret/PII thật; ghi nguồn/license khi dùng PDF công khai.
+- [x] DATA-03: Kiểm tra không có secret/PII thật; ghi nguồn/license cho toàn bộ corpus.
 - [ ] DATA-04: Tách seed demo, test fixture và eval reset để không phá dữ liệu đang dùng.
 
 ## Điều kiện hoàn thành
