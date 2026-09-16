@@ -61,7 +61,7 @@ class Settings(BaseSettings):
     run_max_attempts: int = Field(default=3, ge=1, le=10)
     sse_poll_interval_seconds: float = Field(default=1.0, gt=0, le=10)
     sse_heartbeat_seconds: float = Field(default=15.0, gt=0, le=60)
-    document_storage_path: str = "/data/documents"
+    document_storage_path: str = ".storage/documents"
     document_max_pdf_bytes: int = Field(default=10 * 1024 * 1024, gt=0)
     document_max_pdf_pages: int = Field(default=100, gt=0, le=1000)
     document_max_extracted_text_bytes: int = Field(default=1024 * 1024, gt=0)

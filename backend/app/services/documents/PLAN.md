@@ -1,6 +1,6 @@
 # Xuất bản tài liệu và ACL
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: upload PDF an toàn và admin draft preview P50 đã triển khai; publication lifecycle thuộc P51.
 Work packages: WP-04, WP-05, WP-11.
 Nguồn: [kế hoạch tổng](../../../../plan.md), mục 6, 8, 13, 14; [thứ tự triển khai](../../../../docs/implementation-roadmap.md).
 
@@ -33,14 +33,16 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] DOC-01: Create document/version/job từ admin upload và metadata đã validate.
-- [ ] DOC-02: Provide preview/status/retry endpoints qua service methods.
+- [x] DOC-01: Create document/version/job từ admin upload và metadata đã validate.
+- [x] DOC-02a: Provide bounded PDF draft preview endpoint qua service method.
+- [ ] DOC-02b: Provide ingestion status/retry endpoint ở P51.
 - [ ] DOC-03: Publish trong transaction khóa document, check expected version và switch current_version_id.
 - [ ] DOC-04: Archive/ACL changes tăng access_version và corpus_revision.
 - [ ] DOC-05: Gate source/download/history reads theo ACL mới nhất; phối hợp cleanup để giữ provenance.
 
 ## Điều kiện hoàn thành
 
+- [x] Upload/parse thất bại không tạo draft hoặc file ngoài storage root.
 - [ ] Ingest thất bại không ảnh hưởng current source.
 - [ ] Publish wrong-document version hoặc stale version bị chặn.
 - [ ] Đổi ACL giữa retrieve/final/download không lộ title/snippet/text trái quyền.
