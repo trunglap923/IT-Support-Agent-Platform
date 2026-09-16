@@ -1,6 +1,6 @@
 # Nhập và trích xuất tài liệu
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: PDF text parser có giới hạn và error codes đã triển khai; pipeline ở bước tiếp theo.
 Work packages: WP-04, WP-11.
 Nguồn: [kế hoạch tổng](../../../../plan.md), mục 6, 8.1; [thứ tự triển khai](../../../../docs/implementation-roadmap.md).
 
@@ -33,7 +33,7 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] ING-01: Kiểm tra MIME/signature/size/metadata trước khi tạo ingestion job.
+- [x] ING-01: Kiểm tra PDF signature/size/page/text limits trước ingestion.
 - [ ] ING-02: Lưu bằng server-generated storage key trong volume riêng.
 - [ ] ING-03: Parse trong subprocess có timeout/resource limits, giữ page numbering từ 1.
 - [ ] ING-04: Gọi chunking và embedding theo batch, lưu progress vào DB.
