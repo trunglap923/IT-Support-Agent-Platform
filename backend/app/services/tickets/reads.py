@@ -13,6 +13,17 @@ from app.db.models import Ticket, TicketStatus, UserRole
 
 
 class TicketReadService:
+    async def list_owned(
+        self, session: AsyncSession, *, principal: Principal, limit: int = 100
+    ) -> list[Ticket]:
+        statement = (
+            select(Ticket)
+            .where(Ticket.owner_id == principal.user_id)
+            .order_by(Ticket.updated_at.desc(), Ticket.id.desc())
+            .limit(min(max(limit, 1), 100))
+        )
+        return list((await session.scalars(statement)).all())
+
     async def list_my_open(
         self, session: AsyncSession, *, principal: Principal, limit: int = 10
     ) -> list[Ticket]:

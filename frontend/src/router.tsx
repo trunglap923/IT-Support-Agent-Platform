@@ -5,6 +5,7 @@ import { ChatPage } from "./features/chat/ChatPage";
 import { DashboardPage } from "./features/DashboardPage";
 import { LoginPage } from "./features/auth/LoginPage";
 import { RequireAuth } from "./features/auth/RequireAuth";
+import { TicketsPage } from "./features/tickets/TicketsPage";
 
 export const router = createBrowserRouter([
   {
@@ -21,6 +22,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <DashboardPage /> },
       { path: "chat", element: <ChatPage /> },
+      { path: "tickets", element: <TicketsPage /> },
     ],
   },
 ]);

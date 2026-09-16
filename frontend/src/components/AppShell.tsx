@@ -6,6 +6,7 @@ import { useAuth } from "../features/auth/useAuth";
 const navItems = [
   { to: "/", label: "Tổng quan", end: true },
   { to: "/chat", label: "Chat" },
+  { to: "/tickets", label: "Ticket" },
 ];
 
 export function AppShell() {

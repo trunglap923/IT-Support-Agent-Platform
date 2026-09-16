@@ -70,7 +70,6 @@ def pause_ticket_approval(
 ) -> None:
     config = cast(RunnableConfig, {"configurable": {"thread_id": checkpoint_thread_id}})
     with PostgresSaver.from_conn_string(checkpoint_database_url(database_url)) as checkpointer:
-        checkpointer.setup()
         output = _build_graph(checkpointer).invoke(
             {
                 "run_id": str(run_id),
@@ -97,7 +96,6 @@ def resume_ticket_approval(
 ) -> TicketApprovalState:
     config = cast(RunnableConfig, {"configurable": {"thread_id": checkpoint_thread_id}})
     with PostgresSaver.from_conn_string(checkpoint_database_url(database_url)) as checkpointer:
-        checkpointer.setup()
         graph = _build_graph(checkpointer)
         snapshot = graph.get_state(config)
         values = cast(dict[str, object], snapshot.values)

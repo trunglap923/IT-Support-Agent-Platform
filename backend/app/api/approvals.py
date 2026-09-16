@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.csrf import require_csrf
-from app.db.models import ApprovalRequest, RunStatus
+from app.db.models import ApprovalRequest, ApprovalStatus, RunStatus
 from app.dependencies import CurrentPrincipal, get_db_session
 from app.jobs.dispatch import BrokerUnavailableError, RunDispatcher
 from app.services.approvals import (
@@ -49,6 +49,20 @@ class ApprovalDecisionRequest(BaseModel):
 
 def approval_response(approval: ApprovalRequest) -> ApprovalResponse:
     return ApprovalResponse.model_validate(approval)
+
+
+@router.get("", response_model=list[ApprovalResponse])
+async def list_approvals(
+    principal: CurrentPrincipal,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    approval_status: ApprovalStatus | None = None,
+) -> list[ApprovalResponse]:
+    approvals = await ApprovalService().list_owned(
+        session,
+        owner_id=principal.user_id,
+        status=approval_status,
+    )
+    return [approval_response(approval) for approval in approvals]
 
 
 @router.get("/{approval_id}", response_model=ApprovalResponse)

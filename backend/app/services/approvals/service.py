@@ -33,6 +33,19 @@ def canonical_argument_hash(arguments: dict[str, object]) -> tuple[dict[str, obj
 
 
 class ApprovalService:
+    async def list_owned(
+        self,
+        session: AsyncSession,
+        *,
+        owner_id: UUID,
+        status: ApprovalStatus | None = None,
+    ) -> list[ApprovalRequest]:
+        statement = select(ApprovalRequest).where(ApprovalRequest.owner_id == owner_id)
+        if status is not None:
+            statement = statement.where(ApprovalRequest.status == status.value)
+        statement = statement.order_by(ApprovalRequest.created_at.desc(), ApprovalRequest.id.desc())
+        return list((await session.scalars(statement)).all())
+
     async def create_ticket_draft(
         self,
         session: AsyncSession,
