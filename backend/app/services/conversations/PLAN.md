@@ -38,8 +38,8 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [x] CONV-03a: Tạo validated status/version transitions, terminal states và idempotent event sequence.
 - [x] CONV-03b: Thêm worker lease/heartbeat và stale recovery đầy đủ ở WP-10.
 - [x] CONV-04a: Implement finalized message/outcome và citation source payload.
-- [ ] CONV-04b: Nối user feedback vào message/run.
-- [ ] CONV-05: Cancel chỉ queued/waiting_approval; chốt expiry để không giữ conversation kẹt mãi.
+- [x] CONV-04b: Owner-scoped feedback gắn message và run, idempotent update, có CSRF/API tests.
+- [x] CONV-05: User cancel chỉ queued/waiting_approval, có CSRF/version/idempotency; maintenance chốt approval expiry.
 
 ## Điều kiện hoàn thành
 

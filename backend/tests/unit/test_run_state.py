@@ -18,6 +18,7 @@ from app.services.conversations.run_state import (
         (RunStatus.RUNNING, RunStatus.FAILED),
         (RunStatus.WAITING_APPROVAL, RunStatus.RESUME_QUEUED),
         (RunStatus.WAITING_APPROVAL, RunStatus.COMPLETED),
+        (RunStatus.WAITING_APPROVAL, RunStatus.CANCELLED),
         (RunStatus.RESUME_QUEUED, RunStatus.RUNNING),
     ],
 )

@@ -36,6 +36,10 @@ class InvalidRunTransitionError(ValueError):
     pass
 
 
+class RunVersionConflictError(RuntimeError):
+    pass
+
+
 @dataclass(frozen=True, slots=True)
 class TransitionResult:
     run: AgentRun
@@ -64,6 +68,7 @@ class RunStateService:
         outcome: str | None = None,
         error_code: str | None = None,
         now: datetime | None = None,
+        expected_version: int | None = None,
     ) -> TransitionResult:
         run = await self.repository.get_owned_for_update(
             session,
@@ -80,6 +85,9 @@ class RunStateService:
         )
         if existing_event is not None:
             return TransitionResult(run=run, event=existing_event, applied=False)
+
+        if expected_version is not None and run.version != expected_version:
+            raise RunVersionConflictError("Run version is stale")
 
         validate_run_transition(run.status, target)
         changed_at = now or datetime.now(UTC)
