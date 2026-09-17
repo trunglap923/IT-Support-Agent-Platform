@@ -38,7 +38,10 @@ export class RunStreamError extends Error {
 const terminalStatuses = new Set<RunStatus>(["completed", "failed", "cancelled"]);
 
 function requestError(status: number): RunStreamError {
-  if (status === 401) return new RunStreamError("Phiên đăng nhập đã hết hạn.", status);
+  if (status === 401) {
+    notifySessionExpired();
+    return new RunStreamError("Phiên đăng nhập đã hết hạn.", status);
+  }
   if (status === 403 || status === 404) {
     return new RunStreamError("Không tìm thấy run hoặc bạn không có quyền xem.", status);
   }
@@ -181,3 +184,4 @@ export async function consumeRunEvents(
   }
   throw new DOMException("Aborted", "AbortError");
 }
+import { notifySessionExpired } from "./client";

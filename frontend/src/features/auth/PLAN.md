@@ -36,7 +36,7 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [x] UIAUTH-02: Bootstrap session + CSRF; hiển thị role/phòng ban để demo ACL.
 - [x] UIAUTH-03: Đăng xuất và xóa toàn bộ cache chứa dữ liệu riêng.
 - [x] UIAUTH-04a: Session hết hạn khi bootstrap chuyển về login.
-- [ ] UIAUTH-04b: Xử lý session hết hạn giữa chat/approval khi các feature đó tồn tại.
+- [x] UIAUTH-04b: Shared API/SSE client phát session-expired; auth state và private query cache bị xóa.
 
 ## Điều kiện hoàn thành
 

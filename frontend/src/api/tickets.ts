@@ -38,19 +38,13 @@ export interface TicketDraftResponse {
 }
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, {
-    credentials: "same-origin",
+  return requestJson(url, {
     ...init,
-    headers: { Accept: "application/json", ...init?.headers },
+    messages: {
+      fallback: "Không thể xử lý yêu cầu ticket.",
+      byStatus: { 409: "Yêu cầu đã được xử lý hoặc đã hết hiệu lực." },
+    },
   });
-  if (!response.ok) {
-    throw new Error(
-      response.status === 409
-        ? "Yêu cầu đã được xử lý hoặc đã hết hiệu lực."
-        : "Không thể xử lý yêu cầu ticket.",
-    );
-  }
-  return (await response.json()) as T;
 }
 
 export function listMyTickets(signal?: AbortSignal): Promise<Ticket[]> {
@@ -84,3 +78,4 @@ export function decideApproval(
     body: JSON.stringify({ decision, expected_version: approval.version }),
   });
 }
+import { requestJson } from "./client";

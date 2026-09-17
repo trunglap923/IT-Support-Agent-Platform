@@ -31,7 +31,7 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] HTTPUI-01: Tạo fetch wrapper với abort timeout, error envelope và xử lý 401/403/409/429.
+- [x] HTTPUI-01: Dùng shared fetch wrapper với abort timeout, safe error envelope, Retry-After và xử lý 401/403/409/429.
 - [ ] HTTPUI-02: Chuẩn hóa query keys theo user/scope để invalidate và xóa khi logout.
 - [ ] HTTPUI-03: Tạo run dùng client_request_id ổn định khi retry; đổi payload phải dùng id mới.
 - [x] HTTPUI-04: Implement fetch SSE với event cursor/Last-Event-ID, bounded reconnect và GET run snapshot fallback.

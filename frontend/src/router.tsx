@@ -9,6 +9,7 @@ import { RequireAuth } from "./features/auth/RequireAuth";
 import { TicketsPage } from "./features/tickets/TicketsPage";
 import { OperationsPage } from "./features/services/OperationsPage";
 import { MemoryPage } from "./features/memory/MemoryPage";
+import { NotFoundPage } from "./features/NotFoundPage";
 
 export const router = createBrowserRouter([
   {
@@ -29,6 +30,8 @@ export const router = createBrowserRouter([
       { path: "operations", element: <OperationsPage /> },
       { path: "admin/documents", element: <DocumentsPage /> },
       { path: "settings/memory", element: <MemoryPage /> },
+      { path: "*", element: <NotFoundPage /> },
     ],
   },
+  { path: "*", element: <NotFoundPage /> },
 ]);

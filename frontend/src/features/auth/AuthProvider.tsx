@@ -14,6 +14,7 @@ import {
   logout as logoutRequest,
   type AuthUser,
 } from "../../api/auth";
+import { SESSION_EXPIRED_EVENT } from "../../api/client";
 import { AuthContext } from "./authContext";
 
 export function AuthProvider({ children }: PropsWithChildren) {
@@ -46,6 +47,16 @@ export function AuthProvider({ children }: PropsWithChildren) {
       controller.abort();
     };
   }, []);
+
+  useEffect(() => {
+    const expireSession = () => {
+      setUser(null);
+      setCsrfToken(null);
+      queryClient.clear();
+    };
+    window.addEventListener(SESSION_EXPIRED_EVENT, expireSession);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, expireSession);
+  }, [queryClient]);
 
   const login = useCallback(async (email: string, password: string) => {
     const session = await loginRequest(email, password);

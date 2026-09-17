@@ -33,12 +33,12 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 ## Các bước triển khai
 
 - [x] WEB-01a: Khởi tạo QueryClient và auth bootstrap từ /auth/me.
-- [ ] WEB-01b: Thêm application error boundary khi bắt đầu các feature bất đồng bộ WP-03.
-- [ ] WEB-02: Dựng navigation theo role, fallback 404 và loading ban đầu.
+- [x] WEB-01b: Thêm application error boundary không hiển thị raw exception.
+- [x] WEB-02: Dựng navigation theo role, fallback 404 và loading ban đầu.
 - [x] WEB-03: Reset query cache khi logout/đổi tài khoản để không giữ dữ liệu người trước.
-- [ ] WEB-04: Kết nối các page theo thứ tự roadmap, không thêm global store nếu chưa có nhu cầu.
+- [x] WEB-04: Kết nối auth/chat/ticket/operations/document/memory theo feature routes, không thêm global store.
 
 ## Điều kiện hoàn thành
 
-- [ ] Reload deep link không mất màn hình; session hết hạn đưa về login phù hợp.
-- [ ] Đổi user không còn cache conversation/ticket/memory của user trước.
+- [x] Reload deep link được proxy SPA xử lý; session hết hạn phát global event và guard đưa về login.
+- [x] Logout, đổi user hoặc session hết hạn đều xóa toàn bộ React Query cache riêng tư.

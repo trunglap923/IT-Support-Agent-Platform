@@ -1,4 +1,5 @@
 import type { Ticket } from "./tickets";
+import { requestJson } from "./client";
 
 export interface ServiceState {
   service_id: string;
@@ -9,21 +10,16 @@ export interface ServiceState {
 }
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, {
-    credentials: "same-origin",
+  return requestJson(url, {
     ...init,
-    headers: { Accept: "application/json", ...init?.headers },
+    messages: {
+      fallback: "Không thể xử lý yêu cầu vận hành.",
+      byStatus: {
+        403: "Bạn không có quyền thực hiện thao tác này.",
+        409: "Dữ liệu đã thay đổi. Hãy tải lại trang.",
+      },
+    },
   });
-  if (!response.ok) {
-    throw new Error(
-      response.status === 403
-        ? "Bạn không có quyền thực hiện thao tác này."
-        : response.status === 409
-          ? "Dữ liệu đã thay đổi. Hãy tải lại trang."
-          : "Không thể xử lý yêu cầu vận hành.",
-    );
-  }
-  return (await response.json()) as T;
 }
 
 export function listTicketQueue(signal?: AbortSignal): Promise<Ticket[]> {

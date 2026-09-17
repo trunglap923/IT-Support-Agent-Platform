@@ -5,6 +5,7 @@ export interface Conversation {
 
 export interface ChatCitation {
   source_id: string;
+  source_url?: string;
   title: string;
   page_number: number | null;
   excerpt: string;
@@ -36,28 +37,17 @@ export interface SubmittedRun {
   enqueue_error: string | null;
 }
 
-export class ChatApiError extends Error {
-  constructor(message: string, public readonly status: number) {
-    super(message);
-  }
-}
-
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, {
-    credentials: "same-origin",
+  return requestJson(url, {
     ...init,
-    headers: { Accept: "application/json", ...init?.headers },
+    messages: {
+      fallback: "Không thể xử lý yêu cầu chat.",
+      byStatus: {
+        409: "Cuộc trò chuyện đang xử lý một yêu cầu khác.",
+        503: "Worker đang tạm thời không sẵn sàng.",
+      },
+    },
   });
-  if (!response.ok) {
-    const message =
-      response.status === 409
-        ? "Cuộc trò chuyện đang xử lý một yêu cầu khác."
-        : response.status === 503
-          ? "Worker đang tạm thời không sẵn sàng."
-          : "Không thể xử lý yêu cầu chat.";
-    throw new ChatApiError(message, response.status);
-  }
-  return (await response.json()) as T;
 }
 
 export function listConversations(signal?: AbortSignal): Promise<Conversation[]> {
@@ -115,3 +105,4 @@ export function submitMessageFeedback(
     },
   );
 }
+import { requestJson } from "./client";

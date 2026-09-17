@@ -42,6 +42,35 @@ textarea {
   clip: rect(0, 0, 0, 0);
 }
 
+.route-fallback {
+  display: grid;
+  place-items: start;
+  gap: 0.8rem;
+  max-width: 720px;
+  margin: 12vh auto;
+  padding: 2rem;
+}
+
+.route-fallback h1,
+.route-fallback p {
+  margin: 0;
+}
+
+.route-fallback h1 {
+  font-family: Georgia, serif;
+  font-size: clamp(2.2rem, 6vw, 4.5rem);
+  font-weight: 500;
+}
+
+.route-fallback button {
+  border: 0;
+  border-radius: 0.7rem;
+  padding: 0.75rem 1rem;
+  color: white;
+  background: #173f2d;
+  cursor: pointer;
+}
+
 .chat-layout {
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr);

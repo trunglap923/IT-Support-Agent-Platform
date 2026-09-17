@@ -8,14 +8,10 @@ export interface HealthResponse {
 }
 
 export async function getHealth(signal?: AbortSignal): Promise<HealthResponse> {
-  const response = await fetch("/api/v1/health/live", {
-    headers: { Accept: "application/json" },
+  return requestJson<HealthResponse>("/api/v1/health/live", {
     signal,
+    notifyOnUnauthorized: false,
+    messages: { fallback: "Không thể kết nối tới API." },
   });
-
-  if (!response.ok) {
-    throw new Error("Không thể kết nối tới API.");
-  }
-
-  return (await response.json()) as HealthResponse;
 }
+import { requestJson } from "./client";

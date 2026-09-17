@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AuthProvider } from "./AuthProvider";
+import { SESSION_EXPIRED_EVENT } from "../../api/client";
 import { useAuth } from "./useAuth";
 
 const currentSession = {
@@ -67,5 +68,32 @@ describe("AuthProvider", () => {
         }),
       ),
     );
+  });
+
+  it("clears private state when any API request reports an expired session", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify(currentSession), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(["private", "ticket"], { id: "ticket-1" });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <SessionProbe />
+        </AuthProvider>
+      </QueryClientProvider>,
+    );
+    await screen.findByRole("button", { name: "Đăng xuất Engineering Employee" });
+
+    window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+
+    expect(await screen.findByText("Chưa đăng nhập")).toBeInTheDocument();
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
   });
 });

@@ -44,21 +44,16 @@ export interface DocumentPreview {
 }
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, {
-    credentials: "same-origin",
+  return requestJson(url, {
     ...init,
-    headers: { Accept: "application/json", ...init?.headers },
+    messages: {
+      fallback: "Không thể xử lý yêu cầu tài liệu.",
+      byStatus: {
+        403: "Chỉ quản trị viên được quản lý tài liệu.",
+        409: "Tài liệu đã thay đổi. Hãy tải lại trước khi thao tác.",
+      },
+    },
   });
-  if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as { detail?: unknown } | null;
-    const fallback = response.status === 409
-      ? "Tài liệu đã thay đổi. Hãy tải lại trước khi thao tác."
-      : response.status === 403
-        ? "Chỉ quản trị viên được quản lý tài liệu."
-        : "Không thể xử lý yêu cầu tài liệu.";
-    throw new Error(typeof body?.detail === "string" ? body.detail : fallback);
-  }
-  return (await response.json()) as T;
 }
 
 export function listDocuments(signal?: AbortSignal): Promise<ManagedDocument[]> {
@@ -145,3 +140,4 @@ export function replaceDocumentAcl(
     }),
   });
 }
+import { requestJson } from "./client";

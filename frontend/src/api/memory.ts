@@ -35,22 +35,13 @@ export interface MemoryFact {
 }
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, {
-    credentials: "same-origin",
+  return requestJson(url, {
     ...init,
-    headers: { Accept: "application/json", ...init?.headers },
+    messages: {
+      fallback: "Không thể xử lý yêu cầu memory.",
+      byStatus: { 409: "Memory đã thay đổi. Hãy tải lại và thử lại." },
+    },
   });
-  if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as { detail?: unknown } | null;
-    throw new Error(
-      typeof body?.detail === "string"
-        ? body.detail
-        : response.status === 409
-          ? "Memory đã thay đổi. Hãy tải lại và thử lại."
-          : "Không thể xử lý yêu cầu memory.",
-    );
-  }
-  return (await response.json()) as T;
 }
 
 function mutationHeaders(csrfToken: string) {
@@ -141,13 +132,13 @@ export async function deleteMemoryFact(
   fact: MemoryFact,
   csrfToken: string,
 ): Promise<void> {
-  const response = await fetch(
+  return requestJson<void>(
     `/api/v1/memory/facts/${encodeURIComponent(fact.id)}?expected_version=${fact.version}`,
     {
       method: "DELETE",
-      credentials: "same-origin",
-      headers: { Accept: "application/json", "X-CSRF-Token": csrfToken },
+      headers: { "X-CSRF-Token": csrfToken },
+      messages: { fallback: "Không thể xóa memory. Hãy tải lại và thử lại." },
     },
   );
-  if (!response.ok) throw new Error("Không thể xóa memory. Hãy tải lại và thử lại.");
 }
+import { requestJson } from "./client";
