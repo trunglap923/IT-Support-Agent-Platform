@@ -171,6 +171,7 @@ make dev-frontend-docker FRONTEND_DEV_PORT=5174
 - [G-10 và release checklist](reports/release-checklist.md)
 - [troubleshooting](docs/troubleshooting.md)
 - [demo script](docs/demo-script.md)
+- [project handoff cho chat/agent mới](docs/project-handoff.md)
 
 Hiện tại không tuyên bố production-ready: G-05–G-09 cần live/human/full-stack measurements;
 CI remote chưa chạy; business-data seed và manual V1 demo evidence chưa có. Không có bước
