@@ -15,7 +15,7 @@ URL riêng hay dữ liệu cá nhân thật.
 | User | 6 | 2 employee Engineering, 1 employee Operations, 1 IT mỗi phòng ban, 1 admin |
 | Device | 3–5 | Một employee có cả Ubuntu và Windows để kiểm tra scope theo thiết bị |
 | Document | khoảng 20 | `company`, `department`, `it_only`; vi/en; version cũ/mới; ít nhất 3 PDF text |
-| Service state | đúng 3 | `vpn`, `docker_registry`, `gitlab` |
+| Service state | đúng 3 | `vpn`, `registry` (Docker Registry), `gitlab` |
 | Ticket | khoảng 20 | `open`, `in_progress`, `resolved`; nhiều owner/department/severity |
 | Conversation | 6–10 | answered, no-answer, approval/ticket và nguồn bị cấm theo ACL |
 
@@ -49,8 +49,8 @@ URL riêng hay dữ liệu cá nhân thật.
 - `resolution_note` bắt buộc về mặt semantic khi status là `resolved`, null với ticket chưa
   resolved. Không seed `approval_id`; ticket demo có nguồn `seed`, còn ticket do agent tạo
   sau này phải đi qua approval transaction.
-- Mỗi service có `source=simulated_monitor`. `fault_mode` là cơ chế mô phỏng lỗi dependency,
-  tách khỏi trạng thái nghiệp vụ `operational/degraded/outage`.
+- Mỗi service được trả ra API/tool với `source=simulated_monitor`. `fault_mode` là cơ chế mô
+  phỏng lỗi dependency, tách khỏi trạng thái nghiệp vụ `healthy/degraded/down/unknown`.
 - Conversation chỉ chứa lịch sử hiển thị được. Không lưu hidden reasoning, raw prompt,
   checkpoint hoặc payload tool nội bộ trong seed.
 

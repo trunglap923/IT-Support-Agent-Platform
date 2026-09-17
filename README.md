@@ -70,8 +70,10 @@ make demo
 ```
 
 Seed account chạy lại không tạo bản sao, chỉ cập nhật hash khi password environment thay đổi
-và không tự bật/tắt memory đã được người dùng cấu hình. Device, service status, ticket và
-published document fixtures vẫn chưa có, nên đây chưa phải full manual UC-01–UC-12 demo.
+và không tự bật/tắt memory đã được người dùng cấu hình. Seed cũng tạo ba thiết bị demo:
+Ubuntu và Windows cho employee Engineering, Windows cho employee Operations; cùng trạng thái
+healthy mặc định cho VPN, Docker Registry và GitLab. Ticket và published document fixtures
+vẫn chưa có, nên đây chưa phải full manual UC-01–UC-12 demo.
 
 ## Các route chính
 

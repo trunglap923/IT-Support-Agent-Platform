@@ -167,7 +167,7 @@
           "maxLength": 120
         },
         "platform": {
-          "enum": ["ubuntu", "windows", "macos"]
+          "enum": ["linux", "windows", "macos", "other"]
         },
         "active": {
           "type": "boolean"
@@ -281,13 +281,13 @@
       "required": ["service_id", "status", "fault_mode", "source", "updated_at"],
       "properties": {
         "service_id": {
-          "enum": ["vpn", "docker_registry", "gitlab"]
+          "enum": ["vpn", "registry", "gitlab"]
         },
         "status": {
-          "enum": ["operational", "degraded", "outage"]
+          "enum": ["healthy", "degraded", "down", "unknown"]
         },
         "fault_mode": {
-          "enum": ["normal", "timeout", "dependency_error"]
+          "enum": ["none", "timeout", "error"]
         },
         "source": {
           "const": "simulated_monitor"

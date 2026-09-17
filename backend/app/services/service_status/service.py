@@ -12,7 +12,7 @@ from app.db.models import ServiceState
 SERVICE_IDS = frozenset({"vpn", "registry", "gitlab"})
 DEFAULT_SERVICE_STATES = {
     "vpn": ("healthy", "VPN gateway is operating normally."),
-    "registry": ("healthy", "Container registry is operating normally."),
+    "registry": ("healthy", "Docker Registry is operating normally."),
     "gitlab": ("healthy", "GitLab is operating normally."),
 }
 

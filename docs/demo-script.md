@@ -3,7 +3,7 @@
 Kịch bản này phân biệt hai chế độ:
 
 - **Automated portfolio demo**: đã chạy bằng fake provider/fixtures, deterministic, không cần paid key.
-- **Manual V1 demo**: role accounts đã có; vẫn cần device/ticket/service/document seed và corpus publish nên các bước này chưa được tuyên bố đã chạy end-to-end thủ công.
+- **Manual V1 demo**: role accounts, devices và service states đã có; vẫn cần ticket/document seed và corpus publish nên các bước này chưa được tuyên bố đã chạy end-to-end thủ công.
 
 ## Chuẩn bị automated demo
 
@@ -72,7 +72,7 @@ Ghi rõ model snapshot, số lần chạy, token/cost và không dùng một l�
 ## Nội dung chưa được tuyên bố hoàn tất
 
 - video 3–5 phút chưa được ghi;
-- six-user/two-department seed đã có; device/ticket/service/document seed chưa được triển khai;
+- account/department/device/service seed đã có; ticket/document seed chưa được triển khai;
 - manual UC-01–UC-12 chưa có evidence trên một seeded environment;
 - GitHub-hosted CI chưa có remote run evidence;
 - production deployment/operations không nằm trong giai đoạn này.

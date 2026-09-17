@@ -24,7 +24,7 @@ Nguồn yêu cầu: [plan.md](../plan.md), đặc biệt mục 21.1. Bản đồ
 - [x] WP-14: production images, 7-service stack, reproducible commands, backup/restore, CI definition và handoff docs đã đạt local; independent review/video/remote CI còn mở.
 
 WP-01, compatibility M0 và WP-02..WP-14 đã hoàn thành theo phạm vi implementation/local
-verification. Điều này không đồng nghĩa release-ready: G-05..G-09, business-data seed, manual
+verification. Điều này không đồng nghĩa release-ready: G-05..G-09, ticket/document seed, manual
 UC-01..UC-12, video, independent clean-machine review và GitHub-hosted CI evidence còn thiếu.
 Paid/live checks vẫn opt-in và không chạy trong CI.
 
