@@ -20,7 +20,7 @@ const approval: Approval = {
   schema_version: 1,
   status: "pending",
   version: 1,
-  expires_at: "2026-09-16T10:00:00Z",
+  expires_at: "2099-09-16T10:00:00Z",
 };
 
 describe("ApprovalCard", () => {
@@ -40,5 +40,18 @@ describe("ApprovalCard", () => {
     render(<ApprovalCard approval={approval} onDecision={onDecision} />);
     fireEvent.click(screen.getByRole("button", { name: "Từ chối" }));
     await waitFor(() => expect(onDecision).toHaveBeenCalledWith("reject"));
+  });
+
+  it("disables decisions for an expired draft", () => {
+    const onDecision = vi.fn().mockResolvedValue(undefined);
+    render(
+      <ApprovalCard
+        approval={{ ...approval, expires_at: "2020-01-01T00:00:00Z" }}
+        onDecision={onDecision}
+      />,
+    );
+    expect(screen.getByText("Đã hết hạn")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Từ chối" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Xác nhận tạo ticket" })).toBeDisabled();
   });
 });

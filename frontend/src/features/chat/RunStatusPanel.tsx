@@ -15,17 +15,20 @@ const statusLabels: Record<string, string> = {
 export function RunStatusPanel({
   runId,
   onTerminal,
+  onStatus,
 }: {
   runId: string;
   onTerminal?: () => void;
+  onStatus?: (status: string) => void;
 }) {
   const { snapshot, events, connectionState, error, retry } = useRunEvents(runId);
 
   useEffect(() => {
+    if (snapshot) onStatus?.(snapshot.status);
     if (snapshot && ["completed", "failed", "cancelled"].includes(snapshot.status)) {
       onTerminal?.();
     }
-  }, [snapshot, onTerminal]);
+  }, [snapshot, onStatus, onTerminal]);
 
   return (
     <section className="run-monitor" aria-live="polite">

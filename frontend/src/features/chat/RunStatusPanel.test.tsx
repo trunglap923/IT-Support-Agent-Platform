@@ -9,6 +9,7 @@ vi.mock("./useRunEvents", () => ({ useRunEvents: useRunEventsMock }));
 
 describe("RunStatusPanel", () => {
   it("renders persisted status and streamed events", () => {
+    const onStatus = vi.fn();
     useRunEventsMock.mockReturnValue({
       snapshot: { status: "running" },
       connectionState: "open",
@@ -25,11 +26,12 @@ describe("RunStatusPanel", () => {
       ],
     });
 
-    render(<RunStatusPanel runId="run-1" />);
+    render(<RunStatusPanel onStatus={onStatus} runId="run-1" />);
 
     expect(screen.getByRole("heading", { name: "Đang xử lý" })).toBeInTheDocument();
     expect(screen.getByText("run.running")).toBeInTheDocument();
     expect(screen.getByText("open")).toBeInTheDocument();
+    expect(onStatus).toHaveBeenCalledWith("running");
   });
 
   it("offers an explicit retry after the reconnect budget is exhausted", () => {

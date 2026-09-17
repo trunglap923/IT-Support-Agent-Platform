@@ -48,4 +48,4 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 - [ ] UC hỏi tài liệu, hỏi trạng thái và tạo ticket demo được qua UI.
 - [ ] Double click approve/refresh/reconnect không tạo ticket trùng.
-- [ ] Không hiển thị lời khẳng định ticket đã tạo khi backend chưa có receipt.
+- [x] Không hiển thị lời khẳng định ticket đã tạo khi backend chưa có receipt.

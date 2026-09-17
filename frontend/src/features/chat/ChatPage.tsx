@@ -9,7 +9,14 @@ import {
   type ChatMessage,
   type Conversation,
 } from "../../api/chat";
+import {
+  decideApproval,
+  listPendingApprovals,
+  type Approval,
+} from "../../api/tickets";
 import { useAuth } from "../auth/useAuth";
+import { ApprovalCard } from "../tickets/ApprovalCard";
+import { recoverActiveRun } from "./chatRecovery";
 import { RunStatusPanel } from "./RunStatusPanel";
 
 export function ChatPage() {
@@ -17,6 +24,7 @@ export function ChatPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [active, setActive] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [approvals, setApprovals] = useState<Approval[]>([]);
   const [draft, setDraft] = useState("");
   const [runId, setRunId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -24,8 +32,14 @@ export function ChatPage() {
   const [feedbackPending, setFeedbackPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const refreshMessages = useCallback(async (conversationId: string) => {
-    setMessages(await listMessages(conversationId));
+  const refreshConversation = useCallback(async (conversationId: string) => {
+    const [messageItems, approvalItems] = await Promise.all([
+      listMessages(conversationId),
+      listPendingApprovals(),
+    ]);
+    setMessages(messageItems);
+    setApprovals(approvalItems);
+    setRunId(recoverActiveRun(messageItems, approvalItems));
   }, []);
 
   useEffect(() => {
@@ -35,7 +49,13 @@ export function ChatPage() {
         setConversations(items);
         if (items[0]) {
           setActive(items[0]);
-          setMessages(await listMessages(items[0].id, controller.signal));
+          const [messageItems, approvalItems] = await Promise.all([
+            listMessages(items[0].id, controller.signal),
+            listPendingApprovals(controller.signal),
+          ]);
+          setMessages(messageItems);
+          setApprovals(approvalItems);
+          setRunId(recoverActiveRun(messageItems, approvalItems));
         }
       })
       .catch((caught: unknown) => {
@@ -55,6 +75,7 @@ export function ChatPage() {
       setConversations((current) => [created, ...current]);
       setActive(created);
       setMessages([]);
+      setApprovals([]);
       setRunId(null);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Không thể tạo hội thoại.");
@@ -77,13 +98,37 @@ export function ChatPage() {
       const submitted = await submitMessage(conversation.id, content, csrfToken);
       setDraft("");
       setRunId(submitted.run_id);
-      await refreshMessages(conversation.id);
+      await refreshConversation(conversation.id);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Không thể gửi tin nhắn.");
     } finally {
       setSending(false);
     }
   }
+
+  async function handleApprovalDecision(
+    approval: Approval,
+    decision: "approve" | "reject",
+  ) {
+    if (!csrfToken) return;
+    setError(null);
+    try {
+      await decideApproval(approval, decision, csrfToken);
+      setApprovals((current) => current.filter((item) => item.id !== approval.id));
+      if (active) await refreshConversation(active.id);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Không thể xử lý phê duyệt.");
+    }
+  }
+
+  const handleRunStatus = useCallback(
+    (status: string) => {
+      if (status === "waiting_approval" && active) {
+        void refreshConversation(active.id);
+      }
+    },
+    [active, refreshConversation],
+  );
 
   async function handleFeedback(
     messageId: string,
@@ -120,8 +165,7 @@ export function ChatPage() {
             key={conversation.id}
             onClick={() => {
               setActive(conversation);
-              setRunId(null);
-              void refreshMessages(conversation.id);
+              void refreshConversation(conversation.id);
             }}
             type="button"
           >
@@ -149,7 +193,13 @@ export function ChatPage() {
                 <ul className="citation-list">
                   {message.citations.map((source) => (
                     <li key={source.source_id}>
-                      <strong>{source.title}</strong>
+                      {source.source_url ? (
+                        <a href={source.source_url} rel="noopener" target="_blank">
+                          <strong>{source.title}</strong>
+                        </a>
+                      ) : (
+                        <strong>{source.title}</strong>
+                      )}
                       {source.page_number ? ` · Trang ${source.page_number}` : ""}
                       <small>{source.excerpt}</small>
                     </li>
@@ -183,12 +233,22 @@ export function ChatPage() {
         {runId ? (
           <RunStatusPanel
             runId={runId}
+            onStatus={handleRunStatus}
             onTerminal={() => {
-              if (active) void refreshMessages(active.id);
+              if (active) void refreshConversation(active.id);
               setRunId(null);
             }}
           />
         ) : null}
+        {approvals
+          .filter((approval) => approval.run_id === runId)
+          .map((approval) => (
+            <ApprovalCard
+              approval={approval}
+              key={approval.id}
+              onDecision={(decision) => handleApprovalDecision(approval, decision)}
+            />
+          ))}
         {error ? (
           <p className="chat-error" role="alert">{error}</p>
         ) : null}
