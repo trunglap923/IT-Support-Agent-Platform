@@ -36,11 +36,11 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 - [x] AG-01: Định nghĩa state serializable, schema_version và status/outcome tách biệt.
 - [x] AG-02a: Xây RAG graph load → retrieve → evidence decision → final reply, dùng context builder.
-- [ ] AG-02b: Route service/ticket read tools từ support graph theo model decision.
+- [x] AG-02b: Route service/ticket read tools từ support graph theo model decision.
 - [x] AG-03: Thêm approval graph interrupt → recheck actor/hash → write → receipt.
 - [x] AG-04: Áp dụng tối đa 4 model calls, 4 retrieval calls và recursion=24; write/deadline nối ở WP-08.
 - [x] AG-05a: Nối PostgreSQL checkpointer, run locking và replay receipt.
-- [ ] AG-05b: Enqueue memory extraction sau khi final persist ở WP-12.
+- [x] AG-05b: Enqueue memory extraction sau khi final persist ở WP-12.
 
 ## Điều kiện hoàn thành
 

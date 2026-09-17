@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:it-support-agent:schema:support-reply:v1",
+  "title": "SupportReply",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["outcome", "answer", "citations"],
+  "properties": {
+    "outcome": {
+      "type": "string",
+      "enum": ["answered", "no_answer"]
+    },
+    "answer": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000
+    },
+    "citations": {
+      "type": "array",
+      "maxItems": 5,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"outcome": {"const": "answered"}}},
+      "then": {"properties": {"citations": {"minItems": 1}}}
+    },
+    {
+      "if": {"properties": {"outcome": {"const": "no_answer"}}},
+      "then": {"properties": {"citations": {"maxItems": 0}}}
+    }
+  ]
+}

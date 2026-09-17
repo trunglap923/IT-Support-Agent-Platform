@@ -1,6 +1,7 @@
 # Prompt và output schema
 
-Trạng thái: đã có kế hoạch; chưa triển khai tính năng.
+Trạng thái: prompt/schema assets đã được version hóa, checksum và nối vào run/evaluation;
+semantic review bằng live development cases vẫn chưa chạy.
 Work packages: WP-06, WP-12, WP-13.
 Nguồn: [kế hoạch tổng](../../../plan.md), mục 8.3, 9, 12, 16; [thứ tự triển khai](../../../docs/implementation-roadmap.md).
 
@@ -31,14 +32,21 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] PROMPT-01: Viết agent prompt cho ba domain và logic hỏi thêm/escalation có căn cứ.
-- [ ] PROMPT-02: Định nghĩa answer schema/citation IDs và tool-use rules khớp executor.
-- [ ] PROMPT-03: Viết memory extraction prompt chỉ user fact allowlist, theo thiết bị.
-- [ ] PROMPT-04: Gắn prompt/schema version vào run và evaluation artifacts.
+- [x] PROMPT-01: Viết agent prompt cho ba domain và logic hỏi thêm/escalation có căn cứ.
+- [x] PROMPT-02: Định nghĩa answer schema/citation IDs và tool-use rules khớp executor.
+- [x] PROMPT-03: Viết memory extraction prompt chỉ user fact allowlist, theo thiết bị.
+- [x] PROMPT-04: Gắn prompt/schema version vào run và evaluation artifacts.
 - [ ] PROMPT-05: Review bằng development cases; không tune trực tiếp bằng holdout.
 
 ## Điều kiện hoàn thành
 
-- [ ] Không lấy proposed step làm confirmed attempted step.
-- [ ] Không dùng public reference để bịa corporate policy hoặc hostname.
+- [x] Không lấy proposed step làm confirmed attempted step.
+- [x] Không dùng public reference để bịa corporate policy hoặc hostname.
 - [ ] Prompt change có paired evaluation và không thay permission enforcement.
+
+## Bằng chứng local
+
+- `test_prompt_assets.py` kiểm tra checksum, JSON Schema và các guardrail bắt buộc.
+- OpenAI adapter đọc `agent.md`; `AgentRun.prompt_version` và evaluation report dùng cùng
+  version từ `prompt_manifest.json`.
+- PROMPT-05 và paired semantic evaluation giữ mở vì fake provider không thực thi prompt text.

@@ -14,6 +14,7 @@ from app.db.models import Conversation, Message, MessageFeedback, RunStatus
 from app.dependencies import CurrentPrincipal, get_db_session
 from app.jobs.dispatch import BrokerUnavailableError, RunDispatcher
 from app.memory.lifecycle import MemoryLifecycleService, MemoryNotFoundError
+from app.prompts import SUPPORT_PROMPT_VERSION
 from app.repositories.conversations import ConversationRepository
 from app.services.conversations.submission import (
     ActiveRunConflictError,
@@ -249,7 +250,8 @@ async def submit_message(
             conversation_id=conversation_id,
             content=payload.content.strip(),
             client_request_id=payload.client_request_id,
-            model=cast(str, request.app.state.settings.ai_provider.value),
+            prompt_version=SUPPORT_PROMPT_VERSION,
+            model=cast(str, request.app.state.settings.text_provider.value),
         )
     except ConversationNotFoundError as error:
         raise HTTPException(

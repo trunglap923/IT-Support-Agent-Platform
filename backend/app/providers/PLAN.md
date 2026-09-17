@@ -33,7 +33,7 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 ## Các bước triển khai
 
 - [x] PROV-01: Định nghĩa generate/embed contracts và fake responses theo scenario.
-- [ ] PROV-02: Implement Responses/function-calling mapping theo cấu hình đã chốt; giữ tool call IDs.
+- [x] PROV-02: Implement Responses/function-calling mapping theo cấu hình đã chốt; giữ tool call IDs.
 - [x] PROV-03: Đặt strict schema/output validation, token cap, timeout và store=false.
 - [x] PROV-04: Nối budget reservation/finalization cho paid embed/chat calls.
 - [x] PROV-05: Tại WP-04 triển khai embed tối thiểu, dimension validation và budget guard; embedding cache còn theo WP-06.

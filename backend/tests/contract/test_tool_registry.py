@@ -4,7 +4,13 @@ import asyncio
 from uuid import uuid4
 
 from app.mcp_server.client import discover_business_tools
-from app.tools import TOOL_REGISTRY, ToolExecutionContext, ToolExecutor
+from app.tools import (
+    TOOL_REGISTRY,
+    ToolExecutionContext,
+    ToolExecutor,
+    read_tool_definitions,
+    support_tool_definitions,
+)
 
 
 def test_registry_and_mcp_discovery_share_read_contracts() -> None:
@@ -30,6 +36,18 @@ def test_registry_exposes_only_four_model_capabilities() -> None:
     for spec in TOOL_REGISTRY.values():
         properties = spec.input_schema().get("properties", {})
         assert not {"user_id", "role", "sql", "token", "approved"}.intersection(properties)
+
+
+def test_chat_router_exposes_only_read_tools() -> None:
+    assert [item["name"] for item in read_tool_definitions()] == [
+        "check_service_status",
+        "get_my_open_tickets",
+    ]
+    assert [item["name"] for item in support_tool_definitions()] == [
+        "check_service_status",
+        "get_my_open_tickets",
+        "create_ticket",
+    ]
 
 
 def test_executor_rejects_untrusted_and_repeated_arguments() -> None:

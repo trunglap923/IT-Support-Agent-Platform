@@ -10,10 +10,12 @@ MAX_RETRIEVAL_CALLS = 4
 GRAPH_RECURSION_LIMIT = 24
 
 GraphRoute = Literal["generate", "no_answer", "done", "retry"]
+ActionRoute = Literal["rag", "tool"]
 
 
 class EvidenceState(TypedDict):
     source_id: str
+    source_url: str
     document_id: str
     version_id: str
     chunk_id: str
@@ -34,8 +36,15 @@ class SupportAgentState(TypedDict, total=False):
     query: str
     normalized_query: str
     history: list[dict[str, str]]
+    action_route: ActionRoute
+    tool_call: dict[str, object]
+    tool_result: dict[str, object]
+    approval_proposal: dict[str, object]
+    tool_calls: int
     context_estimated_tokens: int
     context_truncated: bool
+    suggested_steps: list[str]
+    confirmed_attempted_steps: list[str]
     evidence: list[EvidenceState]
     citations: list[EvidenceState]
     answer: str

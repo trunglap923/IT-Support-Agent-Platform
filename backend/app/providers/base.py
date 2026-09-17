@@ -4,7 +4,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
-from app.providers.structured import EvidenceInput, StructuredModelResponse
+from app.providers.structured import EvidenceInput, StructuredModelResponse, ToolDecisionResponse
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,6 +29,16 @@ class TextGenerationProvider(Protocol):
 
 
 class StructuredResponseProvider(TextGenerationProvider, Protocol):
+    async def choose_support_tool(
+        self,
+        query: str,
+        *,
+        history: Sequence[tuple[str, str]] = (),
+        max_output_tokens: int = 80,
+        operation_id: str | None = None,
+    ) -> ToolDecisionResponse:
+        """Choose at most one allowlisted read tool; never execute it."""
+
     async def generate_support_reply(
         self,
         query: str,

@@ -44,7 +44,7 @@ async def live(
         service=settings.app_name,
         version=settings.app_version,
         environment=settings.app_env.value,
-        provider=settings.ai_provider.value,
+        provider=settings.text_provider.value,
         request_id=request.state.request_id,
     )
 

@@ -67,3 +67,23 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
 
 def model_tool_definitions() -> list[dict[str, object]]:
     return [spec.model_definition() for spec in TOOL_REGISTRY.values()]
+
+
+def read_tool_definitions() -> list[dict[str, object]]:
+    """Return only side-effect-free business reads available during chat routing."""
+
+    return [
+        spec.model_definition()
+        for spec in TOOL_REGISTRY.values()
+        if spec.route == "mcp_read"
+    ]
+
+
+def support_tool_definitions() -> list[dict[str, object]]:
+    """Tools selectable by chat; execution still enforces read/approval routes."""
+
+    return [
+        spec.model_definition()
+        for spec in TOOL_REGISTRY.values()
+        if spec.route in {"mcp_read", "approval"}
+    ]

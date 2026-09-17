@@ -4,6 +4,7 @@ from types import SimpleNamespace
 import pytest
 from pydantic import ValidationError
 
+from app.prompts import SUPPORT_INSTRUCTIONS
 from app.providers.fake import FakeTextProvider
 from app.providers.openai import OpenAITextProvider
 from app.providers.structured import (
@@ -35,6 +36,20 @@ class FakeResponsesApi:
             id="resp-1",
             output_parsed=self.reply,
             usage=SimpleNamespace(input_tokens=20, output_tokens=8),
+        )
+
+
+class FakeToolResponsesApi:
+    def __init__(self, output: list[object]) -> None:
+        self.output = output
+        self.kwargs: dict[str, object] = {}
+
+    async def create(self, **kwargs: object) -> object:
+        self.kwargs = kwargs
+        return SimpleNamespace(
+            id="resp-tool-1",
+            output=self.output,
+            usage=SimpleNamespace(input_tokens=12, output_tokens=4),
         )
 
 
@@ -80,6 +95,7 @@ def test_openai_adapter_rejects_citation_outside_evidence() -> None:
         assert api.kwargs["store"] is False
         assert api.kwargs["max_output_tokens"] == 400
         assert api.kwargs["text_format"] is SupportReply
+        assert api.kwargs["instructions"] == SUPPORT_INSTRUCTIONS
 
     asyncio.run(scenario())
 
@@ -98,5 +114,48 @@ def test_openai_adapter_returns_normalized_usage() -> None:
         assert response.provider_request_id == "resp-1"
         assert response.input_tokens == 20
         assert response.output_tokens == 8
+
+    asyncio.run(scenario())
+
+
+def test_openai_adapter_preserves_allowlisted_tool_call_id() -> None:
+    async def scenario() -> None:
+        api = FakeToolResponsesApi(
+            [
+                SimpleNamespace(
+                    type="function_call",
+                    call_id="call-provider-123",
+                    name="check_service_status",
+                    arguments='{"service_id":"vpn"}',
+                )
+            ]
+        )
+        provider = OpenAITextProvider(client=SimpleNamespace(responses=api), model="gpt-test")
+        response = await provider.choose_support_tool("VPN có đang lỗi không?")
+        assert response.call is not None
+        assert response.call.call_id == "call-provider-123"
+        assert response.call.arguments == {"service_id": "vpn"}
+        assert api.kwargs["parallel_tool_calls"] is False
+        assert api.kwargs["max_tool_calls"] == 1
+        assert api.kwargs["store"] is False
+
+    asyncio.run(scenario())
+
+
+def test_openai_adapter_rejects_unallowlisted_tool_call() -> None:
+    async def scenario() -> None:
+        api = FakeToolResponsesApi(
+            [
+                SimpleNamespace(
+                    type="function_call",
+                    call_id="call-bad",
+                    name="search_knowledge_base",
+                    arguments="{}",
+                )
+            ]
+        )
+        provider = OpenAITextProvider(client=SimpleNamespace(responses=api), model="gpt-test")
+        with pytest.raises(ProviderContractError):
+            await provider.choose_support_tool("Search knowledge")
 
     asyncio.run(scenario())

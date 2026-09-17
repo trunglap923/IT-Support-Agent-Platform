@@ -33,12 +33,12 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 - [x] CTX-01: Luôn giữ current query và lịch sử gần nhất trong contract serializable.
 - [x] CTX-02: Giới hạn history/current query theo input-token budget; evidence/memory quota nối theo WP tương ứng.
-- [ ] CTX-03: Phân biệt suggested_steps với confirmed_attempted_steps khi tạo summary.
-- [ ] CTX-04: Loại sources/history nay trái quyền; label nguồn superseded là historical.
+- [x] CTX-03: Phân biệt suggested_steps với confirmed_attempted_steps khi tạo summary.
+- [x] CTX-04: Loại sources/history nay trái quyền; label nguồn superseded là historical.
 - [x] CTX-05: Đọc lại memory settings/epoch khi build; không hồi sinh dữ liệu từ checkpoint cũ.
 
 ## Điều kiện hoàn thành
 
-- [ ] Conversation dài vẫn giữ current query và các bước đã xác nhận.
-- [ ] ACL thu hồi làm source text biến mất khỏi context/history được đọc lại.
+- [x] Conversation dài vẫn giữ current query và các bước đã xác nhận.
+- [x] ACL thu hồi làm source text biến mất khỏi context/history được đọc lại.
 - [ ] Bật/tắt hoặc xóa một memory không làm mất các active fact hợp lệ khác.

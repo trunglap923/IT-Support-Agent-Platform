@@ -3,13 +3,23 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class ProviderContractError(ValueError):
     """Raised when a provider returns data outside the application contract."""
+
+
+class SupportToolCall(BaseModel):
+    """A side-effect-free tool proposal; trusted actor context is never model supplied."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    call_id: str = Field(min_length=1, max_length=160)
+    name: Literal["check_service_status", "get_my_open_tickets", "create_ticket"]
+    arguments: dict[str, Any]
 
 
 class EvidenceInput(BaseModel):
@@ -60,6 +70,14 @@ class SupportReply(BaseModel):
 @dataclass(frozen=True, slots=True)
 class StructuredModelResponse:
     reply: SupportReply
+    provider_request_id: str
+    input_tokens: int
+    output_tokens: int
+
+
+@dataclass(frozen=True, slots=True)
+class ToolDecisionResponse:
+    call: SupportToolCall | None
     provider_request_id: str
     input_tokens: int
     output_tokens: int

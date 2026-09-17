@@ -24,6 +24,9 @@ AgentNode = Callable[[SupportAgentState], Awaitable[StateUpdate]]
 @dataclass(frozen=True, slots=True)
 class SupportGraphNodes:
     load_context: AgentNode
+    decide_action: AgentNode
+    execute_tool: AgentNode
+    respond_tool: AgentNode
     rewrite_query: AgentNode
     retrieve: AgentNode
     decide_evidence: AgentNode
@@ -96,6 +99,10 @@ async def _route_evidence(state: SupportAgentState) -> str:
     return state.get("route", "no_answer")
 
 
+async def _route_action(state: SupportAgentState) -> str:
+    return state.get("action_route", "rag")
+
+
 async def _route_validation(state: SupportAgentState) -> str:
     return state.get("route", "no_answer")
 
@@ -105,6 +112,9 @@ def build_support_graph(nodes: SupportGraphNodes) -> Any:
     # LangGraph's overloads do not currently accept our generic async node alias,
     # even though it is a supported runtime callable.
     builder.add_node("load_context", cast(Any, _with_step(nodes.load_context)))
+    builder.add_node("decide_action", cast(Any, _bounded_model(nodes.decide_action)))
+    builder.add_node("execute_tool", cast(Any, _with_step(nodes.execute_tool)))
+    builder.add_node("respond_tool", cast(Any, _with_step(nodes.respond_tool)))
     builder.add_node("rewrite_query", cast(Any, _with_step(nodes.rewrite_query)))
     builder.add_node("retrieve", cast(Any, _bounded_retrieval(nodes.retrieve)))
     builder.add_node("decide_evidence", cast(Any, _with_step(nodes.decide_evidence)))
@@ -112,7 +122,14 @@ def build_support_graph(nodes: SupportGraphNodes) -> Any:
     builder.add_node("validate_answer", cast(Any, _validated(nodes.validate_answer)))
     builder.add_node("no_answer", cast(Any, _with_step(nodes.no_answer)))
     builder.add_edge(START, "load_context")
-    builder.add_edge("load_context", "rewrite_query")
+    builder.add_edge("load_context", "decide_action")
+    builder.add_conditional_edges(
+        "decide_action",
+        _route_action,
+        {"rag": "rewrite_query", "tool": "execute_tool"},
+    )
+    builder.add_edge("execute_tool", "respond_tool")
+    builder.add_edge("respond_tool", END)
     builder.add_edge("rewrite_query", "retrieve")
     builder.add_edge("retrieve", "decide_evidence")
     builder.add_conditional_edges(
@@ -139,6 +156,7 @@ async def run_support_graph(
         "schema_version": GRAPH_SCHEMA_VERSION,
         "model_calls": 0,
         "retrieval_calls": 0,
+        "tool_calls": 0,
         "step_count": 0,
         "validation_errors": [],
     }
