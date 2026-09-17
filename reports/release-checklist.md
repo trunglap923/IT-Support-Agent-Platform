@@ -10,7 +10,7 @@ Lý do: G-10 có local reproducibility evidence, nhưng G-05–G-09 chưa đư�
 |---|---|---|
 | Build production backend/frontend images | pass | Pinned bases, non-root, healthcheck; `make clean-verify` |
 | Fresh PostgreSQL/Redis/document volumes | pass | Unique Compose project, không dùng volumes development |
-| Migrate clean DB qua 16 revisions | pass | Alembic head `0016_message_feedback` |
+| Migrate clean DB qua 17 revisions | pass | Alembic head `0017_ticket_device_owner` |
 | Seed demo data | pass | Business fixtures + 9 published docs/11 versions/41 fake-embedded chunks; rerun không nhân bản |
 | Start complete stack | pass | 7/7 service healthy, readiness qua Nginx proxy |
 | Backend suite | pass | 138 passed, 1 skipped trên isolated PostgreSQL/Redis |

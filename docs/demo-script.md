@@ -64,7 +64,7 @@ Chỉ chạy khi chấp nhận chi phí và đã đặt `OPENAI_API_KEY`:
 
 ```bash
 RUN_OPENAI_LIVE_SPIKE=1 make spike-openai-live
-RUN_LIVE_EVAL=1 make eval-agent-live
+TEXT_PROVIDER=openai RUN_LIVE_EVAL=1 make eval-agent-live
 ```
 
 Ghi rõ model snapshot, số lần chạy, token/cost và không dùng một lần demo thành tuyên bố chất lượng. Báo cáo hiện tại vẫn `not_ready` vì G-05–G-09 chưa được đo đủ.

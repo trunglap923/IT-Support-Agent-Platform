@@ -33,7 +33,7 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 ## Các bước triển khai
 
 - [x] TEST-01a: Tạo database tạm, identity/session và actor/department fixtures WP-02.
-- [ ] TEST-01b: Thêm device, clock và fault injection khi feature tiêu thụ tồn tại.
+- [x] TEST-01b: Có fixture device, injected clock và failure modes cho service/tool/worker/approval.
 - [x] TEST-02: Chia unit, integration và cross-boundary contract suites.
 - [ ] TEST-03: Gắn regression cases vào các gates G-01/G-02/G-03/G-08.
 - [x] TEST-04a: Cung cấp command WP-02 bắt buộc PostgreSQL và không pass giả do skip.
@@ -42,6 +42,6 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Điều kiện hoàn thành
 
-- [ ] Tests kiểm tra hành vi và race conditions, không chỉ so khớp implementation.
-- [ ] Có thể chạy fake-mode hoàn toàn không có API keys.
-- [ ] Live quality được báo cáo bởi evals, không trộn với unit pass rate.
+- [x] Tests kiểm tra hành vi, transaction và race conditions trên PostgreSQL/Redis thật.
+- [x] Unit/integration/eval fake chạy hoàn toàn không có API keys.
+- [x] Live quality là eval artifact riêng có opt-in/quota guard, không trộn unit pass rate.

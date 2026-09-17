@@ -73,7 +73,13 @@ Chạy `make backup` trước. Bundle phải nằm dưới `backups/` và đủ 
 
 ## OpenAI hoặc Langfuse
 
-Fake mode không cần key. `AI_PROVIDER=openai` yêu cầu `OPENAI_API_KEY`; live spike/eval còn yêu cầu biến opt-in riêng. Không đưa key vào log, issue, ảnh chụp hoặc commit. Langfuse thiếu key sẽ dùng no-op trong fake mode.
+Fake mode không cần key. `TEXT_PROVIDER=openai` hoặc `EMBEDDING_PROVIDER=openai` yêu cầu
+`OPENAI_API_KEY`; live spike/eval và paid re-index còn yêu cầu biến opt-in riêng. Không đưa
+key vào log, issue, ảnh chụp hoặc commit. Langfuse thiếu key sẽ dùng no-op trong fake mode.
+
+Nếu Docker build báo `UnknownIssuer`, đặt `HOST_CA_BUNDLE` tới CA bundle của host (mặc định
+Linux là `/etc/ssl/certs/ca-certificates.crt`). Compose chỉ mount file này như BuildKit
+secret trong bước cài dependency; certificate không được copy vào image.
 
 ## Xem log mà không lộ secret
 

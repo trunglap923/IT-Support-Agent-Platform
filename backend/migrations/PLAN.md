@@ -1,6 +1,6 @@
 # Database migrations
 
-Trạng thái: Alembic và revision pgvector khởi đầu đã có; feature revisions đang được bổ sung.
+Trạng thái: Alembic và 17 feature revisions qua ticket device ownership đã có; fresh upgrade/restore test local đạt.
 Work packages: WP-02, WP-04, WP-07, WP-08, WP-12, WP-14.
 Nguồn: [kế hoạch tổng](../../plan.md), mục 13, 20; [thứ tự triển khai](../../docs/implementation-roadmap.md).
 
@@ -33,15 +33,15 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [x] MIG-01: Cấu hình Alembic qua migration credential; tạo extension vector có kiểm tra quyền.
 - [x] MIG-02a: Tạo revision identity riêng cho department/user.
 - [x] MIG-02b: Tạo revisions session và conversation/run/event theo feature WP-02.
-- [ ] MIG-02c: Tiếp tục chia revisions docs/ticket/approval/memory theo feature.
+- [x] MIG-02c: Chia revisions docs/ticket/approval/memory theo feature.
 - [x] MIG-03a: Thêm unique, ownership FK và partial active-run index cho WP-02.
-- [ ] MIG-03b: Thêm race/current-version constraints cho các schema ở WP sau.
+- [x] MIG-03b: Thêm race/current-version constraints cho các schema ở WP sau.
 - [x] MIG-04a: Viết upgrade check từ PostgreSQL database trống.
 - [ ] MIG-04b: Bổ sung upgrade check từ revision trước khi có feature revision tiếp theo.
-- [ ] MIG-05: Ghi rollback/backup policy; restore drill dùng DB riêng.
+- [x] MIG-05: Ghi rollback/backup policy; restore drill dùng DB riêng.
 
 ## Điều kiện hoàn thành
 
-- [ ] Upgrade tới head tái lập được trên DB test.
-- [ ] Constraints race-critical tồn tại sau upgrade.
-- [ ] Không đổi schema ngoài migrations hoặc chạy destructive reset trên runtime DB.
+- [x] Upgrade tới head tái lập được trên DB test.
+- [x] Constraints race-critical tồn tại sau upgrade.
+- [x] Không đổi schema ngoài migrations hoặc chạy destructive reset trên runtime DB.

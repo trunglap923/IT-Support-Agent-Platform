@@ -33,10 +33,10 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 - [x] MANIFEST-01: Định nghĩa schema dựa đúng mục 6 kế hoạch tổng và validate các file dữ liệu.
 - [x] MANIFEST-02: Kiểm tra tham chiếu path/id, checksum, ngày hiệu lực và giới hạn scope.
-- [ ] MANIFEST-03: Ghi snapshot corpus/chunker/preprocess version cho mỗi lần evaluation.
+- [x] MANIFEST-03: Validator khóa case vào corpus snapshot; retrieval report ghi manifest hash và parser/chunker/embedding config.
 - [x] MANIFEST-04: Lưu provenance/license; corpus đầu tiên chỉ dùng nội dung tự viết.
 
 ## Điều kiện hoàn thành
 
-- [ ] Manifest sai schema/ACL/path được phát hiện trước seed/ingestion.
-- [ ] Có thể truy từ kết quả eval về đúng file/version đã dùng.
+- [x] Manifest sai schema/ACL/path được phát hiện trước seed/ingestion.
+- [x] Retrieval evaluation ghi corpus manifest hash và document key/version để truy ngược file.

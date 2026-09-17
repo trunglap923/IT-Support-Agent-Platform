@@ -41,7 +41,7 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [x] INT-03: Test duplicate approve, worker crash sau commit và receipt recovery.
 - [x] INT-04a: Test commit/enqueue race, duplicate worker claim và delivery qua Redis thật.
 - [x] INT-04b: Test stale lease, crash recovery và checkpoint resume đầy đủ ở WP-10.
-- [ ] INT-05: Test publish/ACL change trong run và delete memory trong extraction.
+- [x] INT-05: Document lifecycle test recheck ACL/revoke trên retrieval/history/source; memory concurrency discard extraction theo epoch sau delete.
 
 ## Điều kiện hoàn thành
 

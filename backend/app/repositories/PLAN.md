@@ -1,6 +1,6 @@
 # Queries và data access
 
-Trạng thái: user identity repository đã có; scoped resource repositories đang được bổ sung.
+Trạng thái: scoped query/repository layer đã có; cursor pagination và query-plan evidence còn thiếu.
 Work packages: WP-02, WP-05, WP-07, WP-11, WP-12.
 Nguồn: [kế hoạch tổng](../../../plan.md), mục 5.3, 13; [thứ tự triển khai](../../../docs/implementation-roadmap.md).
 
@@ -33,14 +33,14 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [ ] REPO-01: Tạo scoped lookup/list cho owner resources và IT/admin ticket scope.
-- [ ] REPO-02: Xây queries document ACL/current/effective version cho retrieval/download.
-- [ ] REPO-03: Cung cấp row locks/conditional updates/unique conflict mapping.
+- [x] REPO-01: Owner conversation/run/memory và employee/IT/admin ticket scope được áp ngay trong SQL.
+- [x] REPO-02: Retrieval, history redaction và source download dùng chung current/effective/ACL predicate.
+- [x] REPO-03: Run/approval/ticket/document/usage writes dùng row locks, expected version và unique conflict handling.
 - [ ] REPO-04: Thêm cursor pagination ổn định bằng timestamp + ID.
-- [ ] REPO-05: Thêm event/job lookup và receipt-by-approval; kiểm tra query plans khi cần.
+- [ ] REPO-05: Event/job/receipt lookups đã có; query-plan evidence cho dataset lớn còn thiếu.
 
 ## Điều kiện hoàn thành
 
-- [ ] Test trên PostgreSQL thật chứng minh own/department boundaries.
-- [ ] Không fetch object trái quyền rồi lọc riêng ở UI.
-- [ ] Một service transaction rollback toàn bộ write/audit khi có lỗi.
+- [x] PostgreSQL integration tests chứng minh own/department/document boundaries.
+- [x] Protected resources được scope trong query; UI không nhận object trái quyền để tự lọc.
+- [x] Ticket/approval/run/document writes và events/receipts rollback cùng transaction khi lỗi.
