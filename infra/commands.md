@@ -7,13 +7,16 @@ Các lệnh chính ở root `Makefile` dùng dependency đã khóa và cùng c�
 ```bash
 make bootstrap
 make migrate
+make seed-dry-run
 make seed
 make up
 ```
 
 - `bootstrap` chỉ tạo `.env` khi chưa tồn tại và build application images; không ghi đè cấu hình hiện có.
 - `migrate` chạy Alembic bằng one-shot container có migration credential; chỉ upgrade schema.
+- `seed-dry-run` chạy toàn bộ validation và lập summary `created/updated/unchanged`; transaction lập kế hoạch được rollback và document storage không bị ghi.
 - `seed` tạo/cập nhật business fixtures, ingest 11 corpus versions bằng fake embedding và publish 9 tài liệu theo cách idempotent; không xóa dữ liệu ngoài phạm vi seed.
+- Không cung cấp command reset database. Các command kiểm thử cần database sạch tự tạo Compose project/volume riêng và chỉ cleanup đúng project đó.
 - `up` dựng bảy service và chờ toàn bộ healthcheck. Frontend ở `127.0.0.1:5173`, API ở `127.0.0.1:8000` theo mặc định.
 - `demo` gộp `migrate`, `seed`, `up` theo đúng thứ tự.
 - `down` dừng stack nhưng giữ ba named volume PostgreSQL, Redis và document storage.

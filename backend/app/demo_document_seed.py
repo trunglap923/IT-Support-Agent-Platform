@@ -27,6 +27,8 @@ from app.db.models import (
     IngestionJobStatus,
 )
 from app.providers.embeddings import FakeEmbeddingProvider
+from app.rag.chunking.splitter import CHUNKER_VERSION
+from app.rag.ingestion.markdown_parser import MARKDOWN_PARSER_VERSION
 from app.rag.ingestion.pipeline import IngestionPipeline
 from app.services.documents.lifecycle import DocumentLifecycleService
 
@@ -58,6 +60,19 @@ class DemoKnowledgeSeedResult:
     published_count: int
     chunk_count: int
     reused_jobs: int
+
+
+@dataclass(frozen=True, slots=True)
+class DemoKnowledgeSeedPlan:
+    created: int
+    updated: int
+    unchanged: int
+    document_count: int
+    version_count: int
+
+    @property
+    def total(self) -> int:
+        return self.created + self.updated + self.unchanged
 
 
 def _parse_timestamp(value: object, *, field: str) -> datetime:
@@ -205,6 +220,159 @@ def _copy_corpus_sources(specs: tuple[DemoCorpusVersionSpec, ...], *, storage_ro
 def _identity_hash(spec: DemoCorpusVersionSpec) -> str:
     value = f"{spec.document_key}\0{spec.version_label}\0{spec.checksum}"
     return hashlib.sha256(value.encode()).hexdigest()
+
+
+async def plan_published_knowledge(
+    database: Database,
+    *,
+    data_root: Path,
+    now: datetime | None = None,
+) -> DemoKnowledgeSeedPlan:
+    """Validate the corpus and classify version changes without writing DB or storage."""
+
+    selected_now = now or datetime.now(UTC)
+    specs = load_demo_corpus(data_root)
+    current = _current_versions(specs, now=selected_now)
+    document_keys = set(current)
+    async with database.session() as session:
+        departments = {
+            department.key: department for department in await session.scalars(select(Department))
+        }
+        documents = {
+            document.document_key: document
+            for document in await session.scalars(
+                select(Document).where(Document.document_key.in_(document_keys))
+            )
+        }
+        document_ids = [document.id for document in documents.values()]
+        stored_versions = (
+            list(
+                await session.scalars(
+                    select(DocumentVersion).where(DocumentVersion.document_id.in_(document_ids))
+                )
+            )
+            if document_ids
+            else []
+        )
+        versions = {
+            (version.document_id, version.version_label): version for version in stored_versions
+        }
+        version_ids = [version.id for version in stored_versions]
+        jobs = {
+            job.document_version_id: job
+            for job in (
+                await session.scalars(
+                    select(IngestionJob).where(IngestionJob.document_version_id.in_(version_ids))
+                )
+                if version_ids
+                else []
+            )
+        }
+        acl_document_ids = (
+            set(
+                await session.scalars(
+                    select(DocumentAcl.document_id).where(DocumentAcl.document_id.in_(document_ids))
+                )
+            )
+            if document_ids
+            else set()
+        )
+        chunk_counts = (
+            {
+                version_id: int(count)
+                for version_id, count in (
+                    await session.execute(
+                        select(DocumentChunk.version_id, func.count(DocumentChunk.id))
+                        .where(DocumentChunk.version_id.in_(version_ids))
+                        .group_by(DocumentChunk.version_id)
+                    )
+                ).all()
+            }
+            if version_ids
+            else {}
+        )
+
+    counts = {"created": 0, "updated": 0, "unchanged": 0}
+    for spec in specs:
+        document = documents.get(spec.document_key)
+        if document is None:
+            counts["created"] += 1
+            continue
+        if any(
+            version.document_id == document.id
+            and not version.storage_key.startswith(f"{_STORAGE_PREFIX}/")
+            for version in stored_versions
+        ):
+            raise ValueError(f"Corpus key collides with uploaded document: {spec.document_key}")
+        version = versions.get((document.id, spec.version_label))
+        if version is None:
+            counts["created"] += 1
+            continue
+
+        immutable = (
+            version.source_checksum,
+            version.storage_key,
+            version.media_type,
+            version.effective_at,
+            version.expires_at,
+        )
+        expected_immutable = (
+            spec.checksum,
+            spec.storage_key,
+            _MEDIA_TYPE,
+            spec.effective_at,
+            spec.expires_at,
+        )
+        if immutable != expected_immutable:
+            raise ValueError(
+                "Published corpus version changed without a version bump: "
+                f"{spec.document_key}:{spec.version_label}"
+            )
+
+        selected = current[spec.document_key]
+        is_current = spec.version_label == selected.version_label
+        expected_status = (
+            DocumentVersionStatus.PUBLISHED if is_current else DocumentVersionStatus.SUPERSEDED
+        )
+        job = jobs.get(version.id)
+        changed = any(
+            (
+                version.authority != spec.authority,
+                version.language != spec.language,
+                version.status is not expected_status,
+                version.parser_version != MARKDOWN_PARSER_VERSION,
+                version.chunker_version != CHUNKER_VERSION,
+                version.embedding_model != "fake-embedding-v2",
+                version.embedding_dimensions != 1536,
+                job is None,
+                job is not None and job.identity_hash != _identity_hash(spec),
+                job is not None and job.status is not IngestionJobStatus.COMPLETED,
+                chunk_counts.get(version.id, 0) == 0,
+            )
+        )
+        if is_current:
+            expected_department_id = (
+                departments[spec.department_key].id if spec.department_key in departments else None
+            )
+            changed = changed or any(
+                (
+                    document.title != spec.title,
+                    document.visibility is not spec.visibility,
+                    document.department_id != expected_department_id,
+                    document.archived,
+                    document.current_version_id != version.id,
+                    document.id in acl_document_ids,
+                )
+            )
+        counts["updated" if changed else "unchanged"] += 1
+
+    return DemoKnowledgeSeedPlan(
+        created=counts["created"],
+        updated=counts["updated"],
+        unchanged=counts["unchanged"],
+        document_count=len(current),
+        version_count=len(specs),
+    )
 
 
 async def _prepare_documents(

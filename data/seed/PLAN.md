@@ -41,10 +41,11 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [x] SEED-02: Tạo Ubuntu/Windows cho cùng employee Engineering và Windows cho employee Operations.
 - [x] SEED-03: Tạo 18 ticket cân bằng open/in_progress/resolved; reopen vẫn là transition, không thêm enum reopened.
 - [ ] SEED-04: Tạo kịch bản hoạt động bình thường, VPN outage và lỗi phụ thuộc theo mode được backend cho phép.
-- [ ] SEED-05: Viết seed idempotent và dry-run/summary; reset chỉ trên môi trường test có guard.
+- [x] SEED-05: Viết full seed idempotent với dry-run/summary; không cung cấp reset cho database đang dùng.
 
 ## Điều kiện hoàn thành
 
 - [x] Chạy seed hai lần không nhân đôi user/ticket/document/chunk.
+- [x] Dry-run validate và phân loại created/updated/unchanged nhưng rollback mọi thay đổi.
 - [ ] User cùng phòng ban và khác phòng ban đều có negative cases riêng.
 - [ ] Không tự bật consent hoặc tạo active memory của người dùng ngoài fixture test explicit.

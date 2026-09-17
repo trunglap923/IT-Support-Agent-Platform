@@ -27,7 +27,7 @@ FRONTEND_DOCKER = docker run --rm --user $(PROJECT_UID):$(PROJECT_GID) -e npm_co
 	eval-agent-repro eval-agent-live knowledge-validate retrieval-baseline \
 	wp13-gate-tests quality-report \
 	db-up db-down db-status redis-up redis-down redis-status services-up services-down \
-	migrate seed seed-demo-user wp02-integration-check wp03-integration-check \
+	migrate seed seed-dry-run seed-demo-user wp02-integration-check wp03-integration-check \
 	wp10-integration-check backend-integration-check wp02-check wp03-check \
 	wp12-integration-check wp12-check worker-agent worker-background scheduler
 
@@ -37,6 +37,7 @@ help:
 	@echo "  make up                     Build/start the complete seven-service stack"
 	@echo "  make migrate                Run Alembic as an explicit one-shot container"
 	@echo "  make seed                   Seed business scenarios and published IT knowledge"
+	@echo "  make seed-dry-run           Validate and preview seed changes without persisting"
 	@echo "  make test                   Run backend tests with isolated DB/Redis, then frontend checks"
 	@echo "  make test-e2e               Run browser E2E in pinned Playwright"
 	@echo "  make eval                   Run the deterministic, non-paid evaluation"
@@ -305,6 +306,11 @@ migrate: env-init
 seed: env-init
 	$(STACK_COMPOSE) build api
 	$(STACK_COMPOSE) up --detach --wait postgres redis
-	$(STACK_COMPOSE) run --rm --no-deps api python -m app.auth.seed_demo_user
+	$(STACK_COMPOSE) run --rm --no-deps api python -m app.demo_seed_command
+
+seed-dry-run: env-init
+	$(STACK_COMPOSE) build api
+	$(STACK_COMPOSE) up --detach --wait postgres redis
+	$(STACK_COMPOSE) run --rm --no-deps api python -m app.demo_seed_command --dry-run
 
 seed-demo-user: seed

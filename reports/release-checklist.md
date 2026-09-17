@@ -13,7 +13,7 @@ Lý do: G-10 có local reproducibility evidence, nhưng G-05–G-09 chưa đư�
 | Migrate clean DB qua 16 revisions | pass | Alembic head `0016_message_feedback` |
 | Seed demo data | pass | Business fixtures + 9 published docs/11 versions/41 fake-embedded chunks; rerun không nhân bản |
 | Start complete stack | pass | 7/7 service healthy, readiness qua Nginx proxy |
-| Backend suite | pass | 134 passed, 1 skipped trên isolated PostgreSQL/Redis |
+| Backend suite | pass | 138 passed, 1 skipped trên isolated PostgreSQL/Redis |
 | Frontend quality/build | pass | lint/typecheck, 15 tests, production build |
 | Browser workflow suite | pass | 7 Playwright tests |
 | Evaluation reproducibility | pass | 120 valid cases; 160 fake runs cùng digest |

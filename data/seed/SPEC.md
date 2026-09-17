@@ -71,8 +71,9 @@ Manifest có thể tách thành `company.json`, `departments.json`, `users.json`
 ghép và validate thành document theo schema trước khi ghi DB. Thứ tự ghi là department →
 user → device/document/service → ticket → conversation/message.
 
-Seed phải có `--dry-run`, summary số record tạo/cập nhật/không đổi và guard chỉ cho phép reset
-trong môi trường development/test. Chạy cùng manifest hai lần phải không tạo bản sao; thay đổi
+Seed có `--dry-run`, summary số record tạo/cập nhật/không đổi và không cung cấp reset cho
+database đang sử dụng. Test cần database sạch phải dùng database/volume tạm biệt lập. Chạy
+cùng manifest hai lần phải không tạo bản sao; thay đổi
 stable key được coi là record mới, không phải rename ngầm.
 
 ## Tiêu chí nghiệm thu dữ liệu hoàn chỉnh

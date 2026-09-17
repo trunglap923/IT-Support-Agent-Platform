@@ -7,7 +7,7 @@ Portfolio prototype cho trợ lý IT có trạng thái: chat RAG kèm nguồn, s
 Ứng dụng và local stack đã triển khai qua WP-01–WP-14. Bằng chứng local ngày 2026-09-16:
 
 - stack Compose 7/7 service healthy trên project sạch;
-- backend `113 passed, 1 skipped`; frontend lint/typecheck, `15 passed`, production build;
+- backend `138 passed, 1 skipped`; frontend lint/typecheck, `15 passed`, production build;
 - Playwright `7 passed`; contract `7 passed`; evaluation schema 120 case và reproducibility 160 runs;
 - backup PostgreSQL/document storage restore thành công vào database và volume tạm;
 - G-01–G-04 pass; G-05–G-09 vẫn `not_measured`, nên release decision là **not ready**.
@@ -45,6 +45,7 @@ Sau đó:
 ```bash
 make bootstrap
 make migrate
+make seed-dry-run
 make seed
 make up
 ```
@@ -68,6 +69,10 @@ Lệnh gộp sau khi đã cấu hình `.env`:
 ```bash
 make demo
 ```
+
+`make seed-dry-run` validate toàn bộ input và hiển thị bảng `created/updated/unchanged`
+mà không lưu thay đổi vào database hoặc document storage. `make seed` dùng cùng validator và
+in cùng summary sau khi áp dụng. Không có seed target reset/xóa database đang sử dụng.
 
 Seed account chạy lại không tạo bản sao, chỉ cập nhật hash khi password environment thay đổi
 và không tự bật/tắt memory đã được người dùng cấu hình. Seed còn tạo ba thiết bị demo

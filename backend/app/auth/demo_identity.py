@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Literal
 
@@ -84,6 +86,43 @@ DEMO_USERS = (
 )
 
 SeedAction = Literal["created", "updated", "unchanged"]
+_STABLE_KEY_PATTERN = re.compile(r"^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$")
+
+
+def validate_demo_identity_specs(
+    departments: Sequence[DemoDepartmentSpec] = DEMO_DEPARTMENTS,
+    users: Sequence[DemoUserSpec] = DEMO_USERS,
+) -> None:
+    """Validate stable identities and references before any database write."""
+
+    department_keys: set[str] = set()
+    for department in departments:
+        if not _STABLE_KEY_PATTERN.fullmatch(department.key):
+            raise ValueError(f"Invalid demo department key: {department.key}")
+        if department.key in department_keys:
+            raise ValueError(f"Duplicate demo department key: {department.key}")
+        if (
+            department.name != " ".join(department.name.strip().split())
+            or not 2 <= len(department.name) <= 80
+        ):
+            raise ValueError(f"Invalid demo department name: {department.name!r}")
+        department_keys.add(department.key)
+
+    emails: set[str] = set()
+    for user in users:
+        normalized_email = user.email.strip().casefold()
+        if normalized_email != user.email or "@" not in user.email:
+            raise ValueError(f"Invalid demo user email: {user.email!r}")
+        if user.email in emails:
+            raise ValueError(f"Duplicate demo user email: {user.email}")
+        if user.department_key not in department_keys:
+            raise ValueError(f"Unknown demo user department: {user.department_key}")
+        if (
+            user.display_name != " ".join(user.display_name.strip().split())
+            or not 2 <= len(user.display_name) <= 120
+        ):
+            raise ValueError(f"Invalid demo user display name: {user.email}")
+        emails.add(user.email)
 
 
 def _password_matches(password: str, password_hash: str) -> bool:
@@ -161,6 +200,7 @@ async def ensure_demo_accounts(
 ) -> DemoIdentitySeedResult:
     """Converge the two departments and six accounts without duplicating records."""
 
+    validate_demo_identity_specs()
     validate_password(password)
     counts: dict[SeedAction, int] = {"created": 0, "updated": 0, "unchanged": 0}
     departments: dict[str, Department] = {}

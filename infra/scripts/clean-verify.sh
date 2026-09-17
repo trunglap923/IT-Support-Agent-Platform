@@ -47,7 +47,7 @@ trap cleanup EXIT INT TERM
 "${compose[@]}" build api frontend
 "${compose[@]}" up --detach --wait postgres redis
 "${ops_compose[@]}" run --rm migrate
-"${compose[@]}" run --rm --no-deps api python -m app.auth.seed_demo_user
+"${compose[@]}" run --rm --no-deps api python -m app.demo_seed_command
 "${compose[@]}" up --detach --wait
 
 running_count="$("${compose[@]}" ps --services --filter status=running | wc -l)"
