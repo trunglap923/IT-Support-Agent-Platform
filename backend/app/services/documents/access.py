@@ -5,14 +5,97 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agent.context.builder import ContextMessage
 from app.auth.principal import Principal
-from app.db.models import Document, DocumentVersion, Message
-from app.rag.retrieval.filters import readable_current_document
+from app.db.models import Document, DocumentVersion, DocumentVersionStatus, Message
+from app.rag.retrieval.filters import readable_current_document, readable_document_scope
 
 REVOKED_SOURCE_MESSAGE = "Nguồn tham khảo của câu trả lời này không còn khả dụng."
+HISTORICAL_SOURCE_LABEL = "[Nguồn lịch sử; cần kiểm tra hướng dẫn hiện hành]"
+
+
+async def authorized_history_context(
+    session: AsyncSession,
+    *,
+    principal: Principal,
+    messages: list[Message],
+    now: datetime | None = None,
+) -> list[ContextMessage]:
+    """Return conversation text only while every cited source remains in scope."""
+
+    source_pairs: set[tuple[UUID, UUID]] = set()
+    for message in messages:
+        for citation in message.citations:
+            try:
+                source_pairs.add(
+                    (UUID(str(citation["document_id"])), UUID(str(citation["version_id"])))
+                )
+            except (KeyError, TypeError, ValueError):
+                continue
+    source_state: dict[tuple[UUID, UUID], str] = {}
+    if source_pairs:
+        current_time = now or datetime.now(UTC)
+        rows = (
+            await session.execute(
+                select(
+                    Document.id,
+                    DocumentVersion.id,
+                    Document.current_version_id,
+                    DocumentVersion.status,
+                )
+                .join(DocumentVersion, DocumentVersion.document_id == Document.id)
+                .where(
+                    readable_document_scope(principal),
+                    DocumentVersion.effective_at <= current_time,
+                    or_(
+                        DocumentVersion.expires_at.is_(None),
+                        DocumentVersion.expires_at > current_time,
+                    ),
+                    DocumentVersion.status.in_(
+                        [
+                            DocumentVersionStatus.PUBLISHED,
+                            DocumentVersionStatus.SUPERSEDED,
+                        ]
+                    ),
+                )
+            )
+        ).all()
+        for document_id, version_id, current_version_id, version_status in rows:
+            source_state[(document_id, version_id)] = (
+                "current"
+                if version_id == current_version_id
+                and version_status is DocumentVersionStatus.PUBLISHED
+                else "historical"
+            )
+
+    context: list[ContextMessage] = []
+    for message in messages:
+        content = message.content.strip()
+        if not content:
+            continue
+        if message.citations:
+            pairs: list[tuple[UUID, UUID]] = []
+            malformed = False
+            for citation in message.citations:
+                try:
+                    pairs.append(
+                        (UUID(str(citation["document_id"])), UUID(str(citation["version_id"])))
+                    )
+                except (KeyError, TypeError, ValueError):
+                    malformed = True
+                    break
+            if malformed or not pairs or any(pair not in source_state for pair in pairs):
+                continue
+            if any(source_state[pair] == "historical" for pair in pairs):
+                content = f"{HISTORICAL_SOURCE_LABEL} {content}"
+        if message.role == "user":
+            context.append(ContextMessage(role="user", content=content))
+        elif message.role == "assistant":
+            context.append(ContextMessage(role="assistant", content=content))
+    return context
 
 
 async def redact_revoked_message_citations(
