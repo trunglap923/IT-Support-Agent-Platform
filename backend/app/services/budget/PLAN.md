@@ -39,6 +39,6 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Điều kiện hoàn thành
 
-- [ ] Concurrent requests tính cả in-flight reservations nên không vượt admission quota.
-- [ ] Không thực hiện provider call khi budget thiếu.
-- [ ] Timeout và job retry không ghi cost=0 hoặc làm mất attempt đã tính.
+- [x] Concurrent requests serialize admission và tính cả in-flight reservations; PostgreSQL race test chỉ cho một request qua quota.
+- [x] Provider call không chạy khi budget admission bị từ chối.
+- [x] Timeout được giữ ở trạng thái unknown với reserved cost, không bị ghi thành cost=0.
