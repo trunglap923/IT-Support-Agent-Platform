@@ -11,7 +11,8 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import AgentRun, ApprovalRequest, ApprovalStatus
+from app.db.models import AgentRun, ApprovalRequest, ApprovalStatus, RunStatus, UserDevice
+from app.services.conversations.run_state import RunStateService
 from app.tools.schemas import CreateTicketArguments
 
 
@@ -27,12 +28,76 @@ class ApprovalExpiredError(RuntimeError):
     pass
 
 
+class ApprovalArgumentsRejectedError(ValueError):
+    pass
+
+
 def canonical_argument_hash(arguments: dict[str, object]) -> tuple[dict[str, object], str]:
     serialized = json.dumps(arguments, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     return json.loads(serialized), hashlib.sha256(serialized.encode()).hexdigest()
 
 
 class ApprovalService:
+    async def _expire(
+        self,
+        session: AsyncSession,
+        *,
+        approval: ApprovalRequest,
+        now: datetime,
+    ) -> bool:
+        if approval.status != ApprovalStatus.PENDING.value:
+            return False
+        approval.status = ApprovalStatus.EXPIRED.value
+        approval.version += 1
+        run_status = await session.scalar(
+            select(AgentRun.status).where(
+                AgentRun.id == approval.run_id,
+                AgentRun.actor_id == approval.owner_id,
+            )
+        )
+        if run_status == RunStatus.WAITING_APPROVAL:
+            await RunStateService().transition(
+                session,
+                run_id=approval.run_id,
+                actor_id=approval.owner_id,
+                target=RunStatus.CANCELLED,
+                operation_id=f"approval-expired:{approval.id}",
+                outcome="approval_expired",
+                safe_payload={"approval_id": str(approval.id)},
+                now=now,
+            )
+        await session.flush()
+        return True
+
+    async def expire_due(
+        self,
+        session: AsyncSession,
+        *,
+        now: datetime | None = None,
+        limit: int = 100,
+    ) -> int:
+        """Expire a bounded batch and release waiting runs in the same transaction."""
+
+        current = now or datetime.now(UTC)
+        approvals = list(
+            (
+                await session.scalars(
+                    select(ApprovalRequest)
+                    .where(
+                        ApprovalRequest.status == ApprovalStatus.PENDING.value,
+                        ApprovalRequest.expires_at <= current,
+                    )
+                    .order_by(ApprovalRequest.expires_at, ApprovalRequest.id)
+                    .limit(limit)
+                    .with_for_update(skip_locked=True)
+                )
+            ).all()
+        )
+        expired = 0
+        for approval in approvals:
+            expired += int(await self._expire(session, approval=approval, now=current))
+        return expired
+
     async def list_owned(
         self,
         session: AsyncSession,
@@ -62,6 +127,16 @@ class ApprovalService:
         )
         if run_exists is None:
             raise ApprovalNotFoundError("Run was not found")
+        if arguments.device_id is not None:
+            device_exists = await session.scalar(
+                select(UserDevice.id).where(
+                    UserDevice.id == arguments.device_id,
+                    UserDevice.owner_id == owner_id,
+                    UserDevice.active.is_(True),
+                )
+            )
+            if device_exists is None:
+                raise ApprovalArgumentsRejectedError("Device is unavailable for the approval owner")
         canonical, digest = canonical_argument_hash(arguments.model_dump(mode="json"))
         existing = await session.scalar(
             select(ApprovalRequest).where(ApprovalRequest.action_id == action_id)
@@ -124,9 +199,7 @@ class ApprovalService:
             raise ApprovalNotFoundError("Approval was not found")
         current = now or datetime.now(UTC)
         if approval.status == ApprovalStatus.PENDING.value and approval.expires_at <= current:
-            approval.status = ApprovalStatus.EXPIRED.value
-            approval.version += 1
-            await session.flush()
+            await self._expire(session, approval=approval, now=current)
             raise ApprovalExpiredError("Approval has expired")
         if approval.status != ApprovalStatus.PENDING.value:
             raise ApprovalConflictError("Approval has already been decided")

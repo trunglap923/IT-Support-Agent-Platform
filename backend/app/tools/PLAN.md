@@ -43,5 +43,5 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 - [x] Model không truyền được user_id/role/SQL/token/approval flag.
 - [x] Arguments thừa và trusted-context fields bị chặn trước side effect.
-- [ ] Wrong-owner device được kiểm tra khi device schema có ở WP-12.
+- [x] Wrong-owner device bị chặn ở approval, ticket execution và database constraint.
 - [x] Tool receipt có nguồn từ service; text của model không đổi trạng thái ticket.

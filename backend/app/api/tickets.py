@@ -27,7 +27,7 @@ from app.db.models import (
 )
 from app.dependencies import CurrentPrincipal, get_database, get_db_session
 from app.repositories.runs import RunRepository
-from app.services.approvals import ApprovalService
+from app.services.approvals import ApprovalArgumentsRejectedError, ApprovalService
 from app.services.tickets import (
     TicketOperationConflictError,
     TicketOperationNotFoundError,
@@ -177,13 +177,20 @@ async def create_ticket_draft(
     )
     session.add(run)
     await session.flush()
-    approval = await ApprovalService().create_ticket_draft(
-        session,
-        owner_id=principal.user_id,
-        run_id=run.id,
-        action_id=f"ticket:{run.id}",
-        arguments=arguments,
-    )
+    try:
+        approval = await ApprovalService().create_ticket_draft(
+            session,
+            owner_id=principal.user_id,
+            run_id=run.id,
+            action_id=f"ticket:{run.id}",
+            arguments=arguments,
+        )
+    except ApprovalArgumentsRejectedError as error:
+        await session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(error),
+        ) from error
     await session.commit()
 
     database = get_database(request)

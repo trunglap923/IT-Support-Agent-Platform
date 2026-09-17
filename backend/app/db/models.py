@@ -757,6 +757,12 @@ class Ticket(Base):
             "status != 'resolved' OR resolution_note IS NOT NULL",
             name="resolved_ticket_has_note",
         ),
+        ForeignKeyConstraint(
+            ["device_id", "owner_id"],
+            ["user_devices.id", "user_devices.owner_id"],
+            name="fk_tickets_device_owner",
+            ondelete="RESTRICT",
+        ),
         Index("ix_tickets_owner_status_created", "owner_id", "status", "created_at"),
         Index("ix_tickets_department_status_updated", "department_id", "status", "updated_at"),
     )
@@ -765,7 +771,7 @@ class Ticket(Base):
     display_key: Mapped[str] = mapped_column(String(30), unique=True)
     owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"))
     department_id: Mapped[UUID] = mapped_column(ForeignKey("departments.id", ondelete="RESTRICT"))
-    device_id: Mapped[UUID | None] = mapped_column()
+    device_id: Mapped[UUID | None] = mapped_column(index=True)
     conversation_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("conversations.id", ondelete="SET NULL")
     )

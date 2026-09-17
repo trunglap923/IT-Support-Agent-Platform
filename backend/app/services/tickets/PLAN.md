@@ -33,7 +33,7 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 - [x] TKT-01: Implement own-ticket read và IT scoped list.
 - [x] TKT-02a: Validate title/description/severity/issue_type.
-- [ ] TKT-02b: Validate device owner sau khi device schema được triển khai ở WP-12.
+- [x] TKT-02b: Validate device owner khi tạo approval, khi thực thi write và bằng composite FK.
 - [x] TKT-03: Create-from-approved-action recheck owner/hash/expiry và execution ownership.
 - [x] TKT-04: Return existing receipt trước retry write; không báo thành công khi outcome unknown.
 - [x] TKT-05: Implement IT status updates bằng expected version và ticket_events.

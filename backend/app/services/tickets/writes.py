@@ -17,6 +17,7 @@ from app.db.models import (
     Ticket,
     TicketEvent,
     User,
+    UserDevice,
 )
 from app.services.approvals.service import canonical_argument_hash
 from app.tools.schemas import CreateTicketArguments
@@ -94,6 +95,16 @@ class TicketWriteService:
         if row is None:
             raise TicketWriteRejectedError("Approval owner or run is no longer valid")
         run, owner = row
+        if arguments.device_id is not None:
+            device_exists = await session.scalar(
+                select(UserDevice.id).where(
+                    UserDevice.id == arguments.device_id,
+                    UserDevice.owner_id == owner.id,
+                    UserDevice.active.is_(True),
+                )
+            )
+            if device_exists is None:
+                raise TicketWriteRejectedError("Ticket device is unavailable for its owner")
         ticket = Ticket(
             display_key=f"IT-{approval.id.hex[:10].upper()}",
             owner_id=owner.id,

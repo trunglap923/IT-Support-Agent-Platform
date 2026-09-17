@@ -4,10 +4,13 @@ import asyncio
 from uuid import UUID
 
 from fastapi.testclient import TestClient
+from sqlalchemy import func, select
 
-from app.auth.demo_identity import ensure_demo_identity
+from app.auth.demo_identity import ensure_demo_accounts, ensure_demo_identity
 from app.config import Settings
 from app.db import Database
+from app.db.models import AgentRun, ApprovalRequest, Conversation, User, UserDevice
+from app.demo_seed import ensure_demo_devices_and_service_states
 from app.main import create_app
 from app.services.approvals import execute_approval_resume_run
 
@@ -103,3 +106,67 @@ def test_manual_ticket_draft_approval_and_personal_list(
         assert [(item["title"], item["status"]) for item in tickets.json()] == [
             ("VPN access is unavailable", "open")
         ]
+
+
+def test_manual_ticket_draft_rejects_device_owned_by_another_user(
+    migrated_database_url: str,
+) -> None:
+    async def seed() -> UUID:
+        database = Database(migrated_database_url)
+        try:
+            async with database.session() as session, session.begin():
+                await ensure_demo_accounts(session, password=PASSWORD)
+                await ensure_demo_devices_and_service_states(session)
+                other_owner_id = await session.scalar(
+                    select(User.id).where(User.email == "employee.operations@example.com")
+                )
+                assert other_owner_id is not None
+                device_id = await session.scalar(
+                    select(UserDevice.id).where(UserDevice.owner_id == other_owner_id)
+                )
+                assert device_id is not None
+                return device_id
+        finally:
+            await database.close()
+
+    wrong_owner_device_id = asyncio.run(seed())
+    settings = Settings(
+        database_url=migrated_database_url,
+        auth_login_rate_limit_enabled=False,
+        cookie_secure=False,
+        allowed_web_origin=ORIGIN,
+    )
+    with TestClient(create_app(settings=settings), base_url=ORIGIN) as client:
+        login = client.post(
+            "/api/v1/auth/login",
+            json={"email": "employee.engineering@example.com", "password": PASSWORD},
+            headers={"Origin": ORIGIN},
+        )
+        response = client.post(
+            "/api/v1/tickets/drafts",
+            json={
+                "title": "Wrong device must be rejected",
+                "description": "This device belongs to another demo user.",
+                "issue_type": "other",
+                "severity": "normal",
+                "device_id": str(wrong_owner_device_id),
+                "client_request_id": "wrong-owner-device-0001",
+            },
+            headers={
+                "Origin": ORIGIN,
+                "X-CSRF-Token": login.json()["csrf_token"],
+            },
+        )
+        assert response.status_code == 422
+        assert response.json()["detail"] == "Device is unavailable for the approval owner"
+
+    async def assert_no_partial_draft() -> None:
+        database = Database(migrated_database_url)
+        try:
+            async with database.session() as session:
+                for model in (Conversation, AgentRun, ApprovalRequest):
+                    assert await session.scalar(select(func.count()).select_from(model)) == 0
+        finally:
+            await database.close()
+
+    asyncio.run(assert_no_partial_draft())

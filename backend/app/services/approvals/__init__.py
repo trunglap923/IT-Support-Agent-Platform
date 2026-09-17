@@ -3,6 +3,7 @@
 from typing import TYPE_CHECKING, Any
 
 from app.services.approvals.service import (
+    ApprovalArgumentsRejectedError,
     ApprovalConflictError,
     ApprovalExpiredError,
     ApprovalNotFoundError,
@@ -23,6 +24,7 @@ def __getattr__(name: str) -> Any:
 
 
 __all__ = [
+    "ApprovalArgumentsRejectedError",
     "ApprovalConflictError",
     "ApprovalExpiredError",
     "ApprovalNotFoundError",

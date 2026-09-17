@@ -18,7 +18,8 @@ env:
   PYTHON_VERSION: "3.12"
   NODE_VERSION_FILE: frontend/.nvmrc
   APP_ENV: test
-  AI_PROVIDER: fake
+  TEXT_PROVIDER: fake
+  EMBEDDING_PROVIDER: fake
 
 jobs:
   secret-scan:
@@ -143,7 +144,7 @@ jobs:
         run: uv run --frozen alembic upgrade head
       - name: Assert one current Alembic revision
         working-directory: backend
-        run: test "$(uv run --frozen alembic current | tail -n 1)" = "0016_message_feedback (head)"
+        run: test "$(uv run --frozen alembic current | tail -n 1)" = "0017_ticket_device_owner (head)"
 
   integration:
     name: Services · PostgreSQL and Redis integration
