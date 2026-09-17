@@ -1,4 +1,4 @@
-"""Seed validated demo identities, devices and service states."""
+"""Seed validated demo identities, assets and ticket scenarios."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from app.demo_seed import (
     DEMO_SERVICE_STATES,
     ensure_demo_devices_and_service_states,
 )
+from app.demo_ticket_seed import DEMO_TICKETS, ensure_demo_tickets
 
 
 async def async_main() -> None:
@@ -29,6 +30,7 @@ async def async_main() -> None:
                 password=settings.demo_seed_password.get_secret_value(),
             )
             asset_result = await ensure_demo_devices_and_service_states(session)
+            ticket_result = await ensure_demo_tickets(session)
         print(
             "Demo identities ready: "
             f"created={identity_result.created}, updated={identity_result.updated}, "
@@ -48,6 +50,14 @@ async def async_main() -> None:
                 f"- service {service_spec.service_id} "
                 f"({service_spec.status}, {service_spec.fault_mode})"
             )
+        print(
+            "Demo ticket scenarios ready: "
+            f"created={ticket_result.created}, updated={ticket_result.updated}, "
+            f"unchanged={ticket_result.unchanged}"
+        )
+        for status in ("open", "in_progress", "resolved"):
+            count = sum(ticket.status == status for ticket in DEMO_TICKETS)
+            print(f"- {status}: {count}")
     finally:
         await database.close()
 

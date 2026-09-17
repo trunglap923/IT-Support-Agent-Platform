@@ -16,7 +16,7 @@ URL riêng hay dữ liệu cá nhân thật.
 | Device | 3–5 | Một employee có cả Ubuntu và Windows để kiểm tra scope theo thiết bị |
 | Document | khoảng 20 | `company`, `department`, `it_only`; vi/en; version cũ/mới; ít nhất 3 PDF text |
 | Service state | đúng 3 | `vpn`, `registry` (Docker Registry), `gitlab` |
-| Ticket | khoảng 20 | `open`, `in_progress`, `resolved`; nhiều owner/department/severity |
+| Ticket | 18 | `open`, `in_progress`, `resolved`; nhiều owner/department/severity |
 | Conversation | 6–10 | answered, no-answer, approval/ticket và nguồn bị cấm theo ACL |
 
 ## Quy ước định danh và tham chiếu

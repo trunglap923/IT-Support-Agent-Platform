@@ -343,10 +343,10 @@
           "maxLength": 4000
         },
         "issue_type": {
-          "enum": ["vpn", "docker_registry", "gitlab", "device", "other"]
+          "enum": ["vpn", "docker", "gitlab", "other"]
         },
         "severity": {
-          "enum": ["low", "medium", "high", "critical"]
+          "enum": ["low", "normal", "high"]
         },
         "status": {
           "enum": ["open", "in_progress", "resolved"]
