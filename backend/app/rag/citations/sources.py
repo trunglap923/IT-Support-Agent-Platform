@@ -16,6 +16,7 @@ class InvalidCitationError(ValueError):
 @dataclass(frozen=True, slots=True)
 class Source:
     source_id: str
+    source_url: str
     document_id: UUID
     version_id: UUID
     chunk_id: UUID
@@ -39,6 +40,10 @@ def source_id_for_chunk(chunk_id: UUID) -> str:
     return f"src_{chunk_id.hex}"
 
 
+def source_url_for_chunk(chunk_id: UUID) -> str:
+    return f"/api/v1/sources/{source_id_for_chunk(chunk_id)}/download"
+
+
 def _excerpt(content: str, *, limit: int = 500) -> str:
     compact = " ".join(content.split())
     if len(compact) <= limit:
@@ -50,9 +55,22 @@ def build_evidence_output(
     hits: list[RetrievalHit],
     *,
     requested_source_ids: list[str] | None = None,
-    minimum_score: float = 0.02,
+    minimum_lexical_coverage: float = 0.5,
+    minimum_vector_similarity: float = 0.75,
 ) -> EvidenceOutput:
-    supported = [hit for hit in hits if hit.score >= minimum_score]
+    supported = [
+        hit
+        for hit in hits
+        if (
+            hit.lexical_coverage >= minimum_lexical_coverage
+            or (hit.vector_similarity or 0.0) >= minimum_vector_similarity
+            or (
+                hit.vector_similarity is None
+                and hit.lexical_coverage == 0.0
+                and hit.score >= minimum_lexical_coverage
+            )
+        )
+    ]
     if not supported:
         return EvidenceOutput(
             outcome="no_answer",
@@ -64,6 +82,7 @@ def build_evidence_output(
     sources_by_id = {
         source_id_for_chunk(hit.chunk_id): Source(
             source_id=source_id_for_chunk(hit.chunk_id),
+            source_url=source_url_for_chunk(hit.chunk_id),
             document_id=hit.document_id,
             version_id=hit.version_id,
             chunk_id=hit.chunk_id,

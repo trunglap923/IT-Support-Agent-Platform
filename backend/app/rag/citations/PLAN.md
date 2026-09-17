@@ -35,10 +35,10 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [ ] CITE-03: Repair tối đa một lần trong run budget; nếu vẫn sai thì abstain/hỏi thêm.
 - [x] CITE-04a: Recheck document/version từ persisted citation IDs khi đọc history và redact cả answer nếu mất quyền.
 - [ ] CITE-04b: Chuẩn hóa citation relation riêng nếu cần audit/query vượt JSONB.
-- [ ] CITE-05: Cấp download/excerpt qua authenticated API, archive/retired source có trạng thái rõ.
+- [x] CITE-05: Cấp excerpt/download qua authenticated API; recheck current version/ACL và trả 404 sau revoke.
 
 ## Điều kiện hoàn thành
 
-- [ ] Citation không tồn tại/sai version/sai quyền bị chặn.
+- [x] Citation không tồn tại/sai current version/sai quyền bị chặn bằng cùng ACL predicate với retrieval.
 - [x] Rút ACL/revoke sau retrieval không làm lộ source hoặc nội dung answer trong lịch sử đọc lại.
-- [ ] Markdown page=null; PDF page number bắt đầu từ 1; link source do server cấp.
+- [x] PDF page bắt đầu từ 1; citation mang server-owned authenticated source URL (Markdown giữ section/page metadata của parser).

@@ -15,6 +15,7 @@ from app.db import Database
 from app.db.models import Conversation, Message, User, UserRole
 from app.main import create_app
 from app.providers.embeddings import FakeEmbeddingProvider
+from app.rag.citations.sources import source_id_for_chunk
 from app.rag.retrieval.query import HybridRetriever
 from tests.unit.pdf_factory import build_text_pdf
 
@@ -48,7 +49,8 @@ def test_publish_acl_revoke_apply_to_retrieval_and_history(
     employee_id, _ = asyncio.run(seed())
     settings = Settings(
         database_url=migrated_database_url,
-        ai_provider=AIProvider.FAKE,
+        text_provider=AIProvider.FAKE,
+        embedding_provider=AIProvider.FAKE,
         auth_login_rate_limit_enabled=False,
         cookie_secure=False,
         allowed_web_origin=ORIGIN,
@@ -101,7 +103,7 @@ def test_publish_acl_revoke_apply_to_retrieval_and_history(
         assert published.json()["current_version_id"] == version_id
         assert published.json()["version"] == 2
 
-    async def retrieve_and_seed_history() -> tuple[int, UUID]:
+    async def retrieve_and_seed_history() -> tuple[int, UUID, str]:
         database = Database(migrated_database_url)
         try:
             async with database.session() as session, session.begin():
@@ -135,7 +137,11 @@ def test_publish_acl_revoke_apply_to_retrieval_and_history(
                         outcome="answered",
                         citations=[
                             {
-                                "source_id": f"source-{hits[0].chunk_id}",
+                                "source_id": source_id_for_chunk(hits[0].chunk_id),
+                                "source_url": (
+                                    f"/api/v1/sources/{source_id_for_chunk(hits[0].chunk_id)}"
+                                    "/download"
+                                ),
                                 "document_id": str(hits[0].document_id),
                                 "version_id": str(hits[0].version_id),
                                 "chunk_id": str(hits[0].chunk_id),
@@ -145,11 +151,11 @@ def test_publish_acl_revoke_apply_to_retrieval_and_history(
                         ],
                     )
                 )
-                return len(hits), conversation.id
+                return len(hits), conversation.id, source_id_for_chunk(hits[0].chunk_id)
         finally:
             await database.close()
 
-    hit_count, conversation_id = asyncio.run(retrieve_and_seed_history())
+    hit_count, conversation_id, source_id = asyncio.run(retrieve_and_seed_history())
     assert hit_count > 0
 
     with TestClient(create_app(settings=settings), base_url=ORIGIN) as employee_client:
@@ -162,6 +168,13 @@ def test_publish_acl_revoke_apply_to_retrieval_and_history(
         visible = employee_client.get(f"/api/v1/conversations/{conversation_id}/messages")
         assert visible.json()[0]["content"] == "Use the managed VPN client and company SSO."
         assert len(visible.json()[0]["citations"]) == 1
+        source = employee_client.get(f"/api/v1/sources/{source_id}")
+        assert source.status_code == 200
+        assert source.json()["page_number"] == 1
+        downloaded = employee_client.get(f"/api/v1/sources/{source_id}/download")
+        assert downloaded.status_code == 200
+        assert downloaded.headers["cache-control"] == "private, no-store"
+        assert downloaded.content.startswith(b"%PDF")
 
     with TestClient(create_app(settings=settings), base_url=ORIGIN) as admin_client:
         login = admin_client.post(
@@ -237,3 +250,5 @@ def test_publish_acl_revoke_apply_to_retrieval_and_history(
         assert hidden.json()[0]["outcome"] == "source_revoked"
         assert hidden.json()[0]["citations"] == []
         assert "managed VPN" not in hidden.json()[0]["content"]
+        assert employee_client.get(f"/api/v1/sources/{source_id}").status_code == 404
+        assert employee_client.get(f"/api/v1/sources/{source_id}/download").status_code == 404
