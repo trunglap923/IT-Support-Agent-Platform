@@ -15,6 +15,7 @@ from app.providers.structured import (
     SupportReply,
     validate_reply_sources,
 )
+
 from evals.runner.load_cases import EvaluationCase
 from evals.runner.scorers import ExecutionOutput, score_case
 
@@ -30,9 +31,13 @@ class CaseRun:
 
 
 def _scripted_output(case: EvaluationCase) -> ExecutionOutput:
-    sources = tuple(f"eval-source-{index}" for index, _ in enumerate(case.relevant_evidence, 1))
+    sources = tuple(
+        f"eval-source-{index}" for index, _ in enumerate(case.relevant_evidence, 1)
+    )
     actual_outcome = (
-        "no_answer" if case.expected_outcome in {"abstain", "clarify"} else case.expected_outcome
+        "no_answer"
+        if case.expected_outcome in {"abstain", "clarify"}
+        else case.expected_outcome
     )
     return ExecutionOutput(
         outcome=actual_outcome,
@@ -67,6 +72,7 @@ async def _graph_rag_output(
     state_evidence: list[EvidenceState] = [
         {
             "source_id": item.source_id,
+            "source_url": f"/api/v1/sources/{item.source_id}/download",
             "document_id": source["document_key"],
             "version_id": source["version_label"],
             "chunk_id": item.source_id,
@@ -86,6 +92,18 @@ async def _graph_rag_output(
 
     async def rewrite_query(state: SupportAgentState) -> dict[str, Any]:
         return {"normalized_query": state["query"].strip()}
+
+    async def decide_action(state: SupportAgentState) -> dict[str, Any]:
+        del state
+        return {"action_route": "rag"}
+
+    async def execute_tool(state: SupportAgentState) -> dict[str, Any]:
+        del state
+        raise RuntimeError("Evaluation RAG cases do not execute business tools")
+
+    async def respond_tool(state: SupportAgentState) -> dict[str, Any]:
+        del state
+        raise RuntimeError("Evaluation RAG cases do not execute business tools")
 
     async def retrieve(state: SupportAgentState) -> dict[str, Any]:
         return {"evidence": state_evidence}
@@ -131,6 +149,9 @@ async def _graph_rag_output(
     graph = build_support_graph(
         SupportGraphNodes(
             load_context=load_context,
+            decide_action=decide_action,
+            execute_tool=execute_tool,
+            respond_tool=respond_tool,
             rewrite_query=rewrite_query,
             retrieve=retrieve,
             decide_evidence=decide_evidence,

@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 ROOT = Path(__file__).resolve().parent
+DOCUMENT_SNAPSHOT = "m2-corpus-v1"
 VARIANTS = (
     "Trả lời ngắn gọn và nêu rõ kết quả.",
     "Hãy xử lý sau khi kiểm tra đúng phạm vi dữ liệu.",
@@ -40,7 +41,10 @@ EVIDENCE_VPN = (
         "document_key": "vpn-setup",
         "version_label": "v2",
         "section": "Ubuntu",
-        "span": "Cài managed client và đăng nhập qua SSO.",
+        "span": (
+            "Cài client, nhập URL công ty demo và đăng nhập SSO. Dùng gói client được quản lý "
+            "từ cổng phần mềm; không tắt kiểm tra chứng chỉ."
+        ),
     },
 )
 EVIDENCE_TOKEN = (
@@ -373,8 +377,10 @@ def build_case(group: Group, variant: int, case_number: int) -> dict[str, Any]:
             "department_key": department,
         },
         "initial_state": {**group.state, "variant": variant},
-        "document_snapshot": "demo-corpus-v1",
-        "messages": [{"role": "user", "content": f"{group.prompt} {VARIANTS[variant - 1]}"}],
+        "document_snapshot": DOCUMENT_SNAPSHOT,
+        "messages": [
+            {"role": "user", "content": f"{group.prompt} {VARIANTS[variant - 1]}"}
+        ],
         "expected_outcome": group.outcome,
         "allowed_tool_sequences": [list(group.tools)],
         "forbidden_actions": list(group.forbidden),
@@ -398,7 +404,8 @@ def write_dataset() -> None:
         selected = [case for case in cases if case["split"] == split]
         target.write_text(
             "".join(
-                json.dumps(case, ensure_ascii=False, sort_keys=True) + "\n" for case in selected
+                json.dumps(case, ensure_ascii=False, sort_keys=True) + "\n"
+                for case in selected
             ),
             encoding="utf-8",
         )

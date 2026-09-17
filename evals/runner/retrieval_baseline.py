@@ -14,9 +14,6 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import create_engine, text
-from sqlalchemy.engine import make_url
-
 from app.auth.principal import Principal
 from app.db import Database
 from app.db.models import (
@@ -29,9 +26,17 @@ from app.db.models import (
     UserRole,
 )
 from app.providers.embeddings import FakeEmbeddingProvider
-from app.rag.chunking.splitter import ChunkingConfig, SourceBlock, chunk_blocks
+from app.rag.chunking.splitter import (
+    CHUNKER_VERSION,
+    ChunkingConfig,
+    SourceBlock,
+    chunk_blocks,
+)
 from app.rag.citations.sources import build_evidence_output
+from app.rag.ingestion.markdown_parser import MarkdownParser
 from app.rag.retrieval.query import HybridRetriever
+from sqlalchemy import create_engine, text
+from sqlalchemy.engine import make_url
 
 ROOT = Path(__file__).resolve().parents[2]
 BACKEND_ROOT = ROOT / "backend"
@@ -63,20 +68,11 @@ def load_cases() -> list[RetrievalCase]:
 
 
 def markdown_blocks(path: Path) -> list[SourceBlock]:
-    blocks: list[SourceBlock] = []
-    section: str | None = None
-    content: list[str] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if line.startswith("#"):
-            if content and any(item.strip() for item in content):
-                blocks.append(SourceBlock("\n".join(content), None, section, path.name))
-            section = line.lstrip("#").strip()
-            content = []
-        else:
-            content.append(line)
-    if content and any(item.strip() for item in content):
-        blocks.append(SourceBlock("\n".join(content), None, section, path.name))
-    return blocks
+    extracted = MarkdownParser().parse(path)
+    return [
+        SourceBlock(section.text, None, section.title, path.name)
+        for section in extracted.sections
+    ]
 
 
 async def seed_corpus(database: Database) -> dict[str, Department]:
@@ -84,7 +80,8 @@ async def seed_corpus(database: Database) -> dict[str, Department]:
     provider = FakeEmbeddingProvider(dimensions=1536)
     async with database.session() as session, session.begin():
         departments = {
-            key: Department(key=key, name=key.title()) for key in ("engineering", "operations")
+            key: Department(key=key, name=key.title())
+            for key in ("engineering", "operations")
         }
         session.add_all(departments.values())
         await session.flush()
@@ -97,11 +94,15 @@ async def seed_corpus(database: Database) -> dict[str, Department]:
                 (
                     item
                     for item in items
-                    if datetime.fromisoformat(item["effective_at"].replace("Z", "+00:00"))
+                    if datetime.fromisoformat(
+                        item["effective_at"].replace("Z", "+00:00")
+                    )
                     <= EVALUATION_TIME
                     and (
                         item["expires_at"] is None
-                        or datetime.fromisoformat(item["expires_at"].replace("Z", "+00:00"))
+                        or datetime.fromisoformat(
+                            item["expires_at"].replace("Z", "+00:00")
+                        )
                         > EVALUATION_TIME
                     )
                 ),
@@ -137,12 +138,14 @@ async def seed_corpus(database: Database) -> dict[str, Department]:
                         item["effective_at"].replace("Z", "+00:00")
                     ),
                     expires_at=(
-                        datetime.fromisoformat(item["expires_at"].replace("Z", "+00:00"))
+                        datetime.fromisoformat(
+                            item["expires_at"].replace("Z", "+00:00")
+                        )
                         if item["expires_at"]
                         else None
                     ),
                     parser_version="markdown-v1",
-                    chunker_version="word-window-v1",
+                    chunker_version=CHUNKER_VERSION,
                     embedding_model="fake-embedding-v2",
                     embedding_dimensions=1536,
                 )
@@ -221,19 +224,25 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                 rank: int | None = None
                 if case.expected_document_key:
                     answerable_count += 1
-                    expected = f"{case.expected_document_key}:{case.expected_version_label}"
+                    expected = (
+                        f"{case.expected_document_key}:{case.expected_version_label}"
+                    )
                     if expected in ranked:
                         rank = ranked.index(expected) + 1
                         recall_hits += 1
                         reciprocal_rank_sum += 1 / rank
                 forbidden_returned = sorted(
-                    {hit.document_key for hit in hits} & set(case.forbidden_document_keys)
+                    {hit.document_key for hit in hits}
+                    & set(case.forbidden_document_keys)
                 )
                 if case.forbidden_document_keys:
                     scope_count += 1
                     scope_leaks += bool(forbidden_returned)
                 evidence = build_evidence_output(hits)
-                if case.expected_outcome == "no_answer" and not case.forbidden_document_keys:
+                if (
+                    case.expected_outcome == "no_answer"
+                    and not case.forbidden_document_keys
+                ):
                     no_answer_count += 1
                     no_answer_correct += evidence.outcome == "no_answer"
                 results.append(
@@ -256,13 +265,18 @@ async def evaluate(database_url: str) -> dict[str, Any]:
             "report_version": "retrieval-baseline-v1",
             "evaluated_at": EVALUATION_TIME.isoformat(),
             "corpus_snapshot": "m2-corpus-v1",
-            "corpus_manifest_sha256": hashlib.sha256(MANIFEST_PATH.read_bytes()).hexdigest(),
+            "corpus_manifest_sha256": hashlib.sha256(
+                MANIFEST_PATH.read_bytes()
+            ).hexdigest(),
             "configuration": {
                 "embedding": "fake-embedding-v2/1536",
+                "parser": "markdown-v1",
+                "chunker": CHUNKER_VERSION,
                 "vector": "exact cosine top20",
-                "lexical": "PostgreSQL simple FTS top20",
-                "fusion": "RRF(k=60) top5",
-                "evidence_minimum_score": 0.02,
+                "lexical": "PostgreSQL simple FTS OR meaningful terms top20",
+                "fusion": "max lexical coverage/cosine confidence; RRF(k=60) tie-break",
+                "minimum_lexical_coverage": 0.5,
+                "minimum_vector_similarity": 0.75,
             },
             "metrics": {
                 "recall_at_5": {
@@ -304,7 +318,9 @@ def write_report(report: dict[str, Any]) -> None:
     )
     metrics = report["metrics"]
     failed = [
-        case for case in report["cases"] if case["rank"] is None and case["expected_document"]
+        case
+        for case in report["cases"]
+        if case["rank"] is None and case["expected_document"]
     ]
     false_answers = [
         case
@@ -317,9 +333,7 @@ def write_report(report: dict[str, Any]) -> None:
     mrr = metrics["mrr_at_5"]
     no_answer = metrics["no_answer_accuracy"]
     leakage = metrics["scope_leakage"]
-    recall_row = (
-        f"| Recall@5 | {recall['numerator']} | {recall['denominator']} | {recall['value']:.3f} |"
-    )
+    recall_row = f"| Recall@5 | {recall['numerator']} | {recall['denominator']} | {recall['value']:.3f} |"
     mrr_row = (
         f"| MRR@5 (sum RR / answerable) | {mrr['numerator_reciprocal_rank_sum']:.3f} "
         f"| {mrr['denominator']} | {mrr['value']:.3f} |"
@@ -356,10 +370,16 @@ No-answer false positives: {", ".join(case["case_id"] for case in false_answers)
 
 
 def main() -> None:
-    configured = os.getenv("TEST_DATABASE_ADMIN_URL") or os.getenv("MIGRATION_DATABASE_URL")
+    configured = os.getenv("TEST_DATABASE_ADMIN_URL") or os.getenv(
+        "MIGRATION_DATABASE_URL"
+    )
     if not configured:
-        raise SystemExit("Set TEST_DATABASE_ADMIN_URL to run the isolated retrieval baseline")
-    admin_url = make_url(configured).set(drivername="postgresql+psycopg", database="postgres")
+        raise SystemExit(
+            "Set TEST_DATABASE_ADMIN_URL to run the isolated retrieval baseline"
+        )
+    admin_url = make_url(configured).set(
+        drivername="postgresql+psycopg", database="postgres"
+    )
     database_name = f"test_retrieval_eval_{uuid4().hex}"
     target_url = admin_url.set(database=database_name)
     admin_engine = create_engine(admin_url, isolation_level="AUTOCOMMIT")
@@ -367,7 +387,9 @@ def main() -> None:
         with admin_engine.connect() as connection:
             connection.execute(text(f'CREATE DATABASE "{database_name}"'))
         environment = os.environ.copy()
-        environment["MIGRATION_DATABASE_URL"] = target_url.render_as_string(hide_password=False)
+        environment["MIGRATION_DATABASE_URL"] = target_url.render_as_string(
+            hide_password=False
+        )
         subprocess.run(
             [sys.executable, "-m", "alembic", "-c", "alembic.ini", "upgrade", "head"],
             cwd=BACKEND_ROOT,
@@ -386,7 +408,9 @@ def main() -> None:
         if not database_name.startswith("test_retrieval_eval_"):
             raise RuntimeError("Refusing to drop a database outside the eval namespace")
         with admin_engine.connect() as connection:
-            connection.execute(text(f'DROP DATABASE IF EXISTS "{database_name}" WITH (FORCE)'))
+            connection.execute(
+                text(f'DROP DATABASE IF EXISTS "{database_name}" WITH (FORCE)')
+            )
         admin_engine.dispose()
     print(json.dumps(report["metrics"], indent=2))
 

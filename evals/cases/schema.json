@@ -64,7 +64,7 @@
       "type": "object"
     },
     "document_snapshot": {
-      "const": "demo-corpus-v1"
+      "const": "m2-corpus-v1"
     },
     "messages": {
       "type": "array",

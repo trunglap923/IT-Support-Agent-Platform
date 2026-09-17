@@ -5,8 +5,8 @@ Run against an isolated, freshly migrated PostgreSQL/pgvector database at
 
 | Metric | Numerator | Denominator | Result |
 |---|---:|---:|---:|
-| Recall@5 | 9 | 9 | 1.000 |
-| MRR@5 (sum RR / answerable) | 7.833 | 9 | 0.870 |
+| Recall@5 | 10 | 10 | 1.000 |
+| MRR@5 (sum RR / answerable) | 9.500 | 10 | 0.950 |
 | No-answer accuracy | 5 | 5 | 1.000 |
 | Scope leakage | 0 | 2 | 0.000 |
 

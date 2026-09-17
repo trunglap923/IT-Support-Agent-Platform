@@ -12,6 +12,7 @@ from app.config import AIProvider, Settings
 from app.db import Database
 from app.providers import StructuredResponseProvider, create_provider
 from app.providers.fake import FakeTextProvider
+
 from evals.runner.harness import CaseRun, execute_case
 from evals.runner.load_cases import dataset_digest, load_cases, select_cases
 from evals.runner.report import build_report, write_report
@@ -23,7 +24,9 @@ DEFAULT_OUTPUT = ROOT / "reports" / "raw" / "agent-evaluation.json"
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mode", choices=("fake", "live"), default="fake")
-    parser.add_argument("--split", choices=("development", "holdout", "all"), default="development")
+    parser.add_argument(
+        "--split", choices=("development", "holdout", "all"), default="development"
+    )
     parser.add_argument(
         "--category",
         choices=("rag", "permission", "tool", "approval", "memory", "failure"),
@@ -69,13 +72,15 @@ async def run(args: argparse.Namespace) -> dict[str, object]:
         _positive(quota, "EVAL_LIVE_MAX_CALLS")
         rag_calls = sum(case.category == "rag" for case in selected) * args.repetitions
         if rag_calls > quota:
-            raise SystemExit(f"Live RAG calls {rag_calls} exceed EVAL_LIVE_MAX_CALLS={quota}")
+            raise SystemExit(
+                f"Live RAG calls {rag_calls} exceed EVAL_LIVE_MAX_CALLS={quota}"
+            )
         requested_output_tokens = int(os.getenv("EVAL_LIVE_MAX_OUTPUT_TOKENS", "160"))
         _positive(requested_output_tokens, "EVAL_LIVE_MAX_OUTPUT_TOKENS")
         max_output_tokens = min(requested_output_tokens, 200)
         settings = Settings()
-        if settings.ai_provider is not AIProvider.OPENAI:
-            raise SystemExit("Live evaluation requires AI_PROVIDER=openai")
+        if settings.text_provider is not AIProvider.OPENAI:
+            raise SystemExit("Live evaluation requires TEXT_PROVIDER=openai")
         database_url = os.getenv("EVAL_DATABASE_URL")
         if not database_url:
             raise SystemExit("Live evaluation requires a migrated EVAL_DATABASE_URL")

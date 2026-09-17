@@ -6,20 +6,21 @@
   "configuration": {
     "embedding": "fake-embedding-v2/1536",
     "vector": "exact cosine top20",
-    "lexical": "PostgreSQL simple FTS top20",
-    "fusion": "RRF(k=60) top5",
-    "evidence_minimum_score": 0.02
+    "lexical": "PostgreSQL simple FTS OR meaningful terms top20",
+    "fusion": "max lexical coverage/cosine confidence; RRF(k=60) tie-break",
+    "minimum_lexical_coverage": 0.5,
+    "minimum_vector_similarity": 0.75
   },
   "metrics": {
     "recall_at_5": {
-      "numerator": 9,
-      "denominator": 9,
+      "numerator": 10,
+      "denominator": 10,
       "value": 1.0
     },
     "mrr_at_5": {
-      "numerator_reciprocal_rank_sum": 7.833333333333333,
-      "denominator": 9,
-      "value": 0.8703703703703703
+      "numerator_reciprocal_rank_sum": 9.5,
+      "denominator": 10,
+      "value": 0.95
     },
     "no_answer_accuracy": {
       "numerator": 5,
@@ -45,22 +46,22 @@
     {
       "case_id": "ret-001",
       "expected_outcome": "answered",
-      "retrieval_outcome": "no_answer",
+      "retrieval_outcome": "answered",
       "expected_document": "vpn-setup:v2",
       "rank": 1,
       "top5": [
         "vpn-setup:v2",
+        "vpn-troubleshooting:v1",
         "vpn-setup:v2",
-        "docker-registry-token-policy:v2",
-        "gitlab-access:v3",
-        "docker-registry-token-policy:v2"
+        "it-escalation:v1",
+        "vpn-troubleshooting:v1"
       ],
       "forbidden_returned": []
     },
     {
       "case_id": "ret-002",
       "expected_outcome": "answered",
-      "retrieval_outcome": "no_answer",
+      "retrieval_outcome": "answered",
       "expected_document": "vpn-setup:v2",
       "rank": 1,
       "top5": [
@@ -75,14 +76,14 @@
     {
       "case_id": "ret-003",
       "expected_outcome": "answered",
-      "retrieval_outcome": "no_answer",
+      "retrieval_outcome": "answered",
       "expected_document": "docker-registry:v1",
       "rank": 1,
       "top5": [
         "docker-registry:v1",
-        "docker-troubleshooting:v1",
         "it-escalation:v1",
         "docker-troubleshooting:v1",
+        "docker-registry:v1",
         "docker-registry-token-policy:v2"
       ],
       "forbidden_returned": []
@@ -90,7 +91,7 @@
     {
       "case_id": "ret-004",
       "expected_outcome": "answered",
-      "retrieval_outcome": "no_answer",
+      "retrieval_outcome": "answered",
       "expected_document": "docker-troubleshooting:v1",
       "rank": 1,
       "top5": [
@@ -98,34 +99,34 @@
         "docker-troubleshooting:v1",
         "docker-registry:v1",
         "docker-registry:v1",
-        "docker-registry:v1"
+        "docker-troubleshooting:v1"
       ],
       "forbidden_returned": []
     },
     {
       "case_id": "ret-005",
       "expected_outcome": "answered",
-      "retrieval_outcome": "no_answer",
+      "retrieval_outcome": "answered",
       "expected_document": "gitlab-access:v3",
-      "rank": 3,
+      "rank": 2,
       "top5": [
         "it-escalation:v1",
-        "docker-registry:v1",
         "gitlab-access:v3",
         "gitlab-access:v3",
-        "docker-troubleshooting:v1"
+        "gitlab-access:v3",
+        "docker-registry:v1"
       ],
       "forbidden_returned": []
     },
     {
       "case_id": "ret-006",
       "expected_outcome": "answered",
-      "retrieval_outcome": "no_answer",
+      "retrieval_outcome": "answered",
       "expected_document": "it-escalation:v1",
-      "rank": 2,
+      "rank": 1,
       "top5": [
-        "vpn-troubleshooting:v1",
         "it-escalation:v1",
+        "vpn-troubleshooting:v1",
         "docker-registry:v1",
         "engineering-oncall:v1",
         "it-escalation:v1"
@@ -135,15 +136,15 @@
     {
       "case_id": "ret-007",
       "expected_outcome": "answered",
-      "retrieval_outcome": "no_answer",
+      "retrieval_outcome": "answered",
       "expected_document": "docker-registry-token-policy:v2",
       "rank": 1,
       "top5": [
         "docker-registry-token-policy:v2",
+        "docker-registry-token-policy:v2",
         "docker-troubleshooting:v1",
         "docker-troubleshooting:v1",
-        "docker-registry:v1",
-        "docker-registry-token-policy:v2"
+        "it-escalation:v1"
       ],
       "forbidden_returned": []
     },
@@ -155,9 +156,9 @@
       "rank": 1,
       "top5": [
         "engineering-oncall:v1",
-        "gitlab-access:v3",
         "engineering-oncall:v1",
-        "docker-registry:v1",
+        "engineering-oncall:v1",
+        "gitlab-access:v3",
         "docker-registry:v1"
       ],
       "forbidden_returned": []
@@ -165,15 +166,15 @@
     {
       "case_id": "ret-009",
       "expected_outcome": "answered",
-      "retrieval_outcome": "no_answer",
+      "retrieval_outcome": "answered",
       "expected_document": "it-service-recovery:v1",
       "rank": 1,
       "top5": [
         "it-service-recovery:v1",
+        "it-service-recovery:v1",
         "docker-troubleshooting:v1",
-        "vpn-troubleshooting:v1",
-        "it-escalation:v1",
-        "docker-registry:v1"
+        "docker-registry:v1",
+        "it-escalation:v1"
       ],
       "forbidden_returned": []
     },
@@ -185,10 +186,10 @@
       "rank": null,
       "top5": [
         "docker-registry-token-policy:v2",
-        "docker-registry-token-policy:v2",
-        "docker-registry-token-policy:v2",
+        "docker-registry:v1",
         "gitlab-access:v3",
-        "vpn-setup:v2"
+        "docker-registry-token-policy:v2",
+        "docker-registry-token-policy:v2"
       ],
       "forbidden_returned": []
     },
@@ -217,8 +218,8 @@
         "it-escalation:v1",
         "it-escalation:v1",
         "docker-registry:v1",
-        "vpn-troubleshooting:v1",
-        "docker-troubleshooting:v1"
+        "docker-troubleshooting:v1",
+        "vpn-setup:v2"
       ],
       "forbidden_returned": []
     },
@@ -229,11 +230,11 @@
       "expected_document": null,
       "rank": null,
       "top5": [
+        "gitlab-access:v3",
         "docker-registry:v1",
+        "it-escalation:v1",
         "vpn-setup:v2",
-        "docker-registry:v1",
-        "docker-registry:v1",
-        "vpn-troubleshooting:v1"
+        "docker-registry:v1"
       ],
       "forbidden_returned": []
     },
@@ -248,7 +249,7 @@
         "docker-registry:v1",
         "vpn-troubleshooting:v1",
         "engineering-oncall:v1",
-        "docker-registry:v1"
+        "it-escalation:v1"
       ],
       "forbidden_returned": []
     },
@@ -274,11 +275,26 @@
       "expected_document": null,
       "rank": null,
       "top5": [
-        "vpn-troubleshooting:v1",
         "docker-registry:v1",
-        "docker-registry-token-policy:v2",
-        "engineering-oncall:v1",
-        "docker-registry:v1"
+        "vpn-troubleshooting:v1",
+        "it-escalation:v1",
+        "vpn-troubleshooting:v1",
+        "vpn-setup:v2"
+      ],
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-017",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "answered",
+      "expected_document": "vpn-troubleshooting:v1",
+      "rank": 1,
+      "top5": [
+        "vpn-troubleshooting:v1",
+        "vpn-troubleshooting:v1",
+        "vpn-setup:v2",
+        "vpn-setup:v2",
+        "docker-troubleshooting:v1"
       ],
       "forbidden_returned": []
     }

@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from app.prompts import SUPPORT_PROMPT_VERSION, prompt_versions
 from evals.runner.harness import CaseRun
 
 
@@ -80,7 +81,8 @@ def build_report(
         "dataset_sha256": dataset_sha256,
         "document_snapshots": sorted(set(document_snapshots)),
         "rubric_version": "agent-eval-v1",
-        "prompt_version": "structured-support-v1",
+        "prompt_version": SUPPORT_PROMPT_VERSION,
+        "prompt_versions": prompt_versions(),
         "run_configuration": run_configuration,
         "run_count": len(cases),
         "deterministic_pass": {"numerator": passed, "denominator": len(cases)},
