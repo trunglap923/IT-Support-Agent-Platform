@@ -1,8 +1,8 @@
 # Release checklist — WP-14
 
-Ngày kiểm chứng local: 2026-09-16. Quyết định tổng thể: **NOT READY**.
+Ngày kiểm chứng local gần nhất: 2026-09-17. Quyết định tổng thể: **NOT READY**.
 
-Lý do: G-10 có local reproducibility evidence, nhưng G-05–G-09 chưa được đo đủ bằng live model/human review/full-stack workload. GitHub-hosted CI và manual V1 demo bằng full seed cũng chưa có evidence.
+Lý do: G-10 có local reproducibility evidence, nhưng G-05–G-09 chưa được đo đủ bằng live model/human review/full-stack workload. GitHub-hosted CI và manual V1 demo bằng business-data seed cũng chưa có evidence.
 
 ## G-10 reproducibility
 
@@ -11,9 +11,9 @@ Lý do: G-10 có local reproducibility evidence, nhưng G-05–G-09 chưa đư�
 | Build production backend/frontend images | pass | Pinned bases, non-root, healthcheck; `make clean-verify` |
 | Fresh PostgreSQL/Redis/document volumes | pass | Unique Compose project, không dùng volumes development |
 | Migrate clean DB qua 16 revisions | pass | Alembic head `0016_message_feedback` |
-| Seed demo identity | pass | Runtime password, Argon2, idempotent seed |
+| Seed demo identities | pass | 2 departments, 6 accounts, runtime password, Argon2 và idempotency |
 | Start complete stack | pass | 7/7 service healthy, readiness qua Nginx proxy |
-| Backend suite | pass | 113 passed, 1 skipped trên isolated PostgreSQL/Redis |
+| Backend suite | pass | 115 passed, 1 skipped trên isolated PostgreSQL/Redis |
 | Frontend quality/build | pass | lint/typecheck, 15 tests, production build |
 | Browser workflow suite | pass | 7 Playwright tests |
 | Evaluation reproducibility | pass | 120 valid cases; 160 fake runs cùng digest |
@@ -56,7 +56,7 @@ Chi tiết G-01–G-09 nằm tại [evaluation summary](evaluation-summary.md) v
 - [ ] Human review các claim/citation để đo G-05.
 - [ ] Live-model no-answer/task/memory runs đủ repetitions để đo G-06–G-08.
 - [ ] Full-stack concurrency-3 workload để đo G-09.
-- [ ] Full demo seed: nhiều role, service states, tickets, devices và published documents.
+- [ ] Department và multi-role accounts đã có; còn service states, tickets, devices và published documents.
 - [ ] Manual UC-01–UC-12 evidence trên seeded environment.
 - [ ] GitHub Actions remote run pass trên commit bàn giao.
 - [ ] Reviewer khác chạy README từ clean machine.

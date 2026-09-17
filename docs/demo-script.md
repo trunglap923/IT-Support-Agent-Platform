@@ -3,7 +3,7 @@
 Kịch bản này phân biệt hai chế độ:
 
 - **Automated portfolio demo**: đã chạy bằng fake provider/fixtures, deterministic, không cần paid key.
-- **Manual V1 demo**: cần full role/business seed và corpus publish; hiện chưa có seed command hoàn chỉnh nên các bước này chưa được tuyên bố đã chạy end-to-end thủ công.
+- **Manual V1 demo**: role accounts đã có; vẫn cần device/ticket/service/document seed và corpus publish nên các bước này chưa được tuyên bố đã chạy end-to-end thủ công.
 
 ## Chuẩn bị automated demo
 
@@ -30,7 +30,7 @@ make up
 2. Login `employee.engineering@example.com` bằng `DEMO_SEED_PASSWORD`.
 3. Mở `/chat`, tạo conversation và quan sát message/run status/SSE UI.
 4. Mở `/tickets` và `/settings/memory` để trình bày các state/error/consent controls.
-5. Chỉ gọi đây là wiring demo khi đang dùng fake provider và seed tối thiểu.
+5. Chỉ gọi đây là wiring demo khi đang dùng fake provider và account-only seed.
 
 ## Automated feature evidence
 
@@ -46,7 +46,7 @@ make up
 | Reproducible stack | Fresh Compose project/volumes | `make clean-verify` |
 | Backup/restore | Isolated DB + volume drill | `make backup && make restore-test` |
 
-## Manual V1 scenario sau khi có full seed
+## Manual V1 scenario sau khi có business-data seed
 
 1. Employee hỏi cách xử lý Docker certificate; agent tìm runbook hiện hành và trả citation.
 2. Khi thiếu evidence, agent hỏi thêm hoặc no-answer thay vì bịa.
@@ -72,7 +72,7 @@ Ghi rõ model snapshot, số lần chạy, token/cost và không dùng một l�
 ## Nội dung chưa được tuyên bố hoàn tất
 
 - video 3–5 phút chưa được ghi;
-- full six-user/ticket/service/document seed chưa được triển khai;
+- six-user/two-department seed đã có; device/ticket/service/document seed chưa được triển khai;
 - manual UC-01–UC-12 chưa có evidence trên một seeded environment;
 - GitHub-hosted CI chưa có remote run evidence;
 - production deployment/operations không nằm trong giai đoạn này.

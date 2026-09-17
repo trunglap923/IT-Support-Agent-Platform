@@ -1,10 +1,10 @@
-"""Seed the minimal demo login account using secrets supplied at runtime."""
+"""Seed demo departments and accounts using a runtime-supplied password."""
 
 from __future__ import annotations
 
 import asyncio
 
-from app.auth.demo_identity import ensure_demo_identity
+from app.auth.demo_identity import DEMO_USERS, ensure_demo_accounts
 from app.config import Settings
 from app.db import Database
 
@@ -19,11 +19,17 @@ async def async_main() -> None:
     database = Database(settings.database_url.get_secret_value())
     try:
         async with database.session() as session, session.begin():
-            user = await ensure_demo_identity(
+            result = await ensure_demo_accounts(
                 session,
                 password=settings.demo_seed_password.get_secret_value(),
             )
-        print(f"Demo identity ready: {user.email}")
+        print(
+            "Demo identities ready: "
+            f"created={result.created}, updated={result.updated}, "
+            f"unchanged={result.unchanged}"
+        )
+        for spec in DEMO_USERS:
+            print(f"- {spec.email} ({spec.role.value}, {spec.department_key})")
     finally:
         await database.close()
 

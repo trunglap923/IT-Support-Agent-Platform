@@ -13,7 +13,7 @@ make up
 
 - `bootstrap` chỉ tạo `.env` khi chưa tồn tại và build application images; không ghi đè cấu hình hiện có.
 - `migrate` chạy Alembic bằng one-shot container có migration credential; chỉ upgrade schema.
-- `seed` tạo hoặc cập nhật demo identity theo cách idempotent; không xóa dữ liệu.
+- `seed` tạo hoặc cập nhật hai phòng ban và sáu demo account theo cách idempotent; không xóa dữ liệu.
 - `up` dựng bảy service và chờ toàn bộ healthcheck. Frontend ở `127.0.0.1:5173`, API ở `127.0.0.1:8000` theo mặc định.
 - `demo` gộp `migrate`, `seed`, `up` theo đúng thứ tự.
 - `down` dừng stack nhưng giữ ba named volume PostgreSQL, Redis và document storage.

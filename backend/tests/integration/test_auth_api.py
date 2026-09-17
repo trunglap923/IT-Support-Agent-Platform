@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 from fastapi.testclient import TestClient
 from sqlalchemy import update
 
-from app.auth.demo_identity import ensure_demo_identity
+from app.auth.demo_identity import DEMO_USERS, ensure_demo_accounts, ensure_demo_identity
 from app.config import Settings
 from app.db import Database
 from app.db.models import AuthSession, User
@@ -26,6 +26,41 @@ def seed_identity(database_url: str) -> None:
             await database.close()
 
     asyncio.run(seed())
+
+
+def seed_all_identities(database_url: str) -> None:
+    async def seed() -> None:
+        database = Database(database_url)
+        try:
+            async with database.session() as session, session.begin():
+                await ensure_demo_accounts(session, password=PASSWORD)
+        finally:
+            await database.close()
+
+    asyncio.run(seed())
+
+
+def test_all_demo_accounts_can_login_with_seed_password(
+    migrated_database_url: str,
+) -> None:
+    seed_all_identities(migrated_database_url)
+    settings = Settings(
+        database_url=migrated_database_url,
+        auth_login_rate_limit_enabled=False,
+        cookie_secure=False,
+        allowed_web_origin=ORIGIN,
+    )
+
+    for spec in DEMO_USERS:
+        with TestClient(create_app(settings=settings), base_url=ORIGIN) as client:
+            response = client.post(
+                "/api/v1/auth/login",
+                json={"email": spec.email, "password": PASSWORD},
+                headers={"Origin": ORIGIN},
+            )
+            assert response.status_code == 200
+            assert response.json()["user"]["role"] == spec.role.value
+            assert response.json()["user"]["department_key"] == spec.department_key
 
 
 def test_login_me_logout_and_invalid_credentials(migrated_database_url: str) -> None:

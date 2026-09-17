@@ -49,10 +49,17 @@ make seed
 make up
 ```
 
-Mở http://127.0.0.1:5173 và đăng nhập:
+Mở http://127.0.0.1:5173. Tất cả tài khoản local dưới đây dùng password từ
+`DEMO_SEED_PASSWORD` trong `.env`:
 
-- email: `employee.engineering@example.com`
-- password: giá trị `DEMO_SEED_PASSWORD` trong `.env`
+| Email | Role | Department |
+|---|---|---|
+| `employee.engineering@example.com` | employee | Engineering |
+| `employee.engineering.second@example.com` | employee | Engineering |
+| `employee.operations@example.com` | employee | Operations |
+| `it.engineering@example.com` | IT | Engineering |
+| `it.operations@example.com` | IT | Operations |
+| `admin@example.com` | admin | Operations |
 
 Stack mặc định dùng `AI_PROVIDER=fake`; không gọi API trả phí. `make down` dừng container nhưng giữ PostgreSQL, Redis và document volumes. PostgreSQL/Redis không publish ra host; chỉ frontend `5173` và API `8000` bind loopback.
 
@@ -62,7 +69,9 @@ Lệnh gộp sau khi đã cấu hình `.env`:
 make demo
 ```
 
-Lưu ý: seed hiện chỉ tạo identity employee tối thiểu. Các role IT/admin và corpus publish được tạo trong test fixtures; để demo thủ công đầy đủ mọi màn hình cần bổ sung full seed fixtures. Đây là giới hạn bàn giao còn mở, không được tính là UC-01–UC-12 đã manual-demo hoàn chỉnh.
+Seed account chạy lại không tạo bản sao, chỉ cập nhật hash khi password environment thay đổi
+và không tự bật/tắt memory đã được người dùng cấu hình. Device, service status, ticket và
+published document fixtures vẫn chưa có, nên đây chưa phải full manual UC-01–UC-12 demo.
 
 ## Các route chính
 
@@ -138,7 +147,9 @@ make dev-frontend-docker FRONTEND_DEV_PORT=5174
 - [troubleshooting](docs/troubleshooting.md)
 - [demo script](docs/demo-script.md)
 
-Hiện tại không tuyên bố production-ready: G-05–G-09 cần live/human/full-stack measurements; CI remote chưa chạy; full six-user/business-data seed và manual V1 demo evidence chưa có. Không có bước deploy server trong CI.
+Hiện tại không tuyên bố production-ready: G-05–G-09 cần live/human/full-stack measurements;
+CI remote chưa chạy; business-data seed và manual V1 demo evidence chưa có. Không có bước
+deploy server trong CI.
 
 ## Cấu trúc repository
 
