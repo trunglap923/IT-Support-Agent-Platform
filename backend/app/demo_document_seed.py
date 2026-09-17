@@ -75,6 +75,13 @@ class DemoKnowledgeSeedPlan:
         return self.created + self.updated + self.unchanged
 
 
+@dataclass(frozen=True, slots=True)
+class _IngestionTarget:
+    job_id: UUID
+    force: bool
+    preserve_version_status: bool
+
+
 def _parse_timestamp(value: object, *, field: str) -> datetime:
     if not isinstance(value, str):
         raise ValueError(f"Corpus {field} must be an ISO-8601 string")
@@ -379,7 +386,7 @@ async def _prepare_documents(
     *,
     specs: tuple[DemoCorpusVersionSpec, ...],
     current: dict[str, DemoCorpusVersionSpec],
-) -> tuple[UUID, ...]:
+) -> tuple[_IngestionTarget, ...]:
     async with database.session() as session, session.begin():
         department_keys = {spec.department_key for spec in specs if spec.department_key}
         departments = {
@@ -401,7 +408,7 @@ async def _prepare_documents(
                 select(Document).where(Document.document_key.in_(document_keys))
             )
         }
-        jobs: list[UUID] = []
+        jobs: list[_IngestionTarget] = []
         for document_key in sorted(document_keys):
             selected = current[document_key]
             department_id = (
@@ -506,6 +513,23 @@ async def _prepare_documents(
                 )
                 session.add(job)
                 await session.flush()
+            chunk_count = int(
+                await session.scalar(
+                    select(func.count(DocumentChunk.id)).where(
+                        DocumentChunk.version_id == version.id
+                    )
+                )
+                or 0
+            )
+            force_refresh = job.status is IngestionJobStatus.COMPLETED and any(
+                (
+                    version.parser_version != MARKDOWN_PARSER_VERSION,
+                    version.chunker_version != CHUNKER_VERSION,
+                    version.embedding_model is None,
+                    version.embedding_dimensions != 1536,
+                    chunk_count == 0,
+                )
+            )
             selected = current[spec.document_key]
             if (
                 spec.version_label == selected.version_label
@@ -517,7 +541,20 @@ async def _prepare_documents(
                 )
             ):
                 version.status = DocumentVersionStatus.READY
-            jobs.append(job.id)
+            jobs.append(
+                _IngestionTarget(
+                    job_id=job.id,
+                    force=force_refresh,
+                    preserve_version_status=(
+                        force_refresh
+                        and version.status
+                        in {
+                            DocumentVersionStatus.PUBLISHED,
+                            DocumentVersionStatus.SUPERSEDED,
+                        }
+                    ),
+                )
+            )
         return tuple(jobs)
 
 
@@ -599,7 +636,7 @@ async def seed_published_knowledge(
     specs = load_demo_corpus(data_root)
     current = _current_versions(specs, now=selected_now)
     _copy_corpus_sources(specs, storage_root=storage_root)
-    job_ids = await _prepare_documents(database, specs=specs, current=current)
+    ingestion_targets = await _prepare_documents(database, specs=specs, current=current)
 
     provider = FakeEmbeddingProvider(dimensions=1536)
     reused_jobs = 0
@@ -609,8 +646,12 @@ async def seed_published_knowledge(
             embedding_provider=provider,
             storage_root=storage_root,
         )
-        for job_id in job_ids:
-            result = await pipeline.run(job_id)
+        for target in ingestion_targets:
+            result = await pipeline.run(
+                target.job_id,
+                force=target.force,
+                preserve_version_status=target.preserve_version_status,
+            )
             reused_jobs += int(result.reused)
     finally:
         await provider.close()

@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 
 from app.auth.demo_identity import ensure_demo_accounts
 from app.auth.principal import Principal
@@ -20,8 +20,9 @@ from app.db.models import (
     IngestionJobStatus,
     User,
 )
-from app.demo_document_seed import seed_published_knowledge
+from app.demo_document_seed import plan_published_knowledge, seed_published_knowledge
 from app.providers.embeddings import FakeEmbeddingProvider
+from app.rag.chunking.splitter import CHUNKER_VERSION
 from app.rag.citations.sources import build_evidence_output
 from app.rag.retrieval.query import HybridRetriever
 from app.services.documents import DocumentUploadService
@@ -179,6 +180,73 @@ def test_demo_corpus_is_published_idempotently_with_scoped_retrieval(
             assert preview is not None
             assert preview.parser_version == "markdown-sections-v1"
             assert len(preview.pages) >= 3
+        finally:
+            await database.close()
+
+    asyncio.run(scenario())
+
+
+def test_demo_seed_refreshes_completed_jobs_when_chunker_is_stale(
+    migrated_database_url: str,
+    tmp_path: Path,
+) -> None:
+    async def scenario() -> None:
+        database = Database(migrated_database_url)
+        try:
+            async with database.session() as session, session.begin():
+                await ensure_demo_accounts(session, password="demo-document-test-password")
+
+            await seed_published_knowledge(
+                database,
+                data_root=_data_root(),
+                storage_root=tmp_path,
+                now=NOW,
+            )
+            async with database.session() as session, session.begin():
+                await session.execute(
+                    update(DocumentVersion).values(chunker_version="word-window-v1")
+                )
+
+            stale = await plan_published_knowledge(
+                database,
+                data_root=_data_root(),
+                now=NOW,
+            )
+            assert stale.updated == stale.version_count == 11
+
+            refreshed = await seed_published_knowledge(
+                database,
+                data_root=_data_root(),
+                storage_root=tmp_path,
+                now=NOW,
+            )
+            converged = await plan_published_knowledge(
+                database,
+                data_root=_data_root(),
+                now=NOW,
+            )
+            second = await seed_published_knowledge(
+                database,
+                data_root=_data_root(),
+                storage_root=tmp_path,
+                now=NOW,
+            )
+
+            async with database.session() as session:
+                versions = list(await session.scalars(select(DocumentVersion)))
+                jobs = list(await session.scalars(select(IngestionJob)))
+
+            assert refreshed.reused_jobs == 0
+            assert converged.updated == 0
+            assert converged.unchanged == converged.version_count == 11
+            assert second.reused_jobs == 11
+            assert all(version.chunker_version == CHUNKER_VERSION for version in versions)
+            assert all(
+                version.status
+                in {DocumentVersionStatus.PUBLISHED, DocumentVersionStatus.SUPERSEDED}
+                for version in versions
+            )
+            assert all(job.status is IngestionJobStatus.COMPLETED for job in jobs)
         finally:
             await database.close()
 
