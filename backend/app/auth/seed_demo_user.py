@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 
 from app.auth.demo_identity import DEMO_USERS, ensure_demo_accounts
 from app.config import Settings
 from app.db import Database
+from app.demo_document_seed import seed_published_knowledge
 from app.demo_seed import (
     DEMO_DEVICES,
     DEMO_SERVICE_STATES,
@@ -31,6 +33,11 @@ async def async_main() -> None:
             )
             asset_result = await ensure_demo_devices_and_service_states(session)
             ticket_result = await ensure_demo_tickets(session)
+        knowledge_result = await seed_published_knowledge(
+            database,
+            data_root=Path(settings.demo_corpus_path),
+            storage_root=Path(settings.document_storage_path),
+        )
         print(
             "Demo identities ready: "
             f"created={identity_result.created}, updated={identity_result.updated}, "
@@ -58,6 +65,13 @@ async def async_main() -> None:
         for status in ("open", "in_progress", "resolved"):
             count = sum(ticket.status == status for ticket in DEMO_TICKETS)
             print(f"- {status}: {count}")
+        print(
+            "Published knowledge ready: "
+            f"documents={knowledge_result.document_count}, "
+            f"versions={knowledge_result.version_count}, "
+            f"chunks={knowledge_result.chunk_count}, "
+            f"reused_jobs={knowledge_result.reused_jobs}"
+        )
     finally:
         await database.close()
 

@@ -17,6 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Document, DocumentVersion, DocumentVisibility, IngestionJob
+from app.rag.ingestion.markdown_parser import MarkdownExtractionError, MarkdownParser
 from app.rag.ingestion.pdf_parser import ExtractedPdf, PdfExtractionError, PdfParser
 from app.repositories.documents import DocumentRepository
 
@@ -105,6 +106,7 @@ class DocumentUploadService:
             max_pages=max_pdf_pages,
             max_text_bytes=max_extracted_text_bytes,
         )
+        self._markdown_parser = MarkdownParser(max_bytes=max_extracted_text_bytes)
 
     async def create_draft(
         self,
@@ -183,6 +185,21 @@ class DocumentUploadService:
         )
         if version is None:
             return None
+        if version.media_type == "text/markdown":
+            try:
+                extracted_markdown = self._markdown_parser.parse(
+                    self.resolve_storage_key(version.storage_key)
+                )
+            except MarkdownExtractionError as error:
+                raise DocumentUploadError("markdown_invalid", str(error)) from error
+            return DocumentPreview(
+                byte_size=extracted_markdown.byte_size,
+                parser_version=extracted_markdown.parser_version,
+                pages=tuple(
+                    PreviewPage(page_number=section.section_number, text=section.text)
+                    for section in extracted_markdown.sections
+                ),
+            )
         extracted = self._parser.parse(self.resolve_storage_key(version.storage_key))
         return self._preview(extracted, size=extracted.byte_size)
 

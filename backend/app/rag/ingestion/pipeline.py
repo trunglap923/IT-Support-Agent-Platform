@@ -18,6 +18,7 @@ from app.db.models import (
 )
 from app.providers.embeddings import EmbeddingProvider
 from app.rag.chunking.splitter import ChunkingConfig, SourceBlock, chunk_blocks
+from app.rag.ingestion.markdown_parser import MarkdownParser
 from app.rag.ingestion.pdf_parser import PdfExtractionError, PdfParser
 
 
@@ -43,6 +44,7 @@ class IngestionPipeline:
         pdf_parser: PdfParser | None = None,
         chunking_config: ChunkingConfig | None = None,
         max_attempts: int = 3,
+        max_text_bytes: int = 1024 * 1024,
     ) -> None:
         self._database = database
         self._embedding_provider = embedding_provider
@@ -50,6 +52,7 @@ class IngestionPipeline:
         self._pdf_parser = pdf_parser or PdfParser()
         self._chunking_config = chunking_config or ChunkingConfig()
         self._max_attempts = max_attempts
+        self._markdown_parser = MarkdownParser(max_bytes=max_text_bytes)
 
     async def run(self, job_id: UUID) -> IngestionResult:
         async with self._database.session() as session, session.begin():
@@ -79,22 +82,18 @@ class IngestionPipeline:
             job.error_detail = None
             version.status = DocumentVersionStatus.PROCESSING
             storage_key = version.storage_key
+            media_type = version.media_type
 
         try:
             source_path = self._resolve_storage_key(storage_key)
-            extracted = self._pdf_parser.parse(source_path)
+            parser_version, blocks = self._extract_blocks(
+                source_path=source_path,
+                storage_key=storage_key,
+                media_type=media_type,
+            )
             drafts = chunk_blocks(
                 version_id=version_id,
-                blocks=[
-                    SourceBlock(
-                        text=page.text,
-                        page_number=page.page_number,
-                        section=None,
-                        source_path=storage_key,
-                    )
-                    for page in extracted.pages
-                    if page.text
-                ],
+                blocks=blocks,
                 config=self._chunking_config,
             )
             if not drafts:
@@ -138,7 +137,7 @@ class IngestionPipeline:
                     ]
                 )
                 locked_version.status = DocumentVersionStatus.READY
-                locked_version.parser_version = extracted.parser_version
+                locked_version.parser_version = parser_version
                 locked_version.chunker_version = self._chunking_config.version
                 locked_version.embedding_model = batch.model
                 locked_version.embedding_dimensions = batch.dimensions
@@ -156,6 +155,38 @@ class IngestionPipeline:
         if not candidate.is_relative_to(self._storage_root):
             raise IngestionPipelineError("Storage key escapes the configured document root")
         return candidate
+
+    def _extract_blocks(
+        self,
+        *,
+        source_path: Path,
+        storage_key: str,
+        media_type: str,
+    ) -> tuple[str, list[SourceBlock]]:
+        if media_type == "application/pdf":
+            extracted_pdf = self._pdf_parser.parse(source_path)
+            return extracted_pdf.parser_version, [
+                SourceBlock(
+                    text=page.text,
+                    page_number=page.page_number,
+                    section=None,
+                    source_path=storage_key,
+                )
+                for page in extracted_pdf.pages
+                if page.text
+            ]
+        if media_type != "text/markdown":
+            raise IngestionPipelineError(f"Unsupported ingestion media type: {media_type}")
+        extracted_markdown = self._markdown_parser.parse(source_path)
+        return extracted_markdown.parser_version, [
+            SourceBlock(
+                text=section.text,
+                page_number=None,
+                section=section.title,
+                source_path=storage_key,
+            )
+            for section in extracted_markdown.sections
+        ]
 
     async def _record_failure(self, job_id: UUID, version_id: UUID, error: Exception) -> None:
         error_code = (

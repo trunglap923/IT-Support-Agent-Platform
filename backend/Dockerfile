@@ -23,9 +23,10 @@ RUN uv sync --frozen --no-dev --no-install-project
 COPY backend/app ./app
 COPY backend/migrations ./migrations
 COPY backend/alembic.ini ./alembic.ini
-RUN uv sync --frozen --no-dev --no-editable \
-    && mkdir -p /app/.storage/documents \
+RUN mkdir -p /app/.storage/documents \
     && chown -R app:app /app/.storage /home/app
+COPY --chown=app:app data/knowledge /app/seed-data/knowledge
+COPY --chown=app:app data/manifests/documents.json /app/seed-data/manifests/documents.json
 
 USER app:app
 

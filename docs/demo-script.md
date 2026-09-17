@@ -3,7 +3,7 @@
 Kịch bản này phân biệt hai chế độ:
 
 - **Automated portfolio demo**: đã chạy bằng fake provider/fixtures, deterministic, không cần paid key.
-- **Manual V1 demo**: role accounts, devices, service states và ticket scenarios đã có; vẫn cần document seed/corpus publish nên các bước này chưa được tuyên bố đã chạy end-to-end thủ công.
+- **Manual V1 demo**: role accounts, devices, service states, tickets và published corpus đã có; các bước vẫn chưa được tuyên bố đã chạy end-to-end thủ công nếu chưa ghi evidence.
 
 ## Chuẩn bị automated demo
 
@@ -16,7 +16,7 @@ make test-e2e
 make eval
 ```
 
-Kết quả local gần nhất: clean stack 7/7 healthy; backend 113 pass/1 skip; frontend 15 pass; Playwright 7 pass; evaluation 120 case hợp lệ và 160 deterministic runs tái lập.
+Kết quả local gần nhất: clean stack 7/7 healthy; backend regression suite xem release checklist; frontend 15 pass; Playwright 7 pass; evaluation 120 case hợp lệ và 160 deterministic runs tái lập.
 
 ## Demo giao diện tối thiểu
 
@@ -30,7 +30,7 @@ make up
 2. Login `employee.engineering@example.com` bằng `DEMO_SEED_PASSWORD`.
 3. Mở `/chat`, tạo conversation và quan sát message/run status/SSE UI.
 4. Mở `/tickets` và `/settings/memory` để trình bày các state/error/consent controls.
-5. Chỉ gọi đây là wiring demo khi đang dùng fake provider và account-only seed.
+5. Với fake provider, hỏi về VPN/Docker/GitLab để kiểm tra citation từ corpus đã publish.
 
 ## Automated feature evidence
 
@@ -46,7 +46,7 @@ make up
 | Reproducible stack | Fresh Compose project/volumes | `make clean-verify` |
 | Backup/restore | Isolated DB + volume drill | `make backup && make restore-test` |
 
-## Manual V1 scenario sau khi có business-data seed
+## Manual V1 scenario
 
 1. Employee hỏi cách xử lý Docker certificate; agent tìm runbook hiện hành và trả citation.
 2. Khi thiếu evidence, agent hỏi thêm hoặc no-answer thay vì bịa.
@@ -72,7 +72,7 @@ Ghi rõ model snapshot, số lần chạy, token/cost và không dùng một l�
 ## Nội dung chưa được tuyên bố hoàn tất
 
 - video 3–5 phút chưa được ghi;
-- account/department/device/service/ticket seed đã có; document seed chưa được triển khai;
+- account/department/device/service/ticket/published-document seed đã có;
 - manual UC-01–UC-12 chưa có evidence trên một seeded environment;
 - GitHub-hosted CI chưa có remote run evidence;
 - production deployment/operations không nằm trong giai đoạn này.

@@ -1,6 +1,6 @@
 # Seed — người dùng, thiết bị, ticket và dịch vụ
 
-Trạng thái: department, account, device, service-state và ticket seed đã có; document fixtures còn triển khai tiếp.
+Trạng thái: department, account, device, service-state, ticket và published-knowledge seed đã có.
 Work packages: WP-01, WP-02, WP-04, WP-07, WP-12.
 Nguồn: [kế hoạch tổng](../../plan.md), mục 3, 6, 13, 20.4; [thứ tự triển khai](../../docs/implementation-roadmap.md).
 
@@ -45,6 +45,6 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Điều kiện hoàn thành
 
-- [ ] Chạy seed hai lần không nhân đôi user/ticket/document.
+- [x] Chạy seed hai lần không nhân đôi user/ticket/document/chunk.
 - [ ] User cùng phòng ban và khác phòng ban đều có negative cases riêng.
 - [ ] Không tự bật consent hoặc tạo active memory của người dùng ngoài fixture test explicit.

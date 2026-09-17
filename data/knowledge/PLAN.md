@@ -1,6 +1,6 @@
 # Knowledge corpus — nội dung tài liệu demo
 
-Trạng thái: corpus Markdown M2 ban đầu đã có; PDF fixtures được tạo riêng trong test parser.
+Trạng thái: corpus Markdown M2 được seed, ingest bằng fake embedding và publish; PDF fixtures vẫn được tạo riêng trong test parser.
 Work packages: WP-01, WP-04, WP-05, WP-13.
 Nguồn: [kế hoạch tổng](../../plan.md), mục 6, 8, 19; [thứ tự triển khai](../../docs/implementation-roadmap.md).
 

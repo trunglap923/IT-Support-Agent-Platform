@@ -1,6 +1,6 @@
 # Nhập và trích xuất tài liệu
 
-Trạng thái: PDF text parser có giới hạn và error codes đã triển khai; pipeline ở bước tiếp theo.
+Trạng thái: PDF/Markdown parser có giới hạn và pipeline parse → chunk → embed → store đã triển khai.
 Work packages: WP-04, WP-11.
 Nguồn: [kế hoạch tổng](../../../../plan.md), mục 6, 8.1; [thứ tự triển khai](../../../../docs/implementation-roadmap.md).
 
@@ -41,6 +41,6 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Điều kiện hoàn thành
 
-- [ ] PDF text giữ đúng page; Markdown giữ heading và page=null.
+- [x] PDF text giữ đúng page; Markdown giữ heading và page=null.
 - [ ] PDF scan/file lỗi trả failed với lý do, không đổi current_version_id.
-- [ ] Retry không tạo duplicate chunks; không log raw file/secret.
+- [x] Retry không tạo duplicate chunks; không log raw file/secret.

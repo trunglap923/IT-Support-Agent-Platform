@@ -36,7 +36,7 @@ help:
 	@echo "  make bootstrap              Create local env if needed and build locked images"
 	@echo "  make up                     Build/start the complete seven-service stack"
 	@echo "  make migrate                Run Alembic as an explicit one-shot container"
-	@echo "  make seed                   Seed demo identities, assets and ticket scenarios"
+	@echo "  make seed                   Seed business scenarios and published IT knowledge"
 	@echo "  make test                   Run backend tests with isolated DB/Redis, then frontend checks"
 	@echo "  make test-e2e               Run browser E2E in pinned Playwright"
 	@echo "  make eval                   Run the deterministic, non-paid evaluation"
