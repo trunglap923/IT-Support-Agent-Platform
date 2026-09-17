@@ -17,6 +17,7 @@ from app.db.models import (
     DocumentVersionStatus,
     DocumentVisibility,
     Message,
+    ServiceState,
     User,
     UserRole,
 )
@@ -59,6 +60,14 @@ def test_fake_rag_chat_citation_and_no_answer_end_to_end(
                 )
                 session.add(user)
                 await session.flush()
+                session.add(
+                    ServiceState(
+                        service_id="vpn",
+                        status="degraded",
+                        message="VPN maintenance is in progress.",
+                        fault_mode="none",
+                    )
+                )
                 document = Document(
                     document_key="vpn-ubuntu",
                     title="VPN on Ubuntu",
@@ -109,6 +118,9 @@ def test_fake_rag_chat_citation_and_no_answer_end_to_end(
                 unknown_conversation = await ConversationRepository().create(
                     session, owner_id=user.id, title="Unknown"
                 )
+                service_conversation = await ConversationRepository().create(
+                    session, owner_id=user.id, title="Service status"
+                )
                 actor_id = user.id
 
             service = RunSubmissionService(database, RecordingDispatcher())
@@ -121,6 +133,20 @@ def test_fake_rag_chat_citation_and_no_answer_end_to_end(
             await execute_support_run(
                 database,
                 run_id=answered.run_id,
+                provider=FakeTextProvider(),
+                embedding_provider=embeddings,
+                observer=NoopAIObserver(),
+                model="fake",
+            )
+            service_status = await service.submit(
+                actor_id=actor_id,
+                conversation_id=service_conversation.id,
+                content="Trạng thái VPN hiện tại thế nào?",
+                client_request_id="rag-e2e-service-status",
+            )
+            await execute_support_run(
+                database,
+                run_id=service_status.run_id,
                 provider=FakeTextProvider(),
                 embedding_provider=embeddings,
                 observer=NoopAIObserver(),
@@ -142,20 +168,35 @@ def test_fake_rag_chat_citation_and_no_answer_end_to_end(
             )
 
             async with database.session() as session:
-                messages = list(
-                    (
-                        await session.scalars(
-                            select(Message)
-                            .where(Message.role == "assistant")
-                            .order_by(Message.created_at)
-                        )
-                    ).all()
+                answered_message = await session.scalar(
+                    select(Message).where(
+                        Message.run_id == answered.run_id,
+                        Message.role == "assistant",
+                    )
                 )
-            assert messages[0].outcome == "answered"
-            assert len(messages[0].citations) == 1
-            assert messages[0].citations[0]["title"] == "VPN on Ubuntu"
-            assert messages[1].outcome == "no_answer"
-            assert messages[1].citations == []
+                unknown_message = await session.scalar(
+                    select(Message).where(
+                        Message.run_id == unknown.run_id,
+                        Message.role == "assistant",
+                    )
+                )
+                service_message = await session.scalar(
+                    select(Message).where(
+                        Message.run_id == service_status.run_id,
+                        Message.role == "assistant",
+                    )
+                )
+            assert answered_message is not None
+            assert answered_message.outcome == "answered"
+            assert len(answered_message.citations) == 1
+            assert answered_message.citations[0]["title"] == "VPN on Ubuntu"
+            assert unknown_message is not None
+            assert unknown_message.outcome == "no_answer"
+            assert unknown_message.citations == []
+            assert service_message is not None
+            assert service_message.outcome == "answered"
+            assert "degraded" in service_message.content
+            assert service_message.citations == []
         finally:
             await embeddings.close()
             await database.close()

@@ -2,16 +2,23 @@
 
 from __future__ import annotations
 
+import asyncio
+from contextlib import suppress
 from dataclasses import dataclass
 from uuid import UUID, uuid4
 
 from sqlalchemy import select
 
+from app.agent.approval_checkpoint import pause_ticket_approval
 from app.agent.graph import build_support_graph, run_support_graph
 from app.agent.rag import RAGGraphNodes
 from app.auth.principal import Principal
 from app.db import Database
 from app.db.models import Conversation, Message, RunStatus
+from app.jobs.dispatch import (
+    BrokerUnavailableError,
+    MemoryExtractionDispatcher,
+)
 from app.memory.lifecycle import MemoryLifecycleService
 from app.memory.retrieval import MemoryContextService
 from app.observability import AIObserver, NoopAIObserver
@@ -22,8 +29,12 @@ from app.rag.retrieval.query import HybridRetriever
 from app.repositories.runs import RunRepository
 from app.repositories.users import UserRepository
 from app.services.approvals.resume import execute_approval_resume_run
+from app.services.approvals.service import ApprovalService
 from app.services.conversations.run_lease import RunLeaseService
 from app.services.conversations.run_state import RunStateService
+from app.services.documents.access import authorized_history_context
+from app.tools import ToolExecutionContext, ToolExecutor
+from app.tools.schemas import CreateTicketArguments
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,10 +65,13 @@ async def execute_support_run(
     worker_id: str | None = None,
     lease_seconds: int = 90,
     max_attempts: int = 3,
+    memory_dispatcher: MemoryExtractionDispatcher | None = None,
 ) -> WorkerResult:
     repository = RunRepository()
     lease = RunLeaseService(repository)
     state = RunStateService(repository)
+    memory_job_id: UUID | None = None
+    approval_pause: tuple[UUID, str, str] | None = None
     execution_worker_id = worker_id or f"worker:{uuid4()}"
     async with database.session() as session, session.begin():
         claim = await lease.claim(
@@ -124,14 +138,46 @@ async def execute_support_run(
                 department_id=user.department_id,
                 department_key=user.department.key,
             )
+            recent_messages = list(
+                (
+                    await session.scalars(
+                        select(Message)
+                        .where(
+                            Message.conversation_id == conversation_id,
+                            Message.id != user_message.id,
+                        )
+                        .order_by(Message.created_at.desc(), Message.id.desc())
+                        .limit(40)
+                    )
+                ).all()
+            )
+            conversation_context = await authorized_history_context(
+                session,
+                principal=principal,
+                messages=list(reversed(recent_messages)),
+            )
+
+            async def unsupported_local_search(query: str, limit: int) -> dict[str, object]:
+                del query, limit
+                raise RuntimeError("Knowledge search is routed through the RAG graph")
+
+            tool_executor = ToolExecutor(
+                context=ToolExecutionContext(
+                    actor_id=actor_id,
+                    run_id=run_id,
+                    database_url=database.engine.url.render_as_string(hide_password=False),
+                ),
+                local_search=unsupported_local_search,
+            )
             nodes = RAGGraphNodes(
                 session=session,
                 principal=principal,
                 retriever=HybridRetriever(embedding_provider=embedding_provider),
                 provider=provider,
-                history=memory_context,
+                history=[*conversation_context, *memory_context],
                 observer=observer,
                 model=model,
+                tool_runner=tool_executor,
             )
             result = await run_support_graph(
                 build_support_graph(nodes.graph_nodes()),
@@ -152,36 +198,63 @@ async def execute_support_run(
             )
             if not lease_extended:
                 raise RuntimeError("Run lease was lost before result commit")
-            session.add(
-                Message(
-                    conversation_id=conversation_id,
-                    run_id=run_id,
-                    role="assistant",
-                    content=result["answer"],
-                    outcome=result["outcome"],
-                    citations=result.get("citations", []),
-                )
-            )
-            await MemoryLifecycleService().extract_from_message(
-                session,
-                owner_id=actor_id,
-                source_message_id=user_message.id,
-            )
-            transition = await state.transition(
-                session,
+            assistant_message = Message(
+                conversation_id=conversation_id,
                 run_id=run_id,
-                actor_id=actor_id,
-                target=RunStatus.COMPLETED,
-                operation_id=f"worker-complete:{run_id}",
+                role="assistant",
+                content=result["answer"],
                 outcome=result["outcome"],
-                safe_payload={
-                    "provider": model,
-                    "citation_count": len(result.get("citations", [])),
-                },
+                citations=result.get("citations", []),
             )
+            session.add(assistant_message)
+            await session.flush()
+            proposal = result.get("approval_proposal")
+            if isinstance(proposal, dict):
+                arguments = CreateTicketArguments.model_validate(proposal)
+                approval = await ApprovalService().create_ticket_draft(
+                    session,
+                    owner_id=actor_id,
+                    run_id=run_id,
+                    action_id=f"agent-ticket:{run_id}",
+                    arguments=arguments,
+                )
+                transition = await state.transition(
+                    session,
+                    run_id=run_id,
+                    actor_id=actor_id,
+                    target=RunStatus.WAITING_APPROVAL,
+                    operation_id=f"worker-waiting-approval:{run_id}",
+                    outcome="approval_required",
+                    safe_payload={"approval_id": str(approval.id)},
+                )
+                approval_pause = (
+                    approval.id,
+                    approval.arguments_hash,
+                    transition.run.checkpoint_thread_id,
+                )
+            else:
+                memory_job = await MemoryLifecycleService().start_extraction_job(
+                    session,
+                    owner_id=actor_id,
+                    source_message_id=user_message.id,
+                )
+                memory_job_id = memory_job.id if memory_job is not None else None
+                transition = await state.transition(
+                    session,
+                    run_id=run_id,
+                    actor_id=actor_id,
+                    target=RunStatus.COMPLETED,
+                    operation_id=f"worker-complete:{run_id}",
+                    outcome=result["outcome"],
+                    safe_payload={
+                        "provider": model,
+                        "citation_count": len(result.get("citations", [])),
+                    },
+                )
             transition.run.counters = {
                 "model_calls": result.get("model_calls", 0),
                 "retrieval_calls": result.get("retrieval_calls", 0),
+                "tool_calls": result.get("tool_calls", 0),
                 "input_tokens": result.get("input_tokens", 0),
                 "output_tokens": result.get("output_tokens", 0),
             }
@@ -203,4 +276,22 @@ async def execute_support_run(
                     safe_payload={"error_code": "agent_execution_failed"},
                 )
         raise
+    if approval_pause is not None:
+        approval_id, arguments_hash, checkpoint_thread_id = approval_pause
+        await asyncio.to_thread(
+            pause_ticket_approval,
+            database_url=database.engine.url.render_as_string(hide_password=False),
+            checkpoint_thread_id=checkpoint_thread_id,
+            run_id=run_id,
+            actor_id=actor_id,
+            approval_id=approval_id,
+            arguments_hash=arguments_hash,
+        )
+        return WorkerResult(run_id=run_id, status="waiting_approval")
+    if memory_dispatcher is not None and memory_job_id is not None:
+        # This runs only after the transaction containing the final message,
+        # completed run and pending extraction job has committed. The periodic
+        # reconciler redelivers the durable ID when the broker is unavailable.
+        with suppress(BrokerUnavailableError):
+            await memory_dispatcher.enqueue_memory_extraction(memory_job_id)
     return WorkerResult(run_id=run_id, status="processed")

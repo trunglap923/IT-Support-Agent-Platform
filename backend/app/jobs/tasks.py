@@ -11,7 +11,9 @@ from celery import shared_task  # type: ignore[import-untyped]
 from app.config import Settings
 from app.db import Database
 from app.jobs.celery_app import celery_app
-from app.jobs.dispatch import CeleryRunDispatcher
+from app.jobs.dispatch import CeleryMemoryExtractionDispatcher, CeleryRunDispatcher
+from app.jobs.maintenance import expire_pending_approvals
+from app.jobs.memory import execute_memory_extraction, reconcile_memory_extractions
 from app.jobs.reconcile import reconcile_queued_run_dispatches
 from app.jobs.worker import execute_support_run
 from app.observability import create_ai_observer
@@ -40,11 +42,14 @@ def run_agent(run_id: str) -> dict[str, str]:
                     provider=provider,
                     embedding_provider=embedding_provider,
                     observer=observer,
-                    model=settings.openai_model
-                    if settings.ai_provider.value == "openai"
-                    else "fake",
+                    model=(
+                        settings.openai_model
+                        if settings.text_provider.value == "openai"
+                        else "fake"
+                    ),
                     lease_seconds=settings.run_lease_seconds,
                     max_attempts=settings.run_max_attempts,
+                    memory_dispatcher=CeleryMemoryExtractionDispatcher(celery_app),
                 )
             )
             return {key: str(value) for key, value in receipt.items()}
@@ -79,6 +84,66 @@ def reconcile_queued_runs() -> dict[str, int]:
                 database,
                 dispatcher,
                 max_attempts=settings.run_max_attempts,
+            )
+        finally:
+            await database.close()
+
+    return {"requeued": asyncio.run(reconcile())}
+
+
+@shared_task(name="jobs.expire_pending_approvals")  # type: ignore[untyped-decorator]
+def expire_approvals() -> dict[str, int]:
+    """Expire due approval drafts and release their waiting runs."""
+
+    settings = Settings()
+    if settings.database_url is None:
+        raise RuntimeError("DATABASE_URL is required by approval maintenance")
+    database_url = settings.database_url.get_secret_value()
+
+    async def expire() -> int:
+        database = Database(database_url)
+        try:
+            return await expire_pending_approvals(database)
+        finally:
+            await database.close()
+
+    return {"expired": asyncio.run(expire())}
+
+
+@shared_task(name="jobs.extract_memory")  # type: ignore[untyped-decorator]
+def extract_memory(job_id: str) -> dict[str, str]:
+    """Complete one durable, consent-checked memory extraction job."""
+
+    settings = Settings()
+    if settings.database_url is None:
+        raise RuntimeError("DATABASE_URL is required by memory extraction")
+    database_url = settings.database_url.get_secret_value()
+
+    async def execute() -> str:
+        database = Database(database_url)
+        try:
+            return await execute_memory_extraction(database, job_id=UUID(job_id))
+        finally:
+            await database.close()
+
+    return {"status": asyncio.run(execute())}
+
+
+@shared_task(name="jobs.reconcile_memory_extractions")  # type: ignore[untyped-decorator]
+def reconcile_memory_jobs() -> dict[str, int]:
+    """Redeliver pending memory jobs after broker/process failures."""
+
+    settings = Settings()
+    if settings.database_url is None:
+        raise RuntimeError("DATABASE_URL is required by memory reconciliation")
+    database_url = settings.database_url.get_secret_value()
+
+    async def reconcile() -> int:
+        database = Database(database_url)
+        try:
+            return await reconcile_memory_extractions(
+                database,
+                CeleryMemoryExtractionDispatcher(celery_app),
             )
         finally:
             await database.close()

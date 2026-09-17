@@ -36,7 +36,7 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [x] APR-02: Upsert draft idempotent theo action_id, chỉ phát preview khi graph pause đã lưu.
 - [x] APR-03: Approve/reject bằng row lock/version, xác minh owner/account/expiry.
 - [x] APR-04: Khóa arguments đã duyệt, enqueue resume bằng DB decision.
-- [ ] APR-05: Sửa draft bằng hủy rồi tạo mới; expire pending run và phát event.
+- [ ] APR-05: Sửa draft bằng hủy rồi tạo mới (expire pending run và phát event đã hoàn thành).
 
 ## Điều kiện hoàn thành
 

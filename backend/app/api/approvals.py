@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.csrf import require_csrf
-from app.db.models import ApprovalRequest, ApprovalStatus, RunStatus
+from app.db.models import AgentRun, ApprovalRequest, ApprovalStatus, Message, RunStatus
 from app.dependencies import CurrentPrincipal, get_db_session
 from app.jobs.dispatch import BrokerUnavailableError, RunDispatcher
 from app.services.approvals import (
@@ -113,6 +113,19 @@ async def decide_approval(
                 "decision": payload.decision,
             },
         )
+        if payload.decision == "reject":
+            run = await session.get(AgentRun, approval.run_id)
+            if run is not None:
+                session.add(
+                    Message(
+                        conversation_id=run.conversation_id,
+                        run_id=run.id,
+                        role="assistant",
+                        content="Bạn đã từ chối bản nháp; hệ thống không tạo ticket.",
+                        outcome="approval_rejected",
+                        citations=[],
+                    )
+                )
     except ApprovalNotFoundError as error:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Approval was not found"

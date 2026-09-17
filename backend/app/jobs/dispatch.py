@@ -8,7 +8,7 @@ from uuid import UUID
 
 from redis.asyncio import Redis
 
-from app.jobs.celery_app import AGENT_QUEUE
+from app.jobs.celery_app import AGENT_QUEUE, BACKGROUND_QUEUE
 
 
 class BrokerUnavailableError(RuntimeError):
@@ -19,6 +19,10 @@ class RunDispatcher(Protocol):
     async def ensure_available(self) -> None: ...
 
     async def enqueue_run(self, run_id: UUID) -> None: ...
+
+
+class MemoryExtractionDispatcher(Protocol):
+    async def enqueue_memory_extraction(self, job_id: UUID) -> None: ...
 
 
 class UnavailableRunDispatcher:
@@ -66,3 +70,20 @@ class CeleryRunDispatcher:
             )
         except Exception as error:
             raise BrokerUnavailableError("Run enqueue failed") from error
+
+
+class CeleryMemoryExtractionDispatcher:
+    def __init__(self, celery_application: Any) -> None:
+        self.celery_application = celery_application
+
+    async def enqueue_memory_extraction(self, job_id: UUID) -> None:
+        try:
+            await asyncio.to_thread(
+                self.celery_application.send_task,
+                "jobs.extract_memory",
+                args=[str(job_id)],
+                task_id=f"memory-extraction:{job_id}",
+                queue=BACKGROUND_QUEUE,
+            )
+        except Exception as error:
+            raise BrokerUnavailableError("Memory extraction enqueue failed") from error

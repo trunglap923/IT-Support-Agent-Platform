@@ -11,6 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from app.db import Database
 from app.db.models import AgentRun, Message, RunEvent, RunKind, RunStatus
 from app.jobs.dispatch import BrokerUnavailableError, RunDispatcher
+from app.prompts import SUPPORT_PROMPT_VERSION
 from app.repositories.conversations import ConversationRepository
 from app.repositories.runs import RunRepository
 
@@ -54,7 +55,7 @@ class RunSubmissionService:
         conversation_id: UUID,
         content: str,
         client_request_id: str,
-        prompt_version: str = "v1",
+        prompt_version: str = SUPPORT_PROMPT_VERSION,
         model: str = "fake",
     ) -> RunSubmissionResult:
         input_hash = hash_run_input(content)

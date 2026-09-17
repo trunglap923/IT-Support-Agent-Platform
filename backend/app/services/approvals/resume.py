@@ -9,7 +9,7 @@ from sqlalchemy import select
 
 from app.agent.approval_checkpoint import resume_ticket_approval
 from app.db import Database
-from app.db.models import ApprovalRequest, ApprovalStatus, RunStatus
+from app.db.models import ApprovalRequest, ApprovalStatus, Message, RunStatus
 from app.repositories.runs import RunRepository
 from app.services.conversations.run_state import RunStateService
 from app.services.tickets import TicketWriteService
@@ -81,13 +81,35 @@ async def execute_approval_resume_run(
                 approval_id=approval.id,
                 owner_id=actor_id,
             )
+        final_outcome = "ticket_created" if ticket_receipt is not None else "approval_rejected"
+        existing_message = await session.scalar(
+            select(Message.id).where(
+                Message.run_id == run_id,
+                Message.outcome == final_outcome,
+            )
+        )
+        if existing_message is None:
+            session.add(
+                Message(
+                    conversation_id=run.conversation_id,
+                    run_id=run.id,
+                    role="assistant",
+                    content=(
+                        f"Ticket {ticket_receipt.display_key} đã được tạo."
+                        if ticket_receipt is not None
+                        else "Bạn đã từ chối bản nháp; hệ thống không tạo ticket."
+                    ),
+                    outcome=final_outcome,
+                    citations=[],
+                )
+            )
         await state.transition(
             session,
             run_id=run_id,
             actor_id=actor_id,
             target=RunStatus.COMPLETED,
             operation_id=f"approval-resume-complete:{approval.id}",
-            outcome=("ticket_created" if ticket_receipt is not None else "approval_rejected"),
+            outcome=final_outcome,
             safe_payload={
                 "approval_id": str(approval.id),
                 "ticket_id": str(ticket_receipt.ticket_id) if ticket_receipt is not None else None,

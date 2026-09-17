@@ -40,7 +40,7 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [x] JOB-03a: Claim worker bằng row lock + idempotency event; delivery trùng không chạy lại run.
 - [x] JOB-03b: Thêm heartbeat/lease và stale recovery đầy đủ ở WP-10.
 - [x] JOB-04a: Nối checkpoint/receipt recovery; timeout và exhausted attempts có safe error code.
-- [ ] JOB-04b: Thêm maintenance job chủ động expire approval đang pending.
+- [x] JOB-04b: Beat chủ động expire approval pending theo batch, cancel run và phát event idempotent.
 - [ ] JOB-05: Chạy cleanup theo retention/epoch, đóng clients/subprocess đúng vòng đời.
 
 ## Điều kiện hoàn thành
