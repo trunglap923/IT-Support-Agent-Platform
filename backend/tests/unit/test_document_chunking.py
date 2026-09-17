@@ -1,4 +1,4 @@
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -75,3 +75,54 @@ def test_valid_boundary_configs(config: ChunkingConfig) -> None:
 def test_rejects_overlap_equal_to_target() -> None:
     with pytest.raises(ValueError, match="overlap"):
         ChunkingConfig(target_tokens=10, overlap_tokens=10)
+
+
+def test_preserves_multiline_command_with_its_vietnamese_instruction() -> None:
+    text = """# Cài VPN
+
+Trên Ubuntu, chạy lệnh sau rồi kiểm tra trạng thái:
+
+```bash
+sudo apt-get update
+sudo apt-get install company-vpn
+systemctl --user status company-vpn
+```
+
+# Verify
+
+Open the client and sign in with company SSO.
+"""
+    chunks = chunk_blocks(
+        version_id=uuid4(),
+        blocks=[SourceBlock(text, 1, "VPN setup", "vpn-setup.md")],
+        config=ChunkingConfig(target_tokens=16, overlap_tokens=3, hard_cap_tokens=28),
+    )
+
+    command_chunk = next(chunk for chunk in chunks if "sudo apt-get update" in chunk.content)
+    assert "Trên Ubuntu, chạy lệnh sau" in command_chunk.content
+    assert "sudo apt-get update\nsudo apt-get install company-vpn" in command_chunk.content
+    assert command_chunk.page_number == 1
+    assert command_chunk.section == "VPN setup"
+    assert all(chunk.token_count <= 28 for chunk in chunks)
+
+
+def test_heading_and_paragraph_boundaries_are_deterministic() -> None:
+    text = """# Registry
+
+Use a short-lived token for Docker Registry.
+
+# GitLab
+
+Đăng nhập GitLab bằng SSO của công ty.
+"""
+    block = SourceBlock(text, None, "Access", "access.md")
+    config = ChunkingConfig(target_tokens=10, overlap_tokens=2, hard_cap_tokens=12)
+
+    first = chunk_blocks(version_id=UUID(int=1), blocks=[block], config=config)
+    second = chunk_blocks(version_id=UUID(int=1), blocks=[block], config=config)
+
+    assert [(chunk.id, chunk.content) for chunk in first] == [
+        (chunk.id, chunk.content) for chunk in second
+    ]
+    assert "# Registry" in first[0].content
+    assert any("# GitLab" in chunk.content for chunk in first)

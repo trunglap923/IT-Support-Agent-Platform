@@ -20,7 +20,7 @@ from app.services.budget.service import DatabaseUsageLedger
 def create_provider(
     settings: Settings, database: Database | None = None
 ) -> StructuredResponseProvider:
-    if settings.ai_provider is AIProvider.FAKE:
+    if settings.text_provider is AIProvider.FAKE:
         return FakeTextProvider()
 
     key = settings.openai_api_key
@@ -44,7 +44,7 @@ def create_provider(
 
 
 def create_embedding_provider(settings: Settings, database: Database) -> EmbeddingProvider:
-    if settings.ai_provider is AIProvider.FAKE:
+    if settings.embedding_provider is AIProvider.FAKE:
         return FakeEmbeddingProvider(dimensions=settings.embedding_dimensions)
     key = settings.openai_api_key
     if key is None:

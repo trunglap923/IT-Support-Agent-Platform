@@ -62,7 +62,10 @@ Mở http://127.0.0.1:5173. Tất cả tài khoản local dưới đây dùng pa
 | `it.operations@example.com` | IT | Operations |
 | `admin@example.com` | admin | Operations |
 
-Stack mặc định dùng `AI_PROVIDER=fake`; không gọi API trả phí. `make down` dừng container nhưng giữ PostgreSQL, Redis và document volumes. PostgreSQL/Redis không publish ra host; chỉ frontend `5173` và API `8000` bind loopback.
+Stack mặc định dùng `TEXT_PROVIDER=fake` và `EMBEDDING_PROVIDER=fake`; không gọi API trả
+phí. Hai provider có thể cấu hình độc lập. `make down` dừng container nhưng giữ PostgreSQL,
+Redis và document volumes. PostgreSQL/Redis không publish ra host; chỉ frontend `5173` và
+API `8000` bind loopback.
 
 Lệnh gộp sau khi đã cấu hình `.env`:
 
@@ -82,6 +85,18 @@ VPN, Docker Registry và GitLab, cùng 18 ticket thuộc nhiều user/phòng ban
 41 chunks: 9 document hiện hành từ 11 versions, với scope company, Engineering và IT-only.
 Chạy seed lại tái sử dụng ingestion jobs và không tạo thêm version/chunk. Manual UC-01–UC-12
 vẫn cần được chạy và ghi evidence trước khi tuyên bố demo hoàn chỉnh.
+
+Text generation và embedding được cấu hình độc lập. Để preview thay đổi embedding cho đúng
+11 seed-corpus versions mà không ghi dữ liệu:
+
+```bash
+make knowledge-reindex-dry-run
+```
+
+Đổi sang OpenAI embedding cần giữ `EMBEDDING_DIMENSIONS=1536`, đặt
+`EMBEDDING_PROVIDER=openai`, cấu hình `OPENAI_API_KEY`, kiểm tra dry-run, rồi opt-in riêng cho
+lần gọi trả phí bằng `RUN_PAID_REINDEX=1 make knowledge-reindex`. Mọi paid embedding call đi
+qua usage ledger/budget guard; command không reset database và không chạm tài liệu upload.
 
 ## Các route chính
 
@@ -111,7 +126,7 @@ Live OpenAI chỉ chạy khi có key và opt-in rõ ràng; không chạy trong C
 
 ```bash
 RUN_OPENAI_LIVE_SPIKE=1 make spike-openai-live
-RUN_LIVE_EVAL=1 make eval-agent-live
+TEXT_PROVIDER=openai RUN_LIVE_EVAL=1 make eval-agent-live
 ```
 
 Không commit hoặc gửi API key vào chat. Budget guard/token cap vẫn không thay thế việc giám sát billing của nhà cung cấp.

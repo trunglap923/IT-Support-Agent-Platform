@@ -54,7 +54,13 @@ class IngestionPipeline:
         self._max_attempts = max_attempts
         self._markdown_parser = MarkdownParser(max_bytes=max_text_bytes)
 
-    async def run(self, job_id: UUID) -> IngestionResult:
+    async def run(
+        self,
+        job_id: UUID,
+        *,
+        force: bool = False,
+        preserve_version_status: bool = False,
+    ) -> IngestionResult:
         async with self._database.session() as session, session.begin():
             job = await session.scalar(
                 select(IngestionJob).where(IngestionJob.id == job_id).with_for_update()
@@ -65,14 +71,15 @@ class IngestionPipeline:
             if version is None:
                 raise LookupError(f"Missing document version for ingestion job {job_id}")
             version_id = version.id
-            if job.status is IngestionJobStatus.COMPLETED:
+            previous_version_status = version.status
+            if job.status is IngestionJobStatus.COMPLETED and not force:
                 count = await session.scalar(
                     select(func.count(DocumentChunk.id)).where(
                         DocumentChunk.version_id == version.id
                     )
                 )
                 return IngestionResult(job.id, version.id, int(count or 0), True)
-            if job.attempts >= self._max_attempts:
+            if job.attempts >= self._max_attempts and not force:
                 raise IngestionPipelineError("Ingestion retry limit reached")
             job.attempts += 1
             job.status = IngestionJobStatus.RUNNING
@@ -80,7 +87,9 @@ class IngestionPipeline:
             job.progress = 5
             job.error_code = None
             job.error_detail = None
-            version.status = DocumentVersionStatus.PROCESSING
+            job.completed_at = None
+            if not preserve_version_status:
+                version.status = DocumentVersionStatus.PROCESSING
             storage_key = version.storage_key
             media_type = version.media_type
 
@@ -136,7 +145,11 @@ class IngestionPipeline:
                         for draft, vector in zip(drafts, batch.vectors, strict=True)
                     ]
                 )
-                locked_version.status = DocumentVersionStatus.READY
+                locked_version.status = (
+                    previous_version_status
+                    if preserve_version_status
+                    else DocumentVersionStatus.READY
+                )
                 locked_version.parser_version = parser_version
                 locked_version.chunker_version = self._chunking_config.version
                 locked_version.embedding_model = batch.model
@@ -147,7 +160,14 @@ class IngestionPipeline:
                 locked_job.completed_at = func.now()
             return IngestionResult(job_id, version_id, len(drafts), False)
         except Exception as error:
-            await self._record_failure(job_id, version_id, error)
+            await self._record_failure(
+                job_id,
+                version_id,
+                error,
+                restore_version_status=(
+                    previous_version_status if preserve_version_status else None
+                ),
+            )
             raise
 
     def _resolve_storage_key(self, storage_key: str) -> Path:
@@ -188,7 +208,14 @@ class IngestionPipeline:
             for section in extracted_markdown.sections
         ]
 
-    async def _record_failure(self, job_id: UUID, version_id: UUID, error: Exception) -> None:
+    async def _record_failure(
+        self,
+        job_id: UUID,
+        version_id: UUID,
+        error: Exception,
+        *,
+        restore_version_status: DocumentVersionStatus | None = None,
+    ) -> None:
         error_code = (
             error.code.value if isinstance(error, PdfExtractionError) else "ingestion_failed"
         )
@@ -201,4 +228,4 @@ class IngestionPipeline:
                 job.error_code = error_code
                 job.error_detail = str(error)[:500]
             if version is not None:
-                version.status = DocumentVersionStatus.FAILED
+                version.status = restore_version_status or DocumentVersionStatus.FAILED

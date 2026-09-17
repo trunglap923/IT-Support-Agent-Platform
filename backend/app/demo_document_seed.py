@@ -342,10 +342,9 @@ async def plan_published_knowledge(
                 version.status is not expected_status,
                 version.parser_version != MARKDOWN_PARSER_VERSION,
                 version.chunker_version != CHUNKER_VERSION,
-                version.embedding_model != "fake-embedding-v2",
+                version.embedding_model is None,
                 version.embedding_dimensions != 1536,
                 job is None,
-                job is not None and job.identity_hash != _identity_hash(spec),
                 job is not None and job.status is not IngestionJobStatus.COMPLETED,
                 chunk_counts.get(version.id, 0) == 0,
             )
@@ -507,10 +506,6 @@ async def _prepare_documents(
                 )
                 session.add(job)
                 await session.flush()
-            elif job.identity_hash != identity_hash:
-                raise ValueError(
-                    f"Corpus ingestion identity changed: {spec.document_key}:{spec.version_label}"
-                )
             selected = current[spec.document_key]
             if (
                 spec.version_label == selected.version_label

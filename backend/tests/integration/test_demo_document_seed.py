@@ -22,6 +22,7 @@ from app.db.models import (
 )
 from app.demo_document_seed import seed_published_knowledge
 from app.providers.embeddings import FakeEmbeddingProvider
+from app.rag.citations.sources import build_evidence_output
 from app.rag.retrieval.query import HybridRetriever
 from app.services.documents import DocumentUploadService
 
@@ -110,6 +111,16 @@ def test_demo_corpus_is_published_idempotently_with_scoped_retrieval(
                     operation_id="demo-corpus-it",
                     now=NOW,
                 )
+                natural_language_hits = await retriever.search(
+                    session,
+                    query=(
+                        "Tôi dùng Ubuntu và VPN báo certificate warning. Tôi cần xử lý thế nào?"
+                    ),
+                    principal=principal("employee.engineering@example.com", "engineering"),
+                    operation_id="demo-corpus-natural-language",
+                    now=NOW,
+                )
+                natural_language_evidence = build_evidence_output(natural_language_hits)
 
                 vpn_document = next(
                     document for document in documents if document.document_key == "vpn-setup"
@@ -163,6 +174,8 @@ def test_demo_corpus_is_published_idempotently_with_scoped_retrieval(
             assert "engineering-oncall" in engineering_keys
             assert "it-service-recovery" not in engineering_keys
             assert {"engineering-oncall", "it-service-recovery"} <= it_keys
+            assert natural_language_evidence.outcome == "answered"
+            assert natural_language_evidence.sources[0].document_key == "vpn-troubleshooting"
             assert preview is not None
             assert preview.parser_version == "markdown-sections-v1"
             assert len(preview.pages) >= 3

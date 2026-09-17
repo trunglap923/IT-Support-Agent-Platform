@@ -8,7 +8,8 @@ x-backend-image: &backend-image
 x-backend-environment: &backend-environment
   APP_ENV: development
   DEMO_MODE: "true"
-  AI_PROVIDER: ${AI_PROVIDER:-fake}
+  TEXT_PROVIDER: ${TEXT_PROVIDER:-fake}
+  EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-fake}
   OPENAI_API_KEY: ${OPENAI_API_KEY:-}
   OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1-mini-2025-04-14}
   OPENAI_INPUT_PRICE_PER_MILLION_USD: ${OPENAI_INPUT_PRICE_PER_MILLION_USD:-0.40}
@@ -18,6 +19,7 @@ x-backend-environment: &backend-environment
   EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-1536}
   EMBEDDING_INPUT_PRICE_PER_MILLION_USD: ${EMBEDDING_INPUT_PRICE_PER_MILLION_USD:-0.02}
   EMBEDDING_PRICE_VERSION: ${EMBEDDING_PRICE_VERSION:-2026-09-plan-v1}
+  RUN_PAID_REINDEX: ${RUN_PAID_REINDEX:-false}
   APP_AI_DAILY_BUDGET_USD: ${APP_AI_DAILY_BUDGET_USD:-1}
   APP_AI_MONTHLY_BUDGET_USD: ${APP_AI_MONTHLY_BUDGET_USD:-10}
   DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-it_support_agent}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-it_support_agent}
@@ -71,6 +73,8 @@ services:
       context: ..
       dockerfile: backend/Dockerfile
       target: production
+      secrets:
+        - host_ca_bundle
     environment:
       <<: *backend-environment
       DEMO_SEED_PASSWORD: ${DEMO_SEED_PASSWORD:-}
@@ -263,6 +267,10 @@ volumes:
   postgres_data:
   redis_data:
   document_storage:
+
+secrets:
+  host_ca_bundle:
+    file: ${HOST_CA_BUNDLE:-/etc/ssl/certs/ca-certificates.crt}
 
 networks:
   edge:

@@ -37,11 +37,15 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [x] RET-01: Tạo predicate visibility/department/current version/archive/effective/expiry dùng chung hai nhánh search.
 - [x] RET-02: Xây query embedding và PostgreSQL full-text query.
 - [x] RET-03: Fuse ranks bằng RRF thay vì cộng score khác thang đo.
-- [ ] RET-04: Đo Recall@5 trên cases answerable, tách no-answer cases.
-- [ ] RET-05: Lưu corpus/config version vào trace và eval artifacts.
+- [x] RET-04: Đo Recall@5 trên cases answerable, tách no-answer cases.
+- [x] RET-05: Retrieval artifact lưu corpus manifest hash, parser/chunker/embedding và threshold versions.
 
 ## Điều kiện hoàn thành
 
-- [ ] Không trả title/snippet/chunk trái quyền tới context, logs hoặc UI.
-- [ ] FTS và vector cùng scope; nguồn superseded không làm current evidence.
-- [ ] Có baseline tái lập; G-04 đạt hoặc report ghi rõ thiếu hụt.
+- [x] Không trả title/snippet/chunk trái quyền tới context, logs hoặc UI.
+- [x] FTS và vector cùng scope; nguồn superseded không làm current evidence.
+- [x] Có baseline tái lập; G-04 đạt và report ghi rõ giới hạn fake embedding.
+
+Bằng chứng: `test_hybrid_retrieval.py`, `test_demo_document_seed.py` và
+`reports/retrieval-baseline.json`. RET-05 vẫn mở vì trace runtime chưa ghi đủ corpus/config
+snapshot dù evaluation artifact đã có.

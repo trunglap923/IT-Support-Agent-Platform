@@ -13,7 +13,8 @@ environment_file="${temporary_dir}/clean.env"
 cat >"${environment_file}" <<'EOF'
 APP_ENV=development
 DEMO_MODE=true
-AI_PROVIDER=fake
+TEXT_PROVIDER=fake
+EMBEDDING_PROVIDER=fake
 POSTGRES_DB=it_support_agent
 POSTGRES_USER=it_support_agent
 POSTGRES_PASSWORD=clean-machine-only-password

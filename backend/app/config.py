@@ -36,7 +36,8 @@ class Settings(BaseSettings):
     app_env: AppEnvironment = AppEnvironment.DEVELOPMENT
     demo_mode: bool = True
 
-    ai_provider: AIProvider = AIProvider.FAKE
+    text_provider: AIProvider = AIProvider.FAKE
+    embedding_provider: AIProvider = AIProvider.FAKE
     openai_api_key: SecretStr | None = None
     openai_model: str = "gpt-4.1-mini-2025-04-14"
     openai_input_price_per_million_usd: float = Field(default=0.40, ge=0)
@@ -97,10 +98,16 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_provider_credentials(self) -> "Settings":
-        if self.ai_provider is AIProvider.OPENAI:
+        if AIProvider.OPENAI in {self.text_provider, self.embedding_provider}:
             key = self.openai_api_key
             if key is None or not key.get_secret_value().strip():
-                raise ValueError("OPENAI_API_KEY is required when AI_PROVIDER=openai")
+                raise ValueError(
+                    "OPENAI_API_KEY is required when TEXT_PROVIDER or EMBEDDING_PROVIDER is openai"
+                )
+        if self.embedding_dimensions != 1536:
+            raise ValueError(
+                "EMBEDDING_DIMENSIONS must remain 1536 for the current pgvector schema"
+            )
         if self.app_env is AppEnvironment.PRODUCTION and not self.cookie_secure:
             raise ValueError("COOKIE_SECURE must be true in production")
         if self.celery_task_time_limit_seconds <= self.celery_task_soft_time_limit_seconds:
@@ -113,5 +120,6 @@ class Settings(BaseSettings):
         return {
             "environment": self.app_env.value,
             "demo_mode": self.demo_mode,
-            "ai_provider": self.ai_provider.value,
+            "text_provider": self.text_provider.value,
+            "embedding_provider": self.embedding_provider.value,
         }

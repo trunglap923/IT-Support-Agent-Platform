@@ -4,6 +4,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.providers.embeddings import FakeEmbeddingProvider, OpenAIEmbeddingProvider
+from app.services.budget.service import BudgetExceededError
 
 
 class RecordingLedger:
@@ -35,6 +36,18 @@ class FakeEmbeddingsApi:
             data=[SimpleNamespace(embedding=[0.25] * dimensions)],
             usage=SimpleNamespace(prompt_tokens=4),
         )
+
+
+class DenyingLedger(RecordingLedger):
+    async def reserve(self, **kwargs: object) -> None:
+        del kwargs
+        raise BudgetExceededError("test budget exhausted")
+
+
+class UnexpectedEmbeddingsApi:
+    async def create(self, **kwargs: object) -> object:
+        del kwargs
+        raise AssertionError("provider must not be called after admission is denied")
 
 
 def test_fake_embeddings_are_deterministic_and_normalized() -> None:
@@ -73,5 +86,19 @@ def test_unknown_provider_failure_keeps_conservative_reservation() -> None:
         with pytest.raises(TimeoutError):
             await provider.embed(["safe test"], operation_id="op-1")
         assert ledger.events == ["reserve:op-1", "unknown:op-1"]
+
+    asyncio.run(scenario())
+
+
+def test_budget_denial_prevents_paid_provider_call() -> None:
+    async def scenario() -> None:
+        provider = OpenAIEmbeddingProvider(
+            client=SimpleNamespace(embeddings=UnexpectedEmbeddingsApi()),
+            ledger=DenyingLedger(),
+            model="text-embedding-3-small",
+            dimensions=4,
+        )
+        with pytest.raises(BudgetExceededError):
+            await provider.embed(["safe test"], operation_id="denied-op")
 
     asyncio.run(scenario())

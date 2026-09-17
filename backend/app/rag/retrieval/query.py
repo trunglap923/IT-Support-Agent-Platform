@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import Select, func, select
@@ -13,6 +15,68 @@ from app.auth.principal import Principal
 from app.db.models import Document, DocumentChunk, DocumentVersion
 from app.providers.embeddings import EmbeddingProvider
 from app.rag.retrieval.filters import readable_current_document
+
+_TERM_PATTERN = re.compile(r"[^\W_]+", re.UNICODE)
+_QUERY_STOP_WORDS = frozenset(
+    {
+        "a",
+        "an",
+        "and",
+        "are",
+        "can",
+        "company",
+        "demo",
+        "does",
+        "for",
+        "from",
+        "how",
+        "i",
+        "is",
+        "of",
+        "on",
+        "the",
+        "to",
+        "use",
+        "what",
+        "which",
+        "with",
+        "báo",
+        "bị",
+        "cách",
+        "cần",
+        "cho",
+        "có",
+        "dùng",
+        "gì",
+        "không",
+        "là",
+        "lý",
+        "nào",
+        "như",
+        "thế",
+        "thì",
+        "tôi",
+        "trên",
+        "và",
+        "xử",
+        "được",
+    }
+)
+
+
+def meaningful_terms(value: str, *, limit: int = 24) -> tuple[str, ...]:
+    """Return stable Unicode search terms without natural-language filler words."""
+
+    terms: list[str] = []
+    seen: set[str] = set()
+    for token in _TERM_PATTERN.findall(value.casefold()):
+        if len(token) < 2 or token in _QUERY_STOP_WORDS or token in seen:
+            continue
+        seen.add(token)
+        terms.append(token)
+        if len(terms) == limit:
+            break
+    return tuple(terms)
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,6 +93,9 @@ class RetrievalHit:
     score: float
     vector_rank: int | None
     lexical_rank: int | None
+    vector_similarity: float | None = None
+    lexical_coverage: float = 0.0
+    rrf_score: float = 0.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,6 +181,7 @@ class HybridRetriever:
         query_vector = list(query_batch.vectors[0])
         selected_now = now or datetime.now(UTC)
         base = _base_query(principal, now=selected_now)
+        query_terms = meaningful_terms(query)
 
         distance = DocumentChunk.embedding.cosine_distance(query_vector)
         vector_rows = (
@@ -129,31 +197,38 @@ class HybridRetriever:
             )
         ).all()
 
-        ts_query = func.plainto_tsquery("simple", query)
-        lexical_score = func.ts_rank_cd(DocumentChunk.search_vector, ts_query)
-        lexical_rows = (
-            await session.execute(
-                base.add_columns(lexical_score.label("lexical_score"))
-                .where(DocumentChunk.search_vector.op("@@")(ts_query))
-                .order_by(
-                    lexical_score.desc(),
-                    Document.document_key,
-                    DocumentVersion.version_label,
-                    DocumentChunk.ordinal,
-                )
-                .limit(self._branch_limit)
+        lexical_rows: list[Any] = []
+        if query_terms:
+            ts_query = func.to_tsquery("simple", " | ".join(query_terms))
+            lexical_score = func.ts_rank_cd(DocumentChunk.search_vector, ts_query)
+            lexical_rows = list(
+                (
+                    await session.execute(
+                        base.add_columns(lexical_score.label("lexical_score"))
+                        .where(DocumentChunk.search_vector.op("@@")(ts_query))
+                        .order_by(
+                            lexical_score.desc(),
+                            Document.document_key,
+                            DocumentVersion.version_label,
+                            DocumentChunk.ordinal,
+                        )
+                        .limit(self._branch_limit)
+                    )
+                ).all()
             )
-        ).all()
 
         candidates: dict[UUID, _Candidate] = {}
         vector_ranks: dict[UUID, int] = {}
+        vector_similarities: dict[UUID, float] = {}
         lexical_ranks: dict[UUID, int] = {}
         for rank, row in enumerate(vector_rows, start=1):
             item = _candidate(row)
             candidates[item.chunk_id] = item
             vector_ranks[item.chunk_id] = rank
-        for rank, row in enumerate(lexical_rows, start=1):
-            item = _candidate(row)
+            distance_value = float(row._mapping["vector_distance"])
+            vector_similarities[item.chunk_id] = max(0.0, min(1.0, 1.0 - distance_value))
+        for rank, lexical_row in enumerate(lexical_rows, start=1):
+            item = _candidate(lexical_row)
             candidates[item.chunk_id] = item
             lexical_ranks[item.chunk_id] = rank
 
@@ -161,9 +236,15 @@ class HybridRetriever:
         for chunk_id, item in candidates.items():
             vector_rank = vector_ranks.get(chunk_id)
             lexical_rank = lexical_ranks.get(chunk_id)
-            score = sum(
+            rrf_score = sum(
                 1 / (self._rrf_k + rank) for rank in (vector_rank, lexical_rank) if rank is not None
             )
+            content_terms = set(meaningful_terms(item.content, limit=800))
+            lexical_coverage = (
+                len(set(query_terms) & content_terms) / len(query_terms) if query_terms else 0.0
+            )
+            vector_similarity = vector_similarities.get(chunk_id)
+            score = max(vector_similarity or 0.0, lexical_coverage)
             scored.append(
                 RetrievalHit(
                     chunk_id=item.chunk_id,
@@ -178,6 +259,9 @@ class HybridRetriever:
                     score=score,
                     vector_rank=vector_rank,
                     lexical_rank=lexical_rank,
+                    vector_similarity=vector_similarity,
+                    lexical_coverage=lexical_coverage,
+                    rrf_score=rrf_score,
                 )
             )
         stable_order = {
@@ -188,6 +272,7 @@ class HybridRetriever:
             )
             for candidate in candidates.values()
         }
-        return sorted(scored, key=lambda hit: (-hit.score, stable_order[hit.chunk_id]))[
-            : self._result_limit
-        ]
+        return sorted(
+            scored,
+            key=lambda hit: (-hit.score, -hit.rrf_score, stable_order[hit.chunk_id]),
+        )[: self._result_limit]

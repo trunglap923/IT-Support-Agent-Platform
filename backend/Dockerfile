@@ -6,19 +6,33 @@ ARG APP_GID=10001
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
+    PIP_DEFAULT_TIMEOUT=120 \
     UV_COMPILE_BYTECODE=1 \
+    UV_HTTP_TIMEOUT=120 \
     UV_LINK_MODE=copy \
     UV_PROJECT_ENVIRONMENT=/opt/venv \
     PATH="/opt/venv/bin:$PATH"
 
-RUN groupadd --gid "${APP_GID}" app \
+RUN --mount=type=secret,id=host_ca_bundle,required=false \
+    groupadd --gid "${APP_GID}" app \
     && useradd --uid "${APP_UID}" --gid app --create-home --home-dir /home/app app \
-    && python -m pip install --no-cache-dir uv==0.11.32
+    && if [ -f /run/secrets/host_ca_bundle ]; then \
+        PIP_CERT=/run/secrets/host_ca_bundle \
+            python -m pip install --no-cache-dir uv==0.11.32; \
+    else \
+        python -m pip install --no-cache-dir uv==0.11.32; \
+    fi
 
 WORKDIR /app
 
 COPY backend/pyproject.toml backend/uv.lock backend/README.md ./
-RUN uv sync --frozen --no-dev --no-install-project
+RUN --mount=type=secret,id=host_ca_bundle,required=false \
+    if [ -f /run/secrets/host_ca_bundle ]; then \
+        SSL_CERT_FILE=/run/secrets/host_ca_bundle \
+            uv sync --system-certs --frozen --no-dev --no-install-project; \
+    else \
+        uv sync --system-certs --frozen --no-dev --no-install-project; \
+    fi
 
 COPY backend/app ./app
 COPY backend/migrations ./migrations
@@ -39,7 +53,13 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-
 FROM runtime AS test
 
 USER root
-RUN uv sync --frozen --all-groups --no-editable
+RUN --mount=type=secret,id=host_ca_bundle,required=false \
+    if [ -f /run/secrets/host_ca_bundle ]; then \
+        SSL_CERT_FILE=/run/secrets/host_ca_bundle \
+            uv sync --system-certs --frozen --all-groups --no-editable; \
+    else \
+        uv sync --system-certs --frozen --all-groups --no-editable; \
+    fi
 COPY backend/tests /app/tests
 COPY evals /workspace/evals
 COPY data /workspace/data

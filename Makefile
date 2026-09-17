@@ -24,7 +24,8 @@ FRONTEND_DOCKER = docker run --rm --user $(PROJECT_UID):$(PROJECT_GID) -e npm_co
 	frontend-e2e-docker \
 	dev-backend dev-frontend dev-frontend-docker dev-stop spike-openai-live \
 	spike-mcp-stdio spike-langgraph-postgres eval-validate eval-agent-fake \
-	eval-agent-repro eval-agent-live knowledge-validate retrieval-baseline \
+	eval-agent-repro eval-agent-live knowledge-validate knowledge-reindex \
+	knowledge-reindex-dry-run retrieval-baseline \
 	wp13-gate-tests quality-report \
 	db-up db-down db-status redis-up redis-down redis-status services-up services-down \
 	migrate seed seed-dry-run seed-demo-user wp02-integration-check wp03-integration-check \
@@ -68,6 +69,8 @@ help:
 	@echo "  make wp13-gate-tests         Run PostgreSQL-backed G-01/G-02/G-03/G-08 regressions"
 	@echo "  make quality-report          Generate reviewed G-01..G-09/performance/cost reports"
 	@echo "  make knowledge-validate      Validate corpus metadata, ACL rules and checksums"
+	@echo "  make knowledge-reindex-dry-run  Preview seed-corpus embedding changes"
+	@echo "  make knowledge-reindex       Re-embed only seed-corpus versions (paid opt-in guarded)"
 	@echo "  make retrieval-baseline      Run isolated PostgreSQL retrieval evaluation"
 	@echo "  make db-up                  Start local PostgreSQL/pgvector and wait until healthy"
 	@echo "  make db-down                Stop containers; preserve the PostgreSQL volume"
@@ -314,3 +317,13 @@ seed-dry-run: env-init
 	$(STACK_COMPOSE) run --rm --no-deps api python -m app.demo_seed_command --dry-run
 
 seed-demo-user: seed
+
+knowledge-reindex-dry-run: env-init
+	$(STACK_COMPOSE) build api
+	$(STACK_COMPOSE) up --detach --wait postgres redis
+	$(STACK_COMPOSE) run --rm --no-deps api python -m app.knowledge_reindex --dry-run
+
+knowledge-reindex: env-init
+	$(STACK_COMPOSE) build api
+	$(STACK_COMPOSE) up --detach --wait postgres redis
+	$(STACK_COMPOSE) run --rm --no-deps api python -m app.knowledge_reindex
