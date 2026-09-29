@@ -130,7 +130,7 @@ class FakeTextProvider:
             selected = evidence[:3]
             reply = SupportReply(
                 outcome="answered",
-                answer=" ".join(item.excerpt for item in selected),
+                answer="\n\n".join(item.excerpt for item in selected),
                 citations=[item.source_id for item in selected],
             )
         return StructuredModelResponse(

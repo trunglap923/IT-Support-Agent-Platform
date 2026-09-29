@@ -41,6 +41,8 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [x] UICHAT-02a: Hiển thị queued/running/waiting_approval/terminal, connection và retry error state.
 - [x] UICHAT-02b: Hiển thị final answer/no-answer khi message API hoàn tất run.
 - [x] UICHAT-03a: Hiển thị citation với title/page/excerpt; revoked-source UX còn WP-11.
+- [x] UICHAT-03b: Render Markdown bằng allowlist không thực thi raw HTML, giữ list/xuống dòng
+  và thu gọn citation excerpt dài với native disclosure.
 - [ ] UICHAT-04: Thêm preview ticket, approve/reject/expired; sửa draft tạo luồng mới đúng API.
 - [ ] UICHAT-05: Phục hồi run/approval sau refresh và kết nối memory/device context được phép.
 

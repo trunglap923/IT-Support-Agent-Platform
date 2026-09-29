@@ -16,8 +16,10 @@ import {
 } from "../../api/tickets";
 import { useAuth } from "../auth/useAuth";
 import { ApprovalCard } from "../tickets/ApprovalCard";
+import { CitationExcerpt } from "./CitationExcerpt";
 import { recoverActiveRun } from "./chatRecovery";
 import { RunStatusPanel } from "./RunStatusPanel";
+import { SafeMarkdown } from "./SafeMarkdown";
 
 export function ChatPage() {
   const { csrfToken } = useAuth();
@@ -188,7 +190,7 @@ export function ChatPage() {
           {messages.map((message) => (
             <article className={`chat-message ${message.role}`} key={message.id}>
               <span>{message.role === "user" ? "Bạn" : "IT Assistant"}</span>
-              <p>{message.content}</p>
+              <SafeMarkdown content={message.content} />
               {message.citations?.length ? (
                 <ul className="citation-list">
                   {message.citations.map((source) => (
@@ -201,7 +203,7 @@ export function ChatPage() {
                         <strong>{source.title}</strong>
                       )}
                       {source.page_number ? ` · Trang ${source.page_number}` : ""}
-                      <small>{source.excerpt}</small>
+                      <CitationExcerpt excerpt={source.excerpt} />
                     </li>
                   ))}
                 </ul>

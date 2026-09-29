@@ -52,7 +52,7 @@ test("employee creates, approves and rejects ticket drafts", async ({ page }) =>
       schema_version: 1,
       status: "pending",
       version: 1,
-      expires_at: "2026-09-17T10:00:00Z",
+      expires_at: "2099-09-17T10:00:00Z",
     };
     pending.unshift(approval);
     await json(route, { run_id: approval.run_id, approval, created: true }, 201);

@@ -80,6 +80,32 @@ def test_fake_provider_obeys_same_structured_contract() -> None:
     asyncio.run(scenario())
 
 
+def test_fake_provider_preserves_evidence_boundaries_for_markdown() -> None:
+    async def scenario() -> None:
+        provider = FakeTextProvider()
+        evidence_items = [
+            EvidenceInput(
+                source_id="src_setup",
+                title="Setup",
+                excerpt="## Authentication\nUse a short-lived token.",
+            ),
+            EvidenceInput(
+                source_id="src_escalation",
+                title="Escalation",
+                excerpt="## Escalation data\nInclude the request ID.",
+            ),
+        ]
+
+        answered = await provider.generate_support_reply("How?", evidence=evidence_items)
+
+        assert answered.reply.answer == (
+            "## Authentication\nUse a short-lived token.\n\n"
+            "## Escalation data\nInclude the request ID."
+        )
+
+    asyncio.run(scenario())
+
+
 def test_openai_adapter_rejects_citation_outside_evidence() -> None:
     async def scenario() -> None:
         api = FakeResponsesApi(
