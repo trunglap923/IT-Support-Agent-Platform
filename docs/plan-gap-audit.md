@@ -30,20 +30,18 @@ kiện release bên ngoài, mục tùy chọn và các quyết định kiến tr
 
 ## Thiếu thật — ưu tiên P0
 
-1. Hoàn thiện phần còn lại của Chat approval (`UICHAT-04/05`): sửa draft phải tạo luồng mới và
-   UI chọn device/memory context; preview/approve/reject/expired/refresh/receipt đã có.
+1. Hoàn thiện phần còn lại của Chat context (`UICHAT-05`): UI chọn device/memory context;
+   preview/approve/reject/edit/expired/refresh/receipt đã có.
 2. Chuẩn hóa backend error envelope và cursor pagination (`API-05`, `REPO-04`).
 
 ## Thiếu thật — ưu tiên P1
 
 1. PDF parsing subprocess có timeout/resource limits (`ING-03`).
-2. Replace approval draft bằng cancel + draft mới (`APR-05`); user cancel run đã có API và test.
-3. Usage aggregate/report endpoint (`COST-05`) và observability spans/redaction/outage tests.
-4. Ticket detail/filter và thống nhất query invalidation trên frontend.
-5. Shared accessible dialog/SafeMarkdown; hiện answer dùng plain text nên không thực thi HTML,
-   nhưng chưa hỗ trợ Markdown có kiểm soát.
-6. OpenAPI → TypeScript contract check và backend response-model completeness.
-7. Retention cleanup jobs và query-plan evidence cho tập dữ liệu lớn.
+2. Usage aggregate/report endpoint (`COST-05`) và observability spans/redaction/outage tests.
+3. Ticket detail/filter và thống nhất query invalidation trên frontend.
+4. Shared accessible dialog cho các thao tác xác nhận/destructive.
+5. OpenAPI → TypeScript contract check và backend response-model completeness.
+6. Retention cleanup jobs và query-plan evidence cho tập dữ liệu lớn.
 
 ## Cần bằng chứng môi trường, chưa được phép tuyên bố hoàn thành
 

@@ -1,5 +1,6 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 
+import { cancelRun, getRunSnapshot } from "../../api/run-events";
 import {
   createTicketDraft,
   decideApproval,
@@ -29,6 +30,7 @@ export function TicketsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const titleInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -83,6 +85,22 @@ export function TicketsPage() {
     }
   }
 
+  async function handleEdit(approval: Approval) {
+    if (!csrfToken) return;
+    setError(null);
+    setNotice(null);
+    try {
+      const run = await getRunSnapshot(approval.run_id);
+      await cancelRun(run.id, run.version, csrfToken, "draft_replaced");
+      setApprovals((current) => current.filter((item) => item.id !== approval.id));
+      setDraft({ ...approval.canonical_args });
+      setNotice("Đã hủy bản nháp cũ. Hãy chỉnh sửa rồi tạo bản nháp mới.");
+      titleInput.current?.focus();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Không thể sửa bản nháp.");
+    }
+  }
+
   if (loading) return <p>Đang tải ticket…</p>;
 
   return (
@@ -99,7 +117,7 @@ export function TicketsPage() {
       <section className="ticket-draft-panel">
         <h2>Tạo bản nháp</h2>
         <form onSubmit={submitDraft}>
-          <label>Tiêu đề<input minLength={5} required value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} /></label>
+          <label>Tiêu đề<input minLength={5} ref={titleInput} required value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} /></label>
           <label>Mô tả<textarea minLength={10} required rows={4} value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></label>
           <label>Loại sự cố<select value={draft.issue_type} onChange={(event) => setDraft({ ...draft, issue_type: event.target.value as TicketDraftArguments["issue_type"] })}><option value="vpn">VPN</option><option value="docker">Docker</option><option value="gitlab">GitLab</option><option value="other">Khác</option></select></label>
           <label>Mức độ<select value={draft.severity} onChange={(event) => setDraft({ ...draft, severity: event.target.value as TicketDraftArguments["severity"] })}><option value="low">Thấp</option><option value="normal">Bình thường</option><option value="high">Cao</option></select></label>
@@ -112,7 +130,12 @@ export function TicketsPage() {
         <div className="approval-grid">
           {approvals.length === 0 ? <p>Không có thao tác đang chờ.</p> : null}
           {approvals.map((approval) => (
-            <ApprovalCard approval={approval} key={approval.id} onDecision={(decision) => handleDecision(approval, decision)} />
+            <ApprovalCard
+              approval={approval}
+              key={approval.id}
+              onDecision={(decision) => handleDecision(approval, decision)}
+              onEdit={() => handleEdit(approval)}
+            />
           ))}
         </div>
       </section>

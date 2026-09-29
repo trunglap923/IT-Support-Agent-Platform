@@ -6,7 +6,7 @@ import asyncio
 import json
 import time
 from collections.abc import AsyncIterator
-from typing import Annotated, Any, cast
+from typing import Annotated, Any, Literal, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
@@ -42,6 +42,7 @@ class RunResponse(BaseModel):
 
 class CancelRunRequest(BaseModel):
     expected_version: int = Field(ge=1)
+    reason: Literal["user_requested", "draft_replaced"] = "user_requested"
 
 
 def run_response(run: AgentRun) -> RunResponse:
@@ -123,6 +124,7 @@ async def cancel_run(
             run_id=run_id,
             actor_id=principal.user_id,
             expected_version=payload.expected_version,
+            reason=payload.reason,
         )
         await session.commit()
     except RunNotFoundError as error:

@@ -14,8 +14,10 @@ import {
   listPendingApprovals,
   type Approval,
 } from "../../api/tickets";
+import { cancelRun, getRunSnapshot } from "../../api/run-events";
 import { useAuth } from "../auth/useAuth";
 import { ApprovalCard } from "../tickets/ApprovalCard";
+import { formatTicketDraftForChat } from "../tickets/approvalEdit";
 import { CitationList } from "./CitationList";
 import { recoverActiveRun } from "./chatRecovery";
 import { RunStatusPanel } from "./RunStatusPanel";
@@ -33,6 +35,7 @@ export function ChatPage() {
   const [sending, setSending] = useState(false);
   const [feedbackPending, setFeedbackPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const refreshConversation = useCallback(async (conversationId: string) => {
     const [messageItems, approvalItems] = await Promise.all([
@@ -72,6 +75,7 @@ export function ChatPage() {
   async function startConversation() {
     if (!csrfToken) return;
     setError(null);
+    setNotice(null);
     try {
       const created = await createConversation(csrfToken);
       setConversations((current) => [created, ...current]);
@@ -90,6 +94,7 @@ export function ChatPage() {
     if (!content || !csrfToken || sending) return;
     setSending(true);
     setError(null);
+    setNotice(null);
     try {
       let conversation = active;
       if (!conversation) {
@@ -114,12 +119,29 @@ export function ChatPage() {
   ) {
     if (!csrfToken) return;
     setError(null);
+    setNotice(null);
     try {
       await decideApproval(approval, decision, csrfToken);
       setApprovals((current) => current.filter((item) => item.id !== approval.id));
       if (active) await refreshConversation(active.id);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Không thể xử lý phê duyệt.");
+    }
+  }
+
+  async function handleApprovalEdit(approval: Approval) {
+    if (!csrfToken) return;
+    setError(null);
+    setNotice(null);
+    try {
+      const run = await getRunSnapshot(approval.run_id);
+      await cancelRun(run.id, run.version, csrfToken, "draft_replaced");
+      setApprovals((current) => current.filter((item) => item.id !== approval.id));
+      setRunId(null);
+      setDraft(formatTicketDraftForChat(approval.canonical_args));
+      setNotice("Đã hủy bản nháp cũ. Hãy chỉnh sửa nội dung rồi gửi để tạo bản nháp mới.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Không thể sửa bản nháp.");
     }
   }
 
@@ -235,8 +257,10 @@ export function ChatPage() {
               approval={approval}
               key={approval.id}
               onDecision={(decision) => handleApprovalDecision(approval, decision)}
+              onEdit={() => handleApprovalEdit(approval)}
             />
           ))}
+        {notice ? <p className="notice-banner" role="status">{notice}</p> : null}
         {error ? (
           <p className="chat-error" role="alert">{error}</p>
         ) : null}

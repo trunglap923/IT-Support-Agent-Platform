@@ -4,11 +4,19 @@ import asyncio
 from uuid import UUID, uuid4
 
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 from app.auth.demo_identity import ensure_demo_identity
 from app.config import Settings
 from app.db import Database
-from app.db.models import AgentRun, ApprovalStatus, Conversation, RunKind, RunStatus
+from app.db.models import (
+    AgentRun,
+    ApprovalStatus,
+    Conversation,
+    RunEvent,
+    RunKind,
+    RunStatus,
+)
 from app.main import create_app
 from app.services.approvals.service import ApprovalService
 from app.tools.schemas import CreateTicketArguments
@@ -112,12 +120,30 @@ def test_owner_cancel_is_csrf_protected_versioned_and_idempotent(
         assert running.status_code == 409
         waiting = client.post(
             f"/api/v1/runs/{waiting_id}/cancel",
-            json={"expected_version": 1},
+            json={"expected_version": 1, "reason": "draft_replaced"},
             headers=headers,
         )
         assert waiting.status_code == 200
         assert waiting.json()["status"] == "cancelled"
+        assert waiting.json()["outcome"] == "draft_replaced"
         approval = client.get(f"/api/v1/approvals/{approval_id}")
         assert approval.status_code == 200
         assert approval.json()["status"] == ApprovalStatus.EXPIRED.value
         assert approval.json()["version"] == 2
+
+    async def assert_replacement_event() -> None:
+        database = Database(migrated_database_url)
+        try:
+            async with database.session() as session:
+                event = await session.scalar(
+                    select(RunEvent).where(
+                        RunEvent.run_id == waiting_id,
+                        RunEvent.type == "run.cancelled",
+                    )
+                )
+                assert event is not None
+                assert event.safe_payload == {"reason": "draft_replaced"}
+        finally:
+            await database.close()
+
+    asyncio.run(assert_replacement_event())

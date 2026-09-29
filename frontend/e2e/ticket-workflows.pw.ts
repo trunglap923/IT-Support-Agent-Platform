@@ -25,6 +25,7 @@ async function mockSession(page: Page, user = employee) {
 test("employee creates, approves and rejects ticket drafts", async ({ page }) => {
   await mockSession(page);
   const pending: Record<string, unknown>[] = [];
+  const cancelledRuns: string[] = [];
   let draftCounter = 0;
 
   await page.route("**/api/v1/tickets/mine", (route) => json(route, []));
@@ -65,6 +66,35 @@ test("employee creates, approves and rejects ticket drafts", async ({ page }) =>
     pending.splice(pending.findIndex((item) => item.id === id), 1);
     await json(route, { ...approval, status: body.decision === "approve" ? "approved" : "rejected", version: 2 });
   });
+  await page.route("**/api/v1/runs/**", async (route) => {
+    const request = route.request();
+    const parts = request.url().split("/");
+    const runId = parts.at(-1) === "cancel" ? parts.at(-2)! : parts.at(-1)!;
+    if (request.method() === "GET") {
+      await json(route, {
+        id: runId,
+        conversation_id: "20000000-0000-0000-0000-000000000001",
+        status: "waiting_approval",
+        outcome: "approval_required",
+        version: 2,
+        error_code: null,
+      });
+      return;
+    }
+    const body = request.postDataJSON();
+    expect(body).toEqual({ expected_version: 2, reason: "draft_replaced" });
+    cancelledRuns.push(runId);
+    const index = pending.findIndex((item) => item.run_id === runId);
+    if (index >= 0) pending.splice(index, 1);
+    await json(route, {
+      id: runId,
+      conversation_id: "20000000-0000-0000-0000-000000000001",
+      status: "cancelled",
+      outcome: "draft_replaced",
+      version: 3,
+      error_code: null,
+    });
+  });
 
   await page.goto("/tickets");
   await page.getByLabel("Tiêu đề").fill("VPN access issue");
@@ -72,8 +102,15 @@ test("employee creates, approves and rejects ticket drafts", async ({ page }) =>
   await page.getByLabel("Loại sự cố").selectOption("vpn");
   await page.getByRole("button", { name: "Tạo bản nháp" }).click();
   await expect(page.getByRole("heading", { name: "VPN access issue" })).toBeVisible();
+  await page.getByRole("button", { name: "Sửa bản nháp" }).click();
+  await expect(page.getByText("Đã hủy bản nháp cũ. Hãy chỉnh sửa rồi tạo bản nháp mới.")).toBeVisible();
+  await expect(page.getByLabel("Tiêu đề")).toHaveValue("VPN access issue");
+  await page.getByLabel("Tiêu đề").fill("VPN access issue updated");
+  await page.getByRole("button", { name: "Tạo bản nháp" }).click();
+  await expect(page.getByRole("heading", { name: "VPN access issue updated" })).toBeVisible();
   await page.getByRole("button", { name: "Xác nhận tạo ticket" }).click();
   await expect(page.getByText("Đã xác nhận. Worker đang tạo ticket an toàn.")).toBeVisible();
+  expect(cancelledRuns).toEqual(["10000000-0000-0000-0000-000000000001"]);
 
   await page.getByLabel("Tiêu đề").fill("GitLab access issue");
   await page.getByLabel("Mô tả").fill("GitLab access is denied for the required project.");

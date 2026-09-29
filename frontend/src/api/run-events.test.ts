@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { consumeRunEvents, parseSseFrame, RunStreamError } from "./run-events";
+import { cancelRun, consumeRunEvents, parseSseFrame, RunStreamError } from "./run-events";
 
 function streamResponse(body: string): Response {
   return new Response(body, {
@@ -70,5 +70,32 @@ describe("run event client", () => {
       }),
     ).rejects.toEqual(expect.objectContaining<Partial<RunStreamError>>({ status: 404 }));
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("cancels a run with an explicit draft replacement reason", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      Response.json({
+        id: "run-1",
+        conversation_id: "conversation-1",
+        status: "cancelled",
+        outcome: "draft_replaced",
+        version: 3,
+        error_code: null,
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await cancelRun("run-1", 2, "csrf-token", "draft_replaced");
+
+    expect(result.outcome).toBe("draft_replaced");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/runs/run-1/cancel",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({ "X-CSRF-Token": "csrf-token" }),
+        body: JSON.stringify({ expected_version: 2, reason: "draft_replaced" }),
+      }),
+    );
+    vi.unstubAllGlobals();
   });
 });

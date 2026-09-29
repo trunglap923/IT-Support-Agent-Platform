@@ -1,3 +1,5 @@
+import { notifySessionExpired, requestJson } from "./client";
+
 export type RunStatus =
   | "queued"
   | "running"
@@ -60,6 +62,25 @@ export async function getRunSnapshot(
   });
   if (!response.ok) throw requestError(response.status);
   return (await response.json()) as RunSnapshot;
+}
+
+export function cancelRun(
+  runId: string,
+  expectedVersion: number,
+  csrfToken: string,
+  reason: "user_requested" | "draft_replaced" = "user_requested",
+): Promise<RunSnapshot> {
+  return requestJson(`/api/v1/runs/${encodeURIComponent(runId)}/cancel`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
+    body: JSON.stringify({ expected_version: expectedVersion, reason }),
+    messages: {
+      fallback: "Không thể hủy bản nháp hiện tại.",
+      byStatus: {
+        409: "Bản nháp đã thay đổi hoặc không còn chờ xác nhận.",
+      },
+    },
+  });
 }
 
 interface ParsedFrame {
@@ -184,4 +205,3 @@ export async function consumeRunEvents(
   }
   throw new DOMException("Aborted", "AbortError");
 }
-import { notifySessionExpired } from "./client";

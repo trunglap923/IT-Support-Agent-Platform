@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import Literal
 from uuid import UUID
 
 from sqlalchemy import select
@@ -21,6 +22,7 @@ class RunCancellationService:
         run_id: UUID,
         actor_id: UUID,
         expected_version: int,
+        reason: Literal["user_requested", "draft_replaced"] = "user_requested",
     ) -> TransitionResult:
         # Approval decisions lock approval then run. Keep the same lock order here
         # so a cancel racing with approve/reject cannot deadlock or leave a draft
@@ -45,8 +47,8 @@ class RunCancellationService:
             actor_id=actor_id,
             target=RunStatus.CANCELLED,
             operation_id=f"user-cancel:{run_id}",
-            outcome="cancelled_by_user",
-            safe_payload={"reason": "user_requested"},
+            outcome=("draft_replaced" if reason == "draft_replaced" else "cancelled_by_user"),
+            safe_payload={"reason": reason},
             expected_version=expected_version,
         )
         if transition.applied:

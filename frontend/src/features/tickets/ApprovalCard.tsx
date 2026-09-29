@@ -5,10 +5,11 @@ import type { Approval } from "../../api/tickets";
 interface ApprovalCardProps {
   approval: Approval;
   onDecision: (decision: "approve" | "reject") => Promise<void>;
+  onEdit: () => Promise<void>;
 }
 
-export function ApprovalCard({ approval, onDecision }: ApprovalCardProps) {
-  const [busy, setBusy] = useState<"approve" | "reject" | null>(null);
+export function ApprovalCard({ approval, onDecision, onEdit }: ApprovalCardProps) {
+  const [busy, setBusy] = useState<"approve" | "reject" | "edit" | null>(null);
   const [expired, setExpired] = useState(
     () => Date.parse(approval.expires_at) <= Date.now(),
   );
@@ -37,6 +38,15 @@ export function ApprovalCard({ approval, onDecision }: ApprovalCardProps) {
     }
   }
 
+  async function edit() {
+    setBusy("edit");
+    try {
+      await onEdit();
+    } finally {
+      setBusy(null);
+    }
+  }
+
   return (
     <article className="approval-card">
       <div>
@@ -46,6 +56,9 @@ export function ApprovalCard({ approval, onDecision }: ApprovalCardProps) {
         <small>{values.issue_type} · {values.severity} · hết hạn {new Date(approval.expires_at).toLocaleString("vi-VN")}</small>
       </div>
       <div className="approval-actions">
+        <button disabled={expired || busy !== null} onClick={() => void edit()} type="button">
+          {busy === "edit" ? "Đang mở bản sửa…" : "Sửa bản nháp"}
+        </button>
         <button disabled={expired || busy !== null} onClick={() => void decide("reject")} type="button">
           {busy === "reject" ? "Đang từ chối…" : "Từ chối"}
         </button>

@@ -11,6 +11,6 @@ export function recoverActiveRun(
   if (pending) return pending.run_id;
   const last = messages.at(-1);
   if (!last?.run_id) return null;
-  if (last.role === "user" || last.outcome === "approval_required") return last.run_id;
+  if (last.role === "user") return last.run_id;
   return null;
 }

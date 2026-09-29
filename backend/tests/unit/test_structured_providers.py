@@ -163,6 +163,31 @@ def test_fake_provider_localizes_vietnamese_summary_and_no_answer() -> None:
     asyncio.run(scenario())
 
 
+def test_fake_provider_preserves_edited_ticket_fields() -> None:
+    async def scenario() -> None:
+        provider = FakeTextProvider()
+
+        response = await provider.choose_support_tool(
+            "Tạo ticket hỗ trợ với thông tin sau:\n"
+            "Tiêu đề: VPN vẫn lỗi sau khi cấp lại profile\n"
+            "Mô tả: Máy Ubuntu vẫn không kết nối được sau khi thử lại.\n"
+            "Loại sự cố: vpn\n"
+            "Mức độ: high\n"
+            "Thiết bị: 11111111-1111-1111-1111-111111111111"
+        )
+
+        assert response.call is not None
+        assert response.call.arguments == {
+            "title": "VPN vẫn lỗi sau khi cấp lại profile",
+            "description": "Máy Ubuntu vẫn không kết nối được sau khi thử lại.",
+            "issue_type": "vpn",
+            "severity": "high",
+            "device_id": "11111111-1111-1111-1111-111111111111",
+        }
+
+    asyncio.run(scenario())
+
+
 def test_openai_adapter_rejects_citation_outside_evidence() -> None:
     async def scenario() -> None:
         api = FakeResponsesApi(

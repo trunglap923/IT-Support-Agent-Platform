@@ -26,7 +26,9 @@ const approval: Approval = {
 describe("ApprovalCard", () => {
   it("shows immutable draft details and submits explicit approval", async () => {
     const onDecision = vi.fn().mockResolvedValue(undefined);
-    render(<ApprovalCard approval={approval} onDecision={onDecision} />);
+    render(
+      <ApprovalCard approval={approval} onDecision={onDecision} onEdit={vi.fn()} />,
+    );
 
     expect(screen.getByRole("heading", { name: "VPN access issue" })).toBeInTheDocument();
     expect(screen.getByText(/VPN remains unavailable/)).toBeInTheDocument();
@@ -37,9 +39,22 @@ describe("ApprovalCard", () => {
 
   it("supports rejection without presenting it as ticket creation", async () => {
     const onDecision = vi.fn().mockResolvedValue(undefined);
-    render(<ApprovalCard approval={approval} onDecision={onDecision} />);
+    render(
+      <ApprovalCard approval={approval} onDecision={onDecision} onEdit={vi.fn()} />,
+    );
     fireEvent.click(screen.getByRole("button", { name: "Từ chối" }));
     await waitFor(() => expect(onDecision).toHaveBeenCalledWith("reject"));
+  });
+
+  it("offers editing as a separate action", async () => {
+    const onEdit = vi.fn().mockResolvedValue(undefined);
+    render(
+      <ApprovalCard approval={approval} onDecision={vi.fn()} onEdit={onEdit} />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Sửa bản nháp" }));
+
+    await waitFor(() => expect(onEdit).toHaveBeenCalledOnce());
   });
 
   it("disables decisions for an expired draft", () => {
@@ -48,10 +63,12 @@ describe("ApprovalCard", () => {
       <ApprovalCard
         approval={{ ...approval, expires_at: "2020-01-01T00:00:00Z" }}
         onDecision={onDecision}
+        onEdit={vi.fn()}
       />,
     );
     expect(screen.getByText("Đã hết hạn")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Từ chối" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Sửa bản nháp" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Xác nhận tạo ticket" })).toBeDisabled();
   });
 });

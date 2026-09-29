@@ -56,4 +56,17 @@ describe("recoverActiveRun", () => {
     ];
     expect(recoverActiveRun(messages, [])).toBeNull();
   });
+
+  it("does not restore an approval-required run after its draft was cancelled", () => {
+    const messages = [
+      message({ run_id: runId }),
+      message({
+        run_id: runId,
+        role: "assistant",
+        outcome: "approval_required",
+      }),
+    ];
+
+    expect(recoverActiveRun(messages, [])).toBeNull();
+  });
 });

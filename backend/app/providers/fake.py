@@ -35,6 +35,11 @@ _VIETNAMESE_MARKERS = frozenset(
 )
 _MARKDOWN_HEADING = re.compile(r"(^|\s)#{1,6}\s+")
 _WHITESPACE = re.compile(r"\s+")
+_TICKET_EDIT_FIELD = re.compile(
+    r"^(Tiêu đề|Mô tả|Loại sự cố|Mức độ|Thiết bị):[ \t]*(.*?)"
+    r"(?=^(?:Tiêu đề|Mô tả|Loại sự cố|Mức độ|Thiết bị):|\Z)",
+    re.IGNORECASE | re.MULTILINE | re.DOTALL,
+)
 
 
 @dataclass(slots=True)
@@ -88,24 +93,33 @@ class FakeTextProvider:
         )
         create_phrases = ("tạo ticket", "mở ticket", "create a ticket", "open a ticket")
         if any(phrase in normalized for phrase in create_phrases):
-            issue_type = next(
-                (item for item in ("vpn", "gitlab", "docker") if item in normalized),
-                "other",
+            fields = self._ticket_edit_fields(query)
+            requested_issue_type = fields.get("loại sự cố", "").casefold()
+            issue_type = (
+                requested_issue_type
+                if requested_issue_type in {"vpn", "gitlab", "docker", "other"}
+                else next(
+                    (item for item in ("vpn", "gitlab", "docker") if item in normalized),
+                    "other",
+                )
             )
-            title = (
+            default_title = (
                 f"Yêu cầu hỗ trợ {issue_type.upper()}"
                 if issue_type != "other"
                 else "Yêu cầu hỗ trợ IT"
             )
+            severity = fields.get("mức độ", "normal").casefold()
+            if severity not in {"low", "normal", "high"}:
+                severity = "normal"
             call = SupportToolCall(
                 call_id=self._fake_call_id(normalized),
                 name="create_ticket",
                 arguments={
-                    "title": title,
-                    "description": query.strip(),
+                    "title": fields.get("tiêu đề", default_title),
+                    "description": fields.get("mô tả", query.strip()),
                     "issue_type": issue_type,
-                    "severity": "normal",
-                    "device_id": None,
+                    "severity": severity,
+                    "device_id": fields.get("thiết bị"),
                 },
             )
         elif any(phrase in normalized for phrase in ticket_phrases):
@@ -149,6 +163,14 @@ class FakeTextProvider:
             return True
         words = set(re.findall(r"\w+", normalized))
         return len(words & _VIETNAMESE_MARKERS) >= 2
+
+    @staticmethod
+    def _ticket_edit_fields(query: str) -> dict[str, str]:
+        return {
+            label.casefold(): value.strip()
+            for label, value in _TICKET_EDIT_FIELD.findall(query)
+            if value.strip()
+        }
 
     @staticmethod
     def _plain_evidence(excerpt: str) -> str:

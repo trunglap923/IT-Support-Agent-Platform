@@ -240,8 +240,7 @@ Không diễn giải fake pass rate thành chất lượng semantic của model 
 2. Cải thiện language behavior:
    - Prompt yêu cầu trả lời cùng ngôn ngữ với message mới nhất.
    - Fake provider có localized deterministic summary hoặc ghi rõ đây là raw evidence mode.
-3. Hoàn thiện chat approval `UICHAT-04/05`:
-   - Edit draft phải cancel draft cũ rồi tạo draft mới.
+3. Hoàn thiện chat context `UICHAT-05`:
    - UI chọn device và memory context.
 4. Chuẩn hóa backend error envelope và cursor pagination (`API-05`, `REPO-04`).
 
