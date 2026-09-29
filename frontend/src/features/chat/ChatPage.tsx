@@ -16,7 +16,7 @@ import {
 } from "../../api/tickets";
 import { useAuth } from "../auth/useAuth";
 import { ApprovalCard } from "../tickets/ApprovalCard";
-import { CitationExcerpt } from "./CitationExcerpt";
+import { CitationList } from "./CitationList";
 import { recoverActiveRun } from "./chatRecovery";
 import { RunStatusPanel } from "./RunStatusPanel";
 import { SafeMarkdown } from "./SafeMarkdown";
@@ -192,21 +192,7 @@ export function ChatPage() {
               <span>{message.role === "user" ? "Bạn" : "IT Assistant"}</span>
               <SafeMarkdown content={message.content} />
               {message.citations?.length ? (
-                <ul className="citation-list">
-                  {message.citations.map((source) => (
-                    <li key={source.source_id}>
-                      {source.source_url ? (
-                        <a href={source.source_url} rel="noopener" target="_blank">
-                          <strong>{source.title}</strong>
-                        </a>
-                      ) : (
-                        <strong>{source.title}</strong>
-                      )}
-                      {source.page_number ? ` · Trang ${source.page_number}` : ""}
-                      <CitationExcerpt excerpt={source.excerpt} />
-                    </li>
-                  ))}
-                </ul>
+                <CitationList citations={message.citations} />
               ) : null}
               {message.role === "assistant" ? (
                 <div className="message-feedback" aria-label="Đánh giá câu trả lời">

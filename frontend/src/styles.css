@@ -134,6 +134,8 @@ textarea {
 .message-feedback button:disabled { cursor: wait; opacity: 0.55; }
 .citation-list { display: grid; gap: 0.45rem; margin: 0.8rem 0 0; padding: 0; list-style: none; }
 .citation-list li { border-top: 1px solid rgb(22 34 28 / 12%); padding-top: 0.5rem; font-size: 0.78rem; }
+.citation-sources { display: flex; flex-wrap: wrap; gap: 0.35rem 0.75rem; margin-top: 0.2rem; color: #68766e; font-size: 0.72rem; }
+.citation-sources a { color: #2d6548; font-weight: 700; }
 .citation-excerpt { display: block; margin-top: 0.25rem; color: #68766e; line-height: 1.45; }
 .citation-excerpt-expandable summary { cursor: pointer; }
 .citation-excerpt-expandable summary::marker { color: #456655; }

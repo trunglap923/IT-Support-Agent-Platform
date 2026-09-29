@@ -1,3 +1,5 @@
+import { normalizeCitationExcerpt } from "./citationText";
+
 const DEFAULT_PREVIEW_LENGTH = 220;
 
 interface CitationExcerptProps {
@@ -9,10 +11,7 @@ export function CitationExcerpt({
   excerpt,
   previewLength = DEFAULT_PREVIEW_LENGTH,
 }: CitationExcerptProps) {
-  const plainExcerpt = excerpt
-    .replace(/(^|\s)#{1,6}\s+/g, "$1")
-    .replace(/\s+/g, " ")
-    .trim();
+  const plainExcerpt = normalizeCitationExcerpt(excerpt);
 
   if (plainExcerpt.length <= previewLength) {
     return <small className="citation-excerpt">{plainExcerpt}</small>;

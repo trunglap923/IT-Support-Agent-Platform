@@ -110,6 +110,39 @@ def test_fake_provider_formats_evidence_as_a_deterministic_list() -> None:
     asyncio.run(scenario())
 
 
+def test_fake_provider_groups_duplicate_documents_and_omits_title_chunks() -> None:
+    async def scenario() -> None:
+        provider = FakeTextProvider()
+        evidence_items = [
+            EvidenceInput(
+                source_id="src_title",
+                title="Thiết lập VPN demo",
+                excerpt="# Thiết lập VPN demo",
+            ),
+            EvidenceInput(
+                source_id="src_steps",
+                title="Thiết lập VPN demo",
+                excerpt="## Ubuntu\nCài client, nhập URL công ty demo và đăng nhập SSO.",
+            ),
+            EvidenceInput(
+                source_id="src_steps_duplicate",
+                title="Thiết lập VPN demo",
+                excerpt="## Ubuntu\nCài client, nhập URL công ty demo và đăng nhập SSO.",
+            ),
+        ]
+
+        answered = await provider.generate_support_reply(
+            "Cách cấu hình VPN trên Ubuntu?",
+            evidence=evidence_items,
+        )
+
+        assert answered.reply.answer.count("Thiết lập VPN demo") == 1
+        assert answered.reply.answer.count("Cài client") == 1
+        assert answered.reply.citations == ["src_steps"]
+
+    asyncio.run(scenario())
+
+
 def test_fake_provider_localizes_vietnamese_summary_and_no_answer() -> None:
     async def scenario() -> None:
         provider = FakeTextProvider()

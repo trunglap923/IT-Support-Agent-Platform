@@ -6,6 +6,7 @@ export interface Conversation {
 export interface ChatCitation {
   source_id: string;
   source_url?: string;
+  document_id?: string;
   title: string;
   page_number: number | null;
   excerpt: string;

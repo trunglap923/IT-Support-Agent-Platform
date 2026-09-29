@@ -3,6 +3,7 @@
 import hashlib
 import re
 from collections.abc import Sequence
+from dataclasses import dataclass
 
 from app.providers.base import GeneratedText
 from app.providers.structured import (
@@ -14,8 +15,7 @@ from app.providers.structured import (
 )
 
 _VIETNAMESE_CHARACTERS = frozenset(
-    "ăâđêôơưáàảãạấầẩẫậắằẳẵặéèẻẽẹếềểễệíìỉĩị"
-    "óòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ"
+    "ăâđêôơưáàảãạấầẩẫậắằẳẵặéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ"
 )
 _VIETNAMESE_MARKERS = frozenset(
     {
@@ -35,6 +35,14 @@ _VIETNAMESE_MARKERS = frozenset(
 )
 _MARKDOWN_HEADING = re.compile(r"(^|\s)#{1,6}\s+")
 _WHITESPACE = re.compile(r"\s+")
+
+
+@dataclass(slots=True)
+class _EvidenceGroup:
+    title: str
+    excerpts: list[str]
+    source_ids: list[str]
+    fallback_source_id: str
 
 
 class FakeTextProvider:
@@ -153,21 +161,47 @@ class FakeTextProvider:
         evidence: Sequence[EvidenceInput],
         *,
         vietnamese: bool,
-    ) -> str:
+    ) -> tuple[str, list[str]]:
         if vietnamese:
             introduction = (
                 "Tôi đã tìm thấy hướng dẫn nội bộ liên quan. Nội dung tài liệu được giữ "
                 "nguyên để tránh làm sai lệch hướng dẫn:"
             )
         else:
-            introduction = (
-                "I found relevant internal guidance. Follow the documented steps below:"
+            introduction = "I found relevant internal guidance. Follow the documented steps below:"
+        groups: dict[str, _EvidenceGroup] = {}
+        for item in evidence:
+            title = _WHITESPACE.sub(" ", item.title).strip()
+            title_key = title.casefold()
+            group = groups.setdefault(
+                title_key,
+                _EvidenceGroup(
+                    title=title,
+                    excerpts=[],
+                    source_ids=[],
+                    fallback_source_id=item.source_id,
+                ),
             )
-        items = [
-            f"{index}. {item.title}\n   {cls._plain_evidence(item.excerpt)}"
-            for index, item in enumerate(evidence, start=1)
-        ]
-        return f"{introduction}\n\n" + "\n\n".join(items)
+            excerpt = cls._plain_evidence(item.excerpt)
+            excerpt_key = excerpt.casefold()
+            existing_excerpts = {value.casefold() for value in group.excerpts}
+            if excerpt and excerpt_key != title_key and excerpt_key not in existing_excerpts:
+                group.excerpts.append(excerpt)
+                group.source_ids.append(item.source_id)
+
+        items: list[str] = []
+        citations: list[str] = []
+        for index, group in enumerate(groups.values(), start=1):
+            lines = [f"{index}. {group.title}"]
+            if len(group.excerpts) == 1:
+                lines.append(f"   {group.excerpts[0]}")
+            else:
+                lines.extend(f"   - {excerpt}" for excerpt in group.excerpts)
+            items.append("\n".join(lines))
+            citations.extend(group.source_ids or [group.fallback_source_id])
+
+        answer = f"{introduction}\n\n" + "\n\n".join(items)
+        return answer, citations
 
     async def generate_support_reply(
         self,
@@ -194,13 +228,14 @@ class FakeTextProvider:
             )
         else:
             selected = evidence[:3]
+            answer, citations = self._format_evidence_summary(
+                selected,
+                vietnamese=vietnamese,
+            )
             reply = SupportReply(
                 outcome="answered",
-                answer=self._format_evidence_summary(
-                    selected,
-                    vietnamese=vietnamese,
-                ),
-                citations=[item.source_id for item in selected],
+                answer=answer,
+                citations=citations,
             )
         return StructuredModelResponse(
             reply=reply,
