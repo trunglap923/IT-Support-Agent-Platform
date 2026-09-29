@@ -82,7 +82,10 @@ def test_rag_graph_returns_server_owned_citation() -> None:
             {"query": "  How do I use VPN?  ", "run_id": "run-1"},
         )
         assert result["outcome"] == "answered"
-        assert result["answer"] == "Open the VPN client and sign in with SSO."
+        assert result["answer"] == (
+            "I found relevant internal guidance. Follow the documented steps below:\n\n"
+            "1. VPN guide\n   Open the VPN client and sign in with SSO."
+        )
         assert result["citation_ids"] == [result["citations"][0]["source_id"]]
         assert result["citations"][0]["title"] == "VPN guide"
         assert retriever.queries == ["How do I use VPN?"]

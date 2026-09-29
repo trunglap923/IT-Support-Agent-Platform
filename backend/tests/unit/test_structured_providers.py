@@ -72,15 +72,18 @@ def test_fake_provider_obeys_same_structured_contract() -> None:
         provider = FakeTextProvider()
         answered = await provider.generate_support_reply("How?", evidence=evidence())
         assert answered.reply.outcome == "answered"
+        assert answered.reply.answer.startswith("I found relevant internal guidance.")
+        assert "1. VPN setup" in answered.reply.answer
         assert answered.reply.citations == ["src_allowed"]
         no_answer = await provider.generate_support_reply("Unknown", evidence=[])
         assert no_answer.reply.outcome == "no_answer"
+        assert no_answer.reply.answer.startswith("I couldn't find sufficient")
         assert no_answer.reply.citations == []
 
     asyncio.run(scenario())
 
 
-def test_fake_provider_preserves_evidence_boundaries_for_markdown() -> None:
+def test_fake_provider_formats_evidence_as_a_deterministic_list() -> None:
     async def scenario() -> None:
         provider = FakeTextProvider()
         evidence_items = [
@@ -99,9 +102,30 @@ def test_fake_provider_preserves_evidence_boundaries_for_markdown() -> None:
         answered = await provider.generate_support_reply("How?", evidence=evidence_items)
 
         assert answered.reply.answer == (
-            "## Authentication\nUse a short-lived token.\n\n"
-            "## Escalation data\nInclude the request ID."
+            "I found relevant internal guidance. Follow the documented steps below:\n\n"
+            "1. Setup\n   Authentication Use a short-lived token.\n\n"
+            "2. Escalation\n   Escalation data Include the request ID."
         )
+
+    asyncio.run(scenario())
+
+
+def test_fake_provider_localizes_vietnamese_summary_and_no_answer() -> None:
+    async def scenario() -> None:
+        provider = FakeTextProvider()
+
+        answered = await provider.generate_support_reply(
+            "Tôi cấu hình VPN như thế nào?",
+            evidence=evidence(),
+        )
+        no_answer = await provider.generate_support_reply(
+            "Giúp tôi kiểm tra chủ đề này",
+            evidence=[],
+        )
+
+        assert answered.reply.answer.startswith("Tôi đã tìm thấy hướng dẫn nội bộ")
+        assert "1. VPN setup" in answered.reply.answer
+        assert no_answer.reply.answer.startswith("Tôi chưa tìm thấy tài liệu nội bộ")
 
     asyncio.run(scenario())
 

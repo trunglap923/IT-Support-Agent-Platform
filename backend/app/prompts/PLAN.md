@@ -34,6 +34,7 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 - [x] PROMPT-01: Viết agent prompt cho ba domain và logic hỏi thêm/escalation có căn cứ.
 - [x] PROMPT-02: Định nghĩa answer schema/citation IDs và tool-use rules khớp executor.
+- [x] PROMPT-02a: Trả lời cùng ngôn ngữ message mới nhất, không dịch identifier/command/evidence.
 - [x] PROMPT-03: Viết memory extraction prompt chỉ user fact allowlist, theo thiết bị.
 - [x] PROMPT-04: Gắn prompt/schema version vào run và evaluation artifacts.
 - [ ] PROMPT-05: Review bằng development cases; không tune trực tiếp bằng holdout.

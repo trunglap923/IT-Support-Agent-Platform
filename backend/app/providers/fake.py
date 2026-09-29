@@ -1,6 +1,7 @@
 """Deterministic offline provider for development and tests."""
 
 import hashlib
+import re
 from collections.abc import Sequence
 
 from app.providers.base import GeneratedText
@@ -11,6 +12,29 @@ from app.providers.structured import (
     SupportToolCall,
     ToolDecisionResponse,
 )
+
+_VIETNAMESE_CHARACTERS = frozenset(
+    "ăâđêôơưáàảãạấầẩẫậắằẳẵặéèẻẽẹếềểễệíìỉĩị"
+    "óòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ"
+)
+_VIETNAMESE_MARKERS = frozenset(
+    {
+        "ban",
+        "cach",
+        "duoc",
+        "giup",
+        "khong",
+        "lam",
+        "muon",
+        "nao",
+        "thai",
+        "the",
+        "toi",
+        "trang",
+    }
+)
+_MARKDOWN_HEADING = re.compile(r"(^|\s)#{1,6}\s+")
+_WHITESPACE = re.compile(r"\s+")
 
 
 class FakeTextProvider:
@@ -110,6 +134,41 @@ class FakeTextProvider:
         digest = hashlib.sha256(normalized_query.encode()).hexdigest()[:16]
         return f"fake-call-{digest}"
 
+    @staticmethod
+    def _uses_vietnamese(query: str) -> bool:
+        normalized = query.casefold()
+        if any(character in _VIETNAMESE_CHARACTERS for character in normalized):
+            return True
+        words = set(re.findall(r"\w+", normalized))
+        return len(words & _VIETNAMESE_MARKERS) >= 2
+
+    @staticmethod
+    def _plain_evidence(excerpt: str) -> str:
+        without_headings = _MARKDOWN_HEADING.sub(r"\1", excerpt)
+        return _WHITESPACE.sub(" ", without_headings).strip()
+
+    @classmethod
+    def _format_evidence_summary(
+        cls,
+        evidence: Sequence[EvidenceInput],
+        *,
+        vietnamese: bool,
+    ) -> str:
+        if vietnamese:
+            introduction = (
+                "Tôi đã tìm thấy hướng dẫn nội bộ liên quan. Nội dung tài liệu được giữ "
+                "nguyên để tránh làm sai lệch hướng dẫn:"
+            )
+        else:
+            introduction = (
+                "I found relevant internal guidance. Follow the documented steps below:"
+            )
+        items = [
+            f"{index}. {item.title}\n   {cls._plain_evidence(item.excerpt)}"
+            for index, item in enumerate(evidence, start=1)
+        ]
+        return f"{introduction}\n\n" + "\n\n".join(items)
+
     async def generate_support_reply(
         self,
         query: str,
@@ -119,18 +178,28 @@ class FakeTextProvider:
         max_output_tokens: int = 400,
         operation_id: str | None = None,
     ) -> StructuredModelResponse:
-        del query, history, max_output_tokens, operation_id
+        del history, max_output_tokens, operation_id
+        vietnamese = self._uses_vietnamese(query)
         if not evidence:
             reply = SupportReply(
                 outcome="no_answer",
-                answer="Tôi chưa tìm thấy tài liệu nội bộ đủ căn cứ để trả lời câu hỏi này.",
+                answer=(
+                    "Tôi chưa tìm thấy tài liệu nội bộ đủ căn cứ để trả lời câu hỏi này. "
+                    "Vui lòng liên hệ IT để được hỗ trợ."
+                    if vietnamese
+                    else "I couldn't find sufficient internal documentation to answer this "
+                    "question. Please contact IT for support."
+                ),
                 citations=[],
             )
         else:
             selected = evidence[:3]
             reply = SupportReply(
                 outcome="answered",
-                answer="\n\n".join(item.excerpt for item in selected),
+                answer=self._format_evidence_summary(
+                    selected,
+                    vietnamese=vietnamese,
+                ),
                 citations=[item.source_id for item in selected],
             )
         return StructuredModelResponse(
