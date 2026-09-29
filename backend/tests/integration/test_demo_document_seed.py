@@ -122,6 +122,14 @@ def test_demo_corpus_is_published_idempotently_with_scoped_retrieval(
                     now=NOW,
                 )
                 natural_language_evidence = build_evidence_output(natural_language_hits)
+                vietnamese_setup_hits = await retriever.search(
+                    session,
+                    query="Cách cấu hình VPN trên Ubuntu như thế nào?",
+                    principal=principal("employee.engineering@example.com", "engineering"),
+                    operation_id="demo-corpus-vietnamese-setup",
+                    now=NOW,
+                )
+                vietnamese_setup_evidence = build_evidence_output(vietnamese_setup_hits)
 
                 vpn_document = next(
                     document for document in documents if document.document_key == "vpn-setup"
@@ -177,6 +185,8 @@ def test_demo_corpus_is_published_idempotently_with_scoped_retrieval(
             assert {"engineering-oncall", "it-service-recovery"} <= it_keys
             assert natural_language_evidence.outcome == "answered"
             assert natural_language_evidence.sources[0].document_key == "vpn-troubleshooting"
+            assert vietnamese_setup_evidence.outcome == "answered"
+            assert vietnamese_setup_evidence.sources[0].document_key == "vpn-setup"
             assert preview is not None
             assert preview.parser_version == "markdown-sections-v1"
             assert len(preview.pages) >= 3

@@ -36,6 +36,7 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 - [x] RET-01: Tạo predicate visibility/department/current version/archive/effective/expiry dùng chung hai nhánh search.
 - [x] RET-02: Xây query embedding và PostgreSQL full-text query.
+- [x] RET-02a: Mở rộng alias Việt-Anh có giới hạn cho VPN/Docker/GitLab trong fake/demo mode.
 - [x] RET-03: Fuse ranks bằng RRF thay vì cộng score khác thang đo.
 - [x] RET-04: Đo Recall@5 trên cases answerable, tách no-answer cases.
 - [x] RET-05: Retrieval artifact lưu corpus manifest hash, parser/chunker/embedding và threshold versions.

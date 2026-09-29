@@ -41,27 +41,103 @@ _QUERY_STOP_WORDS = frozenset(
         "which",
         "with",
         "báo",
+        "bao",
         "bị",
+        "bi",
         "cách",
+        "cach",
         "cần",
         "cho",
         "có",
+        "co",
         "dùng",
+        "dung",
         "gì",
+        "gi",
         "không",
+        "khong",
         "là",
+        "la",
         "lý",
+        "ly",
         "nào",
+        "nao",
         "như",
+        "nhu",
         "thế",
         "thì",
+        "thi",
         "tôi",
+        "toi",
         "trên",
+        "tren",
         "và",
+        "va",
         "xử",
+        "xu",
         "được",
+        "duoc",
     }
 )
+
+_SUPPORTED_DOMAIN_PATTERN = re.compile(r"\b(?:vpn|docker|registry|gitlab)\b")
+_VIETNAMESE_QUERY_EXPANSIONS: tuple[tuple[re.Pattern[str], tuple[str, ...]], ...] = (
+    (
+        re.compile(r"\b(?:cấu\s+hình|cau\s+hinh|thiết\s+lập|thiet\s+lap|cài(?:\s+đặt)?|cai(?:\s+dat)?)\b"),
+        ("thiết lập", "cài", "setup", "configure", "install"),
+    ),
+    (
+        re.compile(r"\b(?:kết\s+nối|ket\s+noi)\b"),
+        ("connect", "connection", "reconnect"),
+    ),
+    (
+        re.compile(r"\b(?:đăng\s+nhập|dang\s+nhap|xác\s+thực|xac\s+thuc)\b"),
+        ("authenticate", "authentication", "login", "sso"),
+    ),
+    (
+        re.compile(r"\b(?:chứng\s+chỉ|chung\s+chi)\b"),
+        ("certificate", "ca", "bundle"),
+    ),
+    (
+        re.compile(r"\b(?:mã\s+truy\s+cập|ma\s+truy\s+cap|token)\b"),
+        ("access", "token"),
+    ),
+    (
+        re.compile(r"\b(?:kho\s+docker|kho\s+chứa|kho\s+chua)\b"),
+        ("docker", "registry"),
+    ),
+    (
+        re.compile(r"\b(?:xin\s+quyền|xin\s+quyen|yêu\s+cầu\s+quyền|yeu\s+cau\s+quyen)\b"),
+        ("access", "permission", "role"),
+    ),
+    (
+        re.compile(r"\b(?:dự\s+án|du\s+an)\b"),
+        ("project",),
+    ),
+    (
+        re.compile(r"\b(?:lỗi|loi)\b"),
+        ("error", "troubleshooting"),
+    ),
+)
+
+
+def expand_query_for_retrieval(value: str) -> str:
+    """Add bounded English aliases for supported-domain Vietnamese queries."""
+
+    normalized = " ".join(value.casefold().split())
+    if not _SUPPORTED_DOMAIN_PATTERN.search(normalized):
+        return value.strip()
+
+    additions: list[str] = []
+    seen = set(_TERM_PATTERN.findall(normalized))
+    for pattern, aliases in _VIETNAMESE_QUERY_EXPANSIONS:
+        if not pattern.search(normalized):
+            continue
+        for alias in aliases:
+            if alias not in seen:
+                additions.append(alias)
+                seen.add(alias)
+    return " ".join((value.strip(), *additions))
 
 
 def meaningful_terms(value: str, *, limit: int = 24) -> tuple[str, ...]:
@@ -175,13 +251,18 @@ class HybridRetriever:
     ) -> list[RetrievalHit]:
         if not query.strip():
             raise ValueError("Retrieval query cannot be empty")
-        query_batch = await self._embedding_provider.embed([query], operation_id=operation_id)
+        expanded_query = expand_query_for_retrieval(query)
+        query_batch = await self._embedding_provider.embed(
+            [expanded_query],
+            operation_id=operation_id,
+        )
         if query_batch.dimensions != 1536:
             raise ValueError("Query embedding dimensions do not match the corpus")
         query_vector = list(query_batch.vectors[0])
         selected_now = now or datetime.now(UTC)
         base = _base_query(principal, now=selected_now)
-        query_terms = meaningful_terms(query)
+        original_query_terms = meaningful_terms(query)
+        query_terms = meaningful_terms(expanded_query)
 
         distance = DocumentChunk.embedding.cosine_distance(query_vector)
         vector_rows = (
@@ -240,8 +321,11 @@ class HybridRetriever:
                 1 / (self._rrf_k + rank) for rank in (vector_rank, lexical_rank) if rank is not None
             )
             content_terms = set(meaningful_terms(item.content, limit=800))
+            coverage_denominator = len(original_query_terms) or len(query_terms)
             lexical_coverage = (
-                len(set(query_terms) & content_terms) / len(query_terms) if query_terms else 0.0
+                min(1.0, len(set(query_terms) & content_terms) / coverage_denominator)
+                if coverage_denominator
+                else 0.0
             )
             vector_similarity = vector_similarities.get(chunk_id)
             score = max(vector_similarity or 0.0, lexical_coverage)
