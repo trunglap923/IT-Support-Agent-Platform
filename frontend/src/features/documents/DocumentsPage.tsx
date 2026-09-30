@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 import {
-  listDocuments,
+  listDocumentsPage,
   previewVersion,
   processVersion,
   publishVersion,
@@ -35,18 +35,24 @@ export function DocumentsPage() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [documentCursor, setDocumentCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
   const uploadPanel = useRef<HTMLElement>(null);
 
   async function refresh(signal?: AbortSignal) {
-    const items = await listDocuments(signal);
-    setDocuments(items);
+    const page = await listDocumentsPage(null, signal);
+    setDocuments(page.items);
+    setDocumentCursor(page.next_cursor);
   }
 
   useEffect(() => {
     if (user?.role !== "admin") return;
     const controller = new AbortController();
-    void listDocuments(controller.signal)
-      .then(setDocuments)
+    void listDocumentsPage(null, controller.signal)
+      .then((page) => {
+        setDocuments(page.items);
+        setDocumentCursor(page.next_cursor);
+      })
       .catch((caught: unknown) => {
         if (!(caught instanceof DOMException && caught.name === "AbortError")) {
           setError(caught instanceof Error ? caught.message : "Không thể tải tài liệu.");
@@ -81,6 +87,21 @@ export function DocumentsPage() {
       setError(caught instanceof Error ? caught.message : "Không thể cập nhật tài liệu.");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function loadMoreDocuments() {
+    if (!documentCursor || loadingMore) return;
+    setLoadingMore(true);
+    setError(null);
+    try {
+      const page = await listDocumentsPage(documentCursor);
+      setDocuments((current) => [...current, ...page.items]);
+      setDocumentCursor(page.next_cursor);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Không thể tải thêm tài liệu.");
+    } finally {
+      setLoadingMore(false);
     }
   }
 
@@ -200,6 +221,7 @@ export function DocumentsPage() {
             </table>
           </div>
         )}
+        {documentCursor ? <button className="load-more-button" disabled={loadingMore} onClick={() => void loadMoreDocuments()} type="button">{loadingMore ? "Đang tải…" : "Tải thêm tài liệu"}</button> : null}
       </section>
 
       {preview ? (

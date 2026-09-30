@@ -5,8 +5,8 @@ import { cancelRun, getRunSnapshot } from "../../api/run-events";
 import {
   createTicketDraft,
   decideApproval,
-  listMyTickets,
-  listPendingApprovals,
+  listMyTicketsPage,
+  listPendingApprovalsPage,
   type Approval,
   type Ticket,
   type TicketDraftArguments,
@@ -35,18 +35,23 @@ export function TicketsPage() {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [severityFilter, setSeverityFilter] = useState("all");
+  const [ticketCursor, setTicketCursor] = useState<string | null>(null);
+  const [approvalCursor, setApprovalCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState<"tickets" | "approvals" | null>(null);
   const titleInput = useRef<HTMLInputElement>(null);
   const draftPanel = useRef<HTMLElement>(null);
 
   useEffect(() => {
     const controller = new AbortController();
     void Promise.all([
-      listMyTickets(controller.signal),
-      listPendingApprovals(controller.signal),
+      listMyTicketsPage(null, controller.signal),
+      listPendingApprovalsPage(null, controller.signal),
     ])
-      .then(([ticketItems, approvalItems]) => {
-        setTickets(ticketItems);
-        setApprovals(approvalItems);
+      .then(([ticketPage, approvalPage]) => {
+        setTickets(ticketPage.items);
+        setTicketCursor(ticketPage.next_cursor);
+        setApprovals(approvalPage.items);
+        setApprovalCursor(approvalPage.next_cursor);
       })
       .catch((caught: unknown) => {
         if (!(caught instanceof DOMException && caught.name === "AbortError")) {
@@ -56,6 +61,28 @@ export function TicketsPage() {
       .finally(() => setLoading(false));
     return () => controller.abort();
   }, []);
+
+  async function loadMore(kind: "tickets" | "approvals") {
+    const cursor = kind === "tickets" ? ticketCursor : approvalCursor;
+    if (!cursor || loadingMore) return;
+    setLoadingMore(kind);
+    setError(null);
+    try {
+      if (kind === "tickets") {
+        const page = await listMyTicketsPage(cursor);
+        setTickets((current) => [...current, ...page.items]);
+        setTicketCursor(page.next_cursor);
+      } else {
+        const page = await listPendingApprovalsPage(cursor);
+        setApprovals((current) => [...current, ...page.items]);
+        setApprovalCursor(page.next_cursor);
+      }
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Không thể tải thêm dữ liệu.");
+    } finally {
+      setLoadingMore(null);
+    }
+  }
 
   async function submitDraft(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -152,6 +179,7 @@ export function TicketsPage() {
             />
           ))}
         </div>
+        {approvalCursor ? <button className="load-more-button" disabled={Boolean(loadingMore)} onClick={() => void loadMore("approvals")} type="button">{loadingMore === "approvals" ? "Đang tải…" : "Tải thêm phê duyệt"}</button> : null}
       </section>
 
       <section className="panel">
@@ -177,6 +205,7 @@ export function TicketsPage() {
             </table>
           </div>
         )}
+        {ticketCursor ? <button className="load-more-button" disabled={Boolean(loadingMore)} onClick={() => void loadMore("tickets")} type="button">{loadingMore === "tickets" ? "Đang tải…" : "Tải thêm ticket"}</button> : null}
       </section>
     </div>
   );

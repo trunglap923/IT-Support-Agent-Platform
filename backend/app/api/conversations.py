@@ -202,7 +202,7 @@ async def list_messages(
         conversation_id=conversation_id,
         owner_id=principal.user_id,
         limit=limit + 1,
-        after=(position.timestamp, position.item_id) if position else None,
+        before=(position.timestamp, position.item_id) if position else None,
     )
     items, next_cursor = build_page(
         values,
@@ -222,7 +222,7 @@ async def list_messages(
     return CursorPage[MessageResponse](
         items=[
             _message_response(value, redactions.get(value.id), feedback.get(value.id))
-            for value in items
+            for value in reversed(items)
         ],
         next_cursor=next_cursor,
     )

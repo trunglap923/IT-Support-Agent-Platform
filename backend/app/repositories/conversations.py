@@ -60,7 +60,7 @@ class ConversationRepository:
         conversation_id: UUID,
         owner_id: UUID,
         limit: int | None = None,
-        after: tuple[datetime, UUID] | None = None,
+        before: tuple[datetime, UUID] | None = None,
     ) -> list[Message]:
         statement = (
             select(Message)
@@ -69,14 +69,14 @@ class ConversationRepository:
                 Message.conversation_id == conversation_id,
                 Conversation.owner_id == owner_id,
             )
-            .order_by(Message.created_at, Message.id)
+            .order_by(Message.created_at.desc(), Message.id.desc())
         )
-        if after is not None:
-            timestamp, item_id = after
+        if before is not None:
+            timestamp, item_id = before
             statement = statement.where(
                 or_(
-                    Message.created_at > timestamp,
-                    and_(Message.created_at == timestamp, Message.id > item_id),
+                    Message.created_at < timestamp,
+                    and_(Message.created_at == timestamp, Message.id < item_id),
                 )
             )
         if limit is not None:

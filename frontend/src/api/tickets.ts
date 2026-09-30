@@ -47,19 +47,29 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   });
 }
 
+export function listMyTicketsPage(
+  cursor: string | null = null,
+  signal?: AbortSignal,
+): Promise<CursorPage<Ticket>> {
+  return request(paginatedUrl("/api/v1/tickets/mine", {}, cursor), { signal });
+}
+
 export async function listMyTickets(signal?: AbortSignal): Promise<Ticket[]> {
-  const page = await request<CursorPage<Ticket>>(paginatedUrl("/api/v1/tickets/mine"), {
-    signal,
-  });
-  return page.items;
+  return (await listMyTicketsPage(null, signal)).items;
+}
+
+export function listPendingApprovalsPage(
+  cursor: string | null = null,
+  signal?: AbortSignal,
+): Promise<CursorPage<Approval>> {
+  return request(
+    paginatedUrl("/api/v1/approvals", { approval_status: "pending" }, cursor),
+    { signal },
+  );
 }
 
 export async function listPendingApprovals(signal?: AbortSignal): Promise<Approval[]> {
-  const page = await request<CursorPage<Approval>>(
-    paginatedUrl("/api/v1/approvals", { approval_status: "pending" }),
-    { signal },
-  );
-  return page.items;
+  return (await listPendingApprovalsPage(null, signal)).items;
 }
 
 export function createTicketDraft(

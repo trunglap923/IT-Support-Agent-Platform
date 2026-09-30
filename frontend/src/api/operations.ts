@@ -24,11 +24,15 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   });
 }
 
+export function listTicketQueuePage(
+  cursor: string | null = null,
+  signal?: AbortSignal,
+): Promise<CursorPage<Ticket>> {
+  return request(paginatedUrl("/api/v1/tickets/queue", {}, cursor), { signal });
+}
+
 export async function listTicketQueue(signal?: AbortSignal): Promise<Ticket[]> {
-  const page = await request<CursorPage<Ticket>>(paginatedUrl("/api/v1/tickets/queue"), {
-    signal,
-  });
-  return page.items;
+  return (await listTicketQueuePage(null, signal)).items;
 }
 
 export function transitionTicket(

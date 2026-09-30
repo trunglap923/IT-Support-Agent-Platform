@@ -4,9 +4,9 @@ import {
   confirmMemoryCandidate,
   createMemoryDevice,
   deleteMemoryFact,
-  listMemoryCandidates,
+  listMemoryCandidatesPage,
   listMemoryDevices,
-  listMemoryFacts,
+  listMemoryFactsPage,
   rejectMemoryCandidate,
   updateMemoryFact,
   type MemoryCandidate,
@@ -25,29 +25,36 @@ export function MemoryPage() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [candidateCursor, setCandidateCursor] = useState<string | null>(null);
+  const [factCursor, setFactCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState<"candidates" | "facts" | null>(null);
 
   async function refresh(signal?: AbortSignal) {
     const [nextDevices, nextCandidates, nextFacts] = await Promise.all([
       listMemoryDevices(signal),
-      listMemoryCandidates(signal),
-      listMemoryFacts(signal),
+      listMemoryCandidatesPage(null, signal),
+      listMemoryFactsPage(null, signal),
     ]);
     setDevices(nextDevices);
-    setCandidates(nextCandidates);
-    setFacts(nextFacts);
+    setCandidates(nextCandidates.items);
+    setCandidateCursor(nextCandidates.next_cursor);
+    setFacts(nextFacts.items);
+    setFactCursor(nextFacts.next_cursor);
   }
 
   useEffect(() => {
     const controller = new AbortController();
     void Promise.all([
       listMemoryDevices(controller.signal),
-      listMemoryCandidates(controller.signal),
-      listMemoryFacts(controller.signal),
+      listMemoryCandidatesPage(null, controller.signal),
+      listMemoryFactsPage(null, controller.signal),
     ])
       .then(([nextDevices, nextCandidates, nextFacts]) => {
         setDevices(nextDevices);
-        setCandidates(nextCandidates);
-        setFacts(nextFacts);
+        setCandidates(nextCandidates.items);
+        setCandidateCursor(nextCandidates.next_cursor);
+        setFacts(nextFacts.items);
+        setFactCursor(nextFacts.next_cursor);
       })
       .catch((caught: unknown) => {
         if (!(caught instanceof DOMException && caught.name === "AbortError")) {
@@ -71,6 +78,28 @@ export function MemoryPage() {
       setError(caught instanceof Error ? caught.message : "Không thể cập nhật memory.");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function loadMore(kind: "candidates" | "facts") {
+    const cursor = kind === "candidates" ? candidateCursor : factCursor;
+    if (!cursor || loadingMore) return;
+    setLoadingMore(kind);
+    setError(null);
+    try {
+      if (kind === "candidates") {
+        const page = await listMemoryCandidatesPage(cursor);
+        setCandidates((current) => [...current, ...page.items]);
+        setCandidateCursor(page.next_cursor);
+      } else {
+        const page = await listMemoryFactsPage(cursor);
+        setFacts((current) => [...current, ...page.items]);
+        setFactCursor(page.next_cursor);
+      }
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Không thể tải thêm memory.");
+    } finally {
+      setLoadingMore(null);
     }
   }
 
@@ -154,6 +183,7 @@ export function MemoryPage() {
               </article>
             ))}
           </div>
+          {candidateCursor ? <button className="load-more-button" disabled={Boolean(loadingMore)} onClick={() => void loadMore("candidates")} type="button">{loadingMore === "candidates" ? "Đang tải…" : "Tải thêm đề xuất"}</button> : null}
         </section>
 
         <section className="memory-section">
@@ -174,6 +204,7 @@ export function MemoryPage() {
               </article>
             ))}
           </div>
+          {factCursor ? <button className="load-more-button" disabled={Boolean(loadingMore)} onClick={() => void loadMore("facts")} type="button">{loadingMore === "facts" ? "Đang tải…" : "Tải thêm memory"}</button> : null}
         </section>
       </div>
     </div>

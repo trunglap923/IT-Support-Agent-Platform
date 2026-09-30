@@ -2,8 +2,8 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 import {
   createConversation,
-  listConversations,
-  listMessages,
+  listConversationsPage,
+  listMessagesPage,
   submitMessage,
   submitMessageFeedback,
   type ChatMessage,
@@ -11,7 +11,7 @@ import {
 } from "../../api/chat";
 import {
   decideApproval,
-  listPendingApprovals,
+  listPendingApprovalsPage,
   type Approval,
 } from "../../api/tickets";
 import { cancelRun, getRunSnapshot } from "../../api/run-events";
@@ -37,31 +37,37 @@ export function ChatPage() {
   const [feedbackPending, setFeedbackPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [conversationCursor, setConversationCursor] = useState<string | null>(null);
+  const [messageCursor, setMessageCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState<"conversations" | "messages" | null>(null);
 
   const refreshConversation = useCallback(async (conversationId: string) => {
-    const [messageItems, approvalItems] = await Promise.all([
-      listMessages(conversationId),
-      listPendingApprovals(),
+    const [messagePage, approvalPage] = await Promise.all([
+      listMessagesPage(conversationId),
+      listPendingApprovalsPage(),
     ]);
-    setMessages(messageItems);
-    setApprovals(approvalItems);
-    setRunId(recoverActiveRun(messageItems, approvalItems));
+    setMessages(messagePage.items);
+    setMessageCursor(messagePage.next_cursor);
+    setApprovals(approvalPage.items);
+    setRunId(recoverActiveRun(messagePage.items, approvalPage.items));
   }, []);
 
   useEffect(() => {
     const controller = new AbortController();
-    void listConversations(controller.signal)
-      .then(async (items) => {
-        setConversations(items);
-        if (items[0]) {
-          setActive(items[0]);
-          const [messageItems, approvalItems] = await Promise.all([
-            listMessages(items[0].id, controller.signal),
-            listPendingApprovals(controller.signal),
+    void listConversationsPage(null, controller.signal)
+      .then(async (page) => {
+        setConversations(page.items);
+        setConversationCursor(page.next_cursor);
+        if (page.items[0]) {
+          setActive(page.items[0]);
+          const [messagePage, approvalPage] = await Promise.all([
+            listMessagesPage(page.items[0].id, null, controller.signal),
+            listPendingApprovalsPage(null, controller.signal),
           ]);
-          setMessages(messageItems);
-          setApprovals(approvalItems);
-          setRunId(recoverActiveRun(messageItems, approvalItems));
+          setMessages(messagePage.items);
+          setMessageCursor(messagePage.next_cursor);
+          setApprovals(approvalPage.items);
+          setRunId(recoverActiveRun(messagePage.items, approvalPage.items));
         }
       })
       .catch((caught: unknown) => {
@@ -82,10 +88,41 @@ export function ChatPage() {
       setConversations((current) => [created, ...current]);
       setActive(created);
       setMessages([]);
+      setMessageCursor(null);
       setApprovals([]);
       setRunId(null);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Không thể tạo hội thoại.");
+    }
+  }
+
+  async function loadMoreConversations() {
+    if (!conversationCursor || loadingMore) return;
+    setLoadingMore("conversations");
+    setError(null);
+    try {
+      const page = await listConversationsPage(conversationCursor);
+      setConversations((current) => [...current, ...page.items]);
+      setConversationCursor(page.next_cursor);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Không thể tải thêm hội thoại.");
+    } finally {
+      setLoadingMore(null);
+    }
+  }
+
+  async function loadOlderMessages() {
+    if (!active || !messageCursor || loadingMore) return;
+    setLoadingMore("messages");
+    setError(null);
+    try {
+      const page = await listMessagesPage(active.id, messageCursor);
+      setMessages((current) => [...page.items, ...current]);
+      setMessageCursor(page.next_cursor);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Không thể tải tin nhắn cũ hơn.");
+    } finally {
+      setLoadingMore(null);
     }
   }
 
@@ -197,6 +234,16 @@ export function ChatPage() {
             {conversation.title}
           </button>
         ))}
+        {conversationCursor ? (
+          <button
+            className="load-more-button"
+            disabled={Boolean(loadingMore)}
+            onClick={() => void loadMoreConversations()}
+            type="button"
+          >
+            {loadingMore === "conversations" ? "Đang tải…" : "Tải thêm hội thoại"}
+          </button>
+        ) : null}
       </aside>
       <section className="chat-panel">
         <header>
@@ -204,6 +251,16 @@ export function ChatPage() {
           <h1>{active?.title ?? "Hỏi trợ lý IT"}</h1>
         </header>
         <div className="message-list" aria-live="polite">
+          {messageCursor ? (
+            <button
+              className="load-more-button message-history-button"
+              disabled={Boolean(loadingMore)}
+              onClick={() => void loadOlderMessages()}
+              type="button"
+            >
+              {loadingMore === "messages" ? "Đang tải…" : "Tải tin nhắn cũ hơn"}
+            </button>
+          ) : null}
           {messages.length === 0 ? (
             <div className="chat-empty">
               <strong>Bạn đang gặp vấn đề gì?</strong>

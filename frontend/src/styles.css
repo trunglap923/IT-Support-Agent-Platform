@@ -108,6 +108,9 @@ p { line-height: 1.55; }
 .primary-button { color: white; background: var(--accent); }
 .primary-button:hover { background: var(--accent-hover); }
 .secondary-button { border-color: var(--border-strong); background: white; }
+.load-more-button { display: block; width: fit-content; margin: 12px auto; border: 1px solid var(--border-strong); border-radius: 6px; padding: 7px 12px; color: var(--text-muted); background: white; font-size: 12px; font-weight: 650; cursor: pointer; }
+.load-more-button:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+.load-more-button:disabled { cursor: wait; opacity: .6; }
 button:disabled, .primary-button:disabled { cursor: not-allowed; opacity: .55; }
 .panel { border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
 .panel-header { display: flex; justify-content: space-between; gap: 16px; align-items: center; min-height: 62px; padding: 13px 16px; border-bottom: 1px solid var(--border); }
@@ -180,10 +183,12 @@ button:disabled, .primary-button:disabled { cursor: not-allowed; opacity: .55; }
 .conversation-list button.active { color: var(--text); background: white; box-shadow: 0 0 0 1px var(--border); }
 .conversation-list .new-chat-button { margin-bottom: 8px; color: white; background: var(--accent); font-weight: 650; }
 .conversation-list .new-chat-button:hover { background: var(--accent-hover); }
+.conversation-list .load-more-button { margin: 8px 0 0; border: 1px solid var(--border); text-align: center; }
 .chat-panel { display: flex; min-width: 0; flex-direction: column; }
 .chat-panel > header { padding: 18px 20px 12px; border-bottom: 1px solid var(--border); }
 .chat-panel > header h1 { margin: 0; font-size: 20px; }
 .message-list { display: flex; min-width: 0; min-height: 420px; flex: 1; flex-direction: column; gap: 12px; overflow-x: hidden; overflow-y: auto; padding: 20px; background: #fbfcfd; }
+.message-history-button { flex: 0 0 auto; align-self: center; margin-top: 0; }
 .chat-empty { display: grid; margin: auto; justify-items: center; color: var(--text-muted); text-align: center; }
 .chat-empty strong { color: var(--text); }
 .chat-empty p { margin: 4px 0 0; font-size: 12px; }

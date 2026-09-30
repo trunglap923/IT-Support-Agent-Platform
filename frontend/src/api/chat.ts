@@ -51,25 +51,37 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   });
 }
 
+export function listConversationsPage(
+  cursor: string | null = null,
+  signal?: AbortSignal,
+): Promise<CursorPage<Conversation>> {
+  return request(paginatedUrl("/api/v1/conversations", {}, cursor), { signal });
+}
+
 export async function listConversations(signal?: AbortSignal): Promise<Conversation[]> {
-  const page = await request<CursorPage<Conversation>>(
-    paginatedUrl("/api/v1/conversations"),
+  return (await listConversationsPage(null, signal)).items;
+}
+
+export function listMessagesPage(
+  conversationId: string,
+  cursor: string | null = null,
+  signal?: AbortSignal,
+): Promise<CursorPage<ChatMessage>> {
+  return request(
+    paginatedUrl(
+      `/api/v1/conversations/${encodeURIComponent(conversationId)}/messages`,
+      {},
+      cursor,
+    ),
     { signal },
   );
-  return page.items;
 }
 
 export async function listMessages(
   conversationId: string,
   signal?: AbortSignal,
 ): Promise<ChatMessage[]> {
-  const page = await request<CursorPage<ChatMessage>>(
-    paginatedUrl(
-      `/api/v1/conversations/${encodeURIComponent(conversationId)}/messages`,
-    ),
-    { signal },
-  );
-  return page.items;
+  return (await listMessagesPage(conversationId, null, signal)).items;
 }
 
 export function createConversation(

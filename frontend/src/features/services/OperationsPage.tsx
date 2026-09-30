@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
   listServiceStates,
-  listTicketQueue,
+  listTicketQueuePage,
   transitionTicket,
   updateServiceState,
   type ServiceState,
@@ -21,15 +21,21 @@ export function OperationsPage() {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [severityFilter, setSeverityFilter] = useState("all");
+  const [ticketCursor, setTicketCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   useEffect(() => {
     if (user?.role === "employee") {
       return;
     }
     const controller = new AbortController();
-    void Promise.all([listTicketQueue(controller.signal), listServiceStates(controller.signal)])
-      .then(([ticketItems, serviceItems]) => {
-        setTickets(ticketItems);
+    void Promise.all([
+      listTicketQueuePage(null, controller.signal),
+      listServiceStates(controller.signal),
+    ])
+      .then(([ticketPage, serviceItems]) => {
+        setTickets(ticketPage.items);
+        setTicketCursor(ticketPage.next_cursor);
         setServices(serviceItems);
       })
       .catch((caught: unknown) => {
@@ -40,6 +46,21 @@ export function OperationsPage() {
       .finally(() => setLoading(false));
     return () => controller.abort();
   }, [user?.role]);
+
+  async function loadMoreTickets() {
+    if (!ticketCursor || loadingMore) return;
+    setLoadingMore(true);
+    setError(null);
+    try {
+      const page = await listTicketQueuePage(ticketCursor);
+      setTickets((current) => [...current, ...page.items]);
+      setTicketCursor(page.next_cursor);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Không thể tải thêm ticket.");
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   const filteredTickets = useMemo(() => tickets.filter((ticket) => {
     const matchesQuery = `${ticket.display_key} ${ticket.title} ${ticket.description}`
@@ -162,6 +183,7 @@ export function OperationsPage() {
             </table>
           </div>
         )}
+        {ticketCursor ? <button className="load-more-button" disabled={loadingMore} onClick={() => void loadMoreTickets()} type="button">{loadingMore ? "Đang tải…" : "Tải thêm ticket"}</button> : null}
       </section>
     </div>
   );

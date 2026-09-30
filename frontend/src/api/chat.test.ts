@@ -48,7 +48,7 @@ describe("chat API", () => {
       { id: "c1", title: "IT support" },
     ]);
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/v1/conversations?limit=100",
+      "/api/v1/conversations?limit=20",
       expect.objectContaining({ credentials: "same-origin" }),
     );
   });
