@@ -38,7 +38,7 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [x] E2E-01: Dựng Playwright server và session mocks theo role.
 - [ ] E2E-02: Kiểm thử chat/citation/refusal và reconnect, refresh trong waiting_approval.
 - [x] E2E-03a: Kiểm thử approve/reject, manual ticket form và IT resolve/reopen.
-- [ ] E2E-03b: Bổ sung browser race cho approve hai lần và expiry.
+- [x] E2E-03b: Bổ sung browser race cho approve hai lần và expiry.
 - [x] E2E-04a: Kiểm thử admin upload/preview/process/publish/revoke và employee UI denial.
 - [x] E2E-04b: Kiểm thử UI consent/device/confirm/edit/delete; backend kiểm tra cross-conversation/epoch.
 - [x] E2E-05: Thu screenshot/trace khi thất bại; suite dùng identity/token giả không nhạy cảm.

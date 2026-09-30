@@ -173,6 +173,59 @@ test("retrying an unchanged ticket draft reuses its client request id", async ({
   expect(requestIds[1]).toBe(requestIds[0]);
 });
 
+test("approval UI blocks double decisions and expired drafts", async ({ page }) => {
+  await mockSession(page);
+  let decisionCount = 0;
+  const approval = (id: string, title: string, expiresAt: string) => ({
+    id,
+    action_id: `ticket:${id}`,
+    run_id: id.replace(/^0/, "1"),
+    tool_name: "create_ticket",
+    canonical_args: {
+      title,
+      description: "VPN remains unavailable after documented troubleshooting.",
+      issue_type: "vpn",
+      severity: "normal",
+      device_id: null,
+    },
+    arguments_hash: "c".repeat(64),
+    schema_version: 1,
+    status: "pending",
+    version: 1,
+    expires_at: expiresAt,
+  });
+  const activeApproval = approval(
+    "00000000-0000-0000-0000-000000000081",
+    "Double approve protection",
+    "2099-09-17T10:00:00Z",
+  );
+  const expiredApproval = approval(
+    "00000000-0000-0000-0000-000000000082",
+    "Expired approval",
+    "2020-09-17T10:00:00Z",
+  );
+
+  await page.route("**/api/v1/tickets/mine**", (route) => json(route, cursorPage([])));
+  await page.route("**/api/v1/approvals?approval_status=pending**", (route) =>
+    json(route, cursorPage([activeApproval, expiredApproval])),
+  );
+  await page.route("**/api/v1/approvals/*/decision", async (route) => {
+    decisionCount += 1;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    await json(route, { ...activeApproval, status: "approved", version: 2 });
+  });
+
+  await page.goto("/tickets");
+  const activeCard = page.locator(".approval-card").filter({ hasText: "Double approve protection" });
+  const expiredCard = page.locator(".approval-card").filter({ hasText: "Expired approval" });
+
+  await expect(expiredCard.getByText("Đã hết hạn")).toBeVisible();
+  await expect(expiredCard.getByRole("button", { name: "Xác nhận tạo ticket" })).toBeDisabled();
+  await activeCard.getByRole("button", { name: "Xác nhận tạo ticket" }).dblclick();
+  await expect(page.getByText("Đã xác nhận. Worker đang tạo ticket an toàn.")).toBeVisible();
+  expect(decisionCount).toBe(1);
+});
+
 test("IT resolves and reopens tickets", async ({ page }) => {
   await mockSession(page, itUser);
   let ticket = {
