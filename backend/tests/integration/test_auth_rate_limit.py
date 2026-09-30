@@ -97,7 +97,8 @@ def test_login_rate_limit_resets_on_success_and_returns_retry_after(
             )
             assert blocked.status_code == 429
             assert 1 <= int(blocked.headers["Retry-After"]) <= 60
-            assert blocked.json()["detail"] == "Too many login attempts"
+            assert blocked.json()["error"]["code"] == "RATE_LIMITED"
+            assert blocked.json()["error"]["message"] == "Too many login attempts"
     finally:
         clear_bucket(test_redis_url)
 
@@ -121,4 +122,5 @@ def test_login_fails_closed_when_rate_limit_redis_is_not_configured(
         )
 
     assert response.status_code == 503
-    assert response.json()["detail"] == "Authentication protection is unavailable"
+    assert response.json()["error"]["code"] == "SERVICE_UNAVAILABLE"
+    assert response.json()["error"]["message"] == "Authentication protection is unavailable"

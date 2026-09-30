@@ -16,10 +16,19 @@ describe("shared API client", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(
-        Response.json({ detail: "internal detail must not be rendered" }, {
-          status: 401,
-          headers: { "Retry-After": "12" },
-        }),
+        Response.json(
+          {
+            error: {
+              code: "NOT_AUTHENTICATED",
+              message: "internal detail must not be rendered",
+              request_id: "request-401",
+            },
+          },
+          {
+            status: 401,
+            headers: { "Retry-After": "12" },
+          },
+        ),
       ),
     );
     const listener = vi.fn();
@@ -29,6 +38,8 @@ describe("shared API client", () => {
       expect.objectContaining<Partial<ApiError>>({
         status: 401,
         retryAfterSeconds: 12,
+        code: "NOT_AUTHENTICATED",
+        requestId: "request-401",
         message: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
       }),
     );
@@ -68,6 +79,25 @@ describe("shared API client", () => {
     await expect(requestJson("/api/resource")).rejects.toEqual(
       expect.objectContaining({
         message: "Dữ liệu đã thay đổi. Hãy tải lại và thử lại.",
+      }),
+    );
+  });
+
+  it("falls back to the response header request ID for legacy error bodies", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json(
+          { detail: "legacy response" },
+          { status: 503, headers: { "X-Request-ID": "request-header" } },
+        ),
+      ),
+    );
+    await expect(requestJson("/api/resource")).rejects.toEqual(
+      expect.objectContaining({
+        status: 503,
+        code: null,
+        requestId: "request-header",
       }),
     );
   });

@@ -176,5 +176,5 @@ def test_upload_rejects_oversize_before_persisting(
             headers={"Origin": ORIGIN, "X-CSRF-Token": login.json()["csrf_token"]},
         )
         assert response.status_code == 413
-        assert response.json()["detail"]["code"] == "pdf_too_large"
+        assert response.json()["error"]["code"] == "PDF_TOO_LARGE"
     assert not list(tmp_path.rglob("*.pdf"))

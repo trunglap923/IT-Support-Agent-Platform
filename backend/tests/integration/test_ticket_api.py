@@ -158,7 +158,9 @@ def test_manual_ticket_draft_rejects_device_owned_by_another_user(
             },
         )
         assert response.status_code == 422
-        assert response.json()["detail"] == "Device is unavailable for the approval owner"
+        assert response.json()["error"]["message"] == (
+            "Device is unavailable for the approval owner"
+        )
 
     async def assert_no_partial_draft() -> None:
         database = Database(migrated_database_url)

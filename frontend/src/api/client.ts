@@ -5,6 +5,8 @@ export class ApiError extends Error {
     message: string,
     public readonly status: number,
     public readonly retryAfterSeconds: number | null = null,
+    public readonly code: string | null = null,
+    public readonly requestId: string | null = null,
   ) {
     super(message);
     this.name = "ApiError";
@@ -51,15 +53,27 @@ async function responseError(
   response: Response,
   messages?: RequestMessages,
 ): Promise<ApiError> {
-  // Consume a JSON error envelope so the connection can be reused, but do not
-  // render arbitrary backend exception text in the browser.
-  await response.json().catch(() => null);
+  // Read diagnostic identifiers, but never render arbitrary backend messages.
+  const payload = await response.json().catch(() => null) as {
+    error?: { code?: unknown; request_id?: unknown };
+  } | null;
+  const code = typeof payload?.error?.code === "string" ? payload.error.code : null;
+  const requestId =
+    typeof payload?.error?.request_id === "string"
+      ? payload.error.request_id
+      : response.headers.get("X-Request-ID");
   const message =
     messages?.byStatus?.[response.status] ??
     defaultMessages[response.status] ??
     messages?.fallback ??
     "Không thể kết nối tới máy chủ.";
-  return new ApiError(message, response.status, retryAfterSeconds(response));
+  return new ApiError(
+    message,
+    response.status,
+    retryAfterSeconds(response),
+    code,
+    requestId,
+  );
 }
 
 export async function requestJson<T>(

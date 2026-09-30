@@ -46,7 +46,8 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [x] API-04b1: Bổ sung admin PDF upload và draft preview routes.
 - [x] API-04b2a: Bổ sung document version/process/publish/revoke/ACL routes.
 - [x] API-04b2b: Bổ sung owner-scoped device/candidate/fact memory routes.
-- [ ] API-05: Chuẩn hóa 401/403/404/409/410/413/422/429/503, cursor pagination và Retry-After.
+- [x] API-05a: Chuẩn hóa error envelope cho 401/403/404/409/410/413/422/429/503, request ID và Retry-After.
+- [ ] API-05b: Thêm cursor pagination cho các list API lớn.
 
 ## Điều kiện hoàn thành
 
