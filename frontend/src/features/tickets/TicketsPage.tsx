@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 import { cancelRun, getRunSnapshot } from "../../api/run-events";
 import {
@@ -11,6 +11,7 @@ import {
   type TicketDraftArguments,
 } from "../../api/tickets";
 import { useAuth } from "../auth/useAuth";
+import { EmptyState, LoadingState, PageHeader, StatusBadge } from "../../components/ProductUI";
 import { ApprovalCard } from "./ApprovalCard";
 
 const initialDraft: TicketDraftArguments = {
@@ -30,7 +31,11 @@ export function TicketsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [severityFilter, setSeverityFilter] = useState("all");
   const titleInput = useRef<HTMLInputElement>(null);
+  const draftPanel = useRef<HTMLElement>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -101,21 +106,29 @@ export function TicketsPage() {
     }
   }
 
-  if (loading) return <p>Đang tải ticket…</p>;
+  const filteredTickets = useMemo(() => tickets.filter((ticket) => {
+    const matchesQuery = `${ticket.display_key} ${ticket.title} ${ticket.description}`.toLowerCase().includes(query.toLowerCase());
+    return matchesQuery
+      && (statusFilter === "all" || ticket.status === statusFilter)
+      && (severityFilter === "all" || ticket.severity === severityFilter);
+  }), [query, severityFilter, statusFilter, tickets]);
+
+  if (loading) return <LoadingState label="Đang tải ticket…" />;
 
   return (
     <div className="tickets-page">
-      <header className="section-heading">
-        <p className="eyebrow">CONTROLLED ACTIONS</p>
-        <h1>Ticket hỗ trợ của bạn</h1>
-        <p>Tạo bản nháp trước; hệ thống chỉ ghi ticket sau khi bạn xác nhận.</p>
-      </header>
+      <PageHeader
+        eyebrow="TICKET MANAGEMENT"
+        title="Ticket hỗ trợ"
+        description="Theo dõi yêu cầu và xác nhận rõ nội dung trước khi tạo ticket."
+        actions={<button className="primary-button" onClick={() => { draftPanel.current?.scrollIntoView({ behavior: "smooth" }); titleInput.current?.focus(); }} type="button">+ Tạo ticket</button>}
+      />
 
       {notice ? <p className="notice-banner" role="status">{notice}</p> : null}
       {error ? <p className="chat-error" role="alert">{error}</p> : null}
 
-      <section className="ticket-draft-panel">
-        <h2>Tạo bản nháp</h2>
+      <section className="panel ticket-draft-panel" ref={draftPanel}>
+        <header className="panel-header"><div><h2>Tạo bản nháp</h2><p>Ticket chỉ được ghi sau bước xác nhận.</p></div></header>
         <form onSubmit={submitDraft}>
           <label>Tiêu đề<input minLength={5} ref={titleInput} required value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} /></label>
           <label>Mô tả<textarea minLength={10} required rows={4} value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></label>
@@ -125,10 +138,10 @@ export function TicketsPage() {
         </form>
       </section>
 
-      <section>
-        <h2>Đang chờ xác nhận</h2>
+      <section className="panel approvals-section">
+        <header className="panel-header"><div><h2>Đang chờ xác nhận</h2><p>{approvals.length} thao tác cần quyết định</p></div></header>
         <div className="approval-grid">
-          {approvals.length === 0 ? <p>Không có thao tác đang chờ.</p> : null}
+          {approvals.length === 0 ? <EmptyState title="Không có thao tác đang chờ" description="Bản nháp mới sẽ xuất hiện ở đây để bạn kiểm tra." /> : null}
           {approvals.map((approval) => (
             <ApprovalCard
               approval={approval}
@@ -140,18 +153,29 @@ export function TicketsPage() {
         </div>
       </section>
 
-      <section>
-        <h2>Ticket cá nhân</h2>
-        <div className="ticket-list">
-          {tickets.length === 0 ? <p>Chưa có ticket nào.</p> : null}
-          {tickets.map((ticket) => (
-            <article key={ticket.id}>
-              <span>{ticket.display_key} · {ticket.status}</span>
-              <h3>{ticket.title}</h3>
-              <p>{ticket.description}</p>
-            </article>
-          ))}
+      <section className="panel">
+        <header className="panel-header"><div><h2>Ticket cá nhân</h2><p>{tickets.length} ticket trong phạm vi của bạn</p></div></header>
+        <div className="filter-bar">
+          <label className="search-field"><span className="sr-only">Tìm ticket</span><input onChange={(event) => setQuery(event.target.value)} placeholder="Tìm theo mã, tiêu đề…" type="search" value={query} /></label>
+          <label><span className="sr-only">Lọc trạng thái</span><select aria-label="Lọc trạng thái" onChange={(event) => setStatusFilter(event.target.value)} value={statusFilter}><option value="all">Mọi trạng thái</option><option value="open">Open</option><option value="in_progress">In progress</option><option value="resolved">Resolved</option></select></label>
+          <label><span className="sr-only">Lọc mức độ</span><select aria-label="Lọc mức độ" onChange={(event) => setSeverityFilter(event.target.value)} value={severityFilter}><option value="all">Mọi mức độ</option><option value="high">Cao</option><option value="normal">Bình thường</option><option value="low">Thấp</option></select></label>
         </div>
+        {filteredTickets.length === 0 ? <EmptyState title={tickets.length === 0 ? "Chưa có ticket nào" : "Không tìm thấy ticket"} description={tickets.length === 0 ? "Tạo bản nháp để bắt đầu yêu cầu hỗ trợ." : "Thử thay đổi từ khóa hoặc bộ lọc."} /> : (
+          <div className="table-scroll">
+            <table className="data-table tickets-table">
+              <thead><tr><th>Mã</th><th>Tiêu đề</th><th>Trạng thái</th><th>Ưu tiên</th><th>Loại</th></tr></thead>
+              <tbody>{filteredTickets.map((ticket) => (
+                <tr key={ticket.id}>
+                  <td><strong>{ticket.display_key}</strong></td>
+                  <td><strong>{ticket.title}</strong><small>{ticket.description}</small></td>
+                  <td><StatusBadge value={ticket.status} /></td>
+                  <td><StatusBadge value={ticket.severity} /></td>
+                  <td>{ticket.issue_type}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        )}
       </section>
     </div>
   );
