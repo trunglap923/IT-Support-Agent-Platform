@@ -1,19 +1,22 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
-import { listMyTickets, type Ticket } from "../../api/tickets";
+import { getTicket, type Ticket } from "../../api/tickets";
 import { EmptyState, LoadingState, PageHeader, StatusBadge } from "../../components/ProductUI";
 
 export function TicketDetailPage() {
   const { ticketId } = useParams();
   const [ticket, setTicket] = useState<Ticket | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(Boolean(ticketId));
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
-    void listMyTickets(controller.signal)
-      .then((items) => setTicket(items.find((item) => item.id === ticketId) ?? null))
+    if (!ticketId) {
+      return () => controller.abort();
+    }
+    void getTicket(ticketId, controller.signal)
+      .then(setTicket)
       .catch((caught: unknown) => {
         if (!(caught instanceof DOMException && caught.name === "AbortError")) {
           setError(caught instanceof Error ? caught.message : "Không thể tải ticket.");

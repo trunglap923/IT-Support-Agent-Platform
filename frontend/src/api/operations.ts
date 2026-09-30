@@ -1,4 +1,4 @@
-import type { Ticket } from "./tickets";
+import type { Ticket, TicketFilters } from "./tickets";
 import { requestJson } from "./client";
 import type { CursorPage } from "./pagination";
 import { paginatedUrl } from "./pagination";
@@ -27,8 +27,9 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 export function listTicketQueuePage(
   cursor: string | null = null,
   signal?: AbortSignal,
+  filters: TicketFilters = {},
 ): Promise<CursorPage<Ticket>> {
-  return request(paginatedUrl("/api/v1/tickets/queue", {}, cursor), { signal });
+  return request(paginatedUrl("/api/v1/tickets/queue", filters, cursor), { signal });
 }
 
 export async function listTicketQueue(signal?: AbortSignal): Promise<Ticket[]> {

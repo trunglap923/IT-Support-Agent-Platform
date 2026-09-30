@@ -35,6 +35,7 @@ export function TicketsPage() {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [severityFilter, setSeverityFilter] = useState("all");
+  const [issueTypeFilter, setIssueTypeFilter] = useState("all");
   const [ticketCursor, setTicketCursor] = useState<string | null>(null);
   const [approvalCursor, setApprovalCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState<"tickets" | "approvals" | null>(null);
@@ -44,7 +45,11 @@ export function TicketsPage() {
   useEffect(() => {
     const controller = new AbortController();
     void Promise.all([
-      listMyTicketsPage(null, controller.signal),
+      listMyTicketsPage(null, controller.signal, {
+        ...(statusFilter !== "all" ? { ticket_status: statusFilter } : {}),
+        ...(severityFilter !== "all" ? { severity: severityFilter } : {}),
+        ...(issueTypeFilter !== "all" ? { issue_type: issueTypeFilter } : {}),
+      }),
       listPendingApprovalsPage(null, controller.signal),
     ])
       .then(([ticketPage, approvalPage]) => {
@@ -60,7 +65,7 @@ export function TicketsPage() {
       })
       .finally(() => setLoading(false));
     return () => controller.abort();
-  }, []);
+  }, [issueTypeFilter, severityFilter, statusFilter]);
 
   async function loadMore(kind: "tickets" | "approvals") {
     const cursor = kind === "tickets" ? ticketCursor : approvalCursor;
@@ -69,7 +74,11 @@ export function TicketsPage() {
     setError(null);
     try {
       if (kind === "tickets") {
-        const page = await listMyTicketsPage(cursor);
+        const page = await listMyTicketsPage(cursor, undefined, {
+          ...(statusFilter !== "all" ? { ticket_status: statusFilter } : {}),
+          ...(severityFilter !== "all" ? { severity: severityFilter } : {}),
+          ...(issueTypeFilter !== "all" ? { issue_type: issueTypeFilter } : {}),
+        });
         setTickets((current) => [...current, ...page.items]);
         setTicketCursor(page.next_cursor);
       } else {
@@ -188,6 +197,7 @@ export function TicketsPage() {
           <label className="search-field"><span className="sr-only">Tìm ticket</span><input onChange={(event) => setQuery(event.target.value)} placeholder="Tìm theo mã, tiêu đề…" type="search" value={query} /></label>
           <label><span className="sr-only">Lọc trạng thái</span><select aria-label="Lọc trạng thái" onChange={(event) => setStatusFilter(event.target.value)} value={statusFilter}><option value="all">Mọi trạng thái</option><option value="open">Open</option><option value="in_progress">In progress</option><option value="resolved">Resolved</option></select></label>
           <label><span className="sr-only">Lọc mức độ</span><select aria-label="Lọc mức độ" onChange={(event) => setSeverityFilter(event.target.value)} value={severityFilter}><option value="all">Mọi mức độ</option><option value="high">Cao</option><option value="normal">Bình thường</option><option value="low">Thấp</option></select></label>
+          <label><span className="sr-only">Lọc loại sự cố</span><select aria-label="Lọc loại sự cố" onChange={(event) => setIssueTypeFilter(event.target.value)} value={issueTypeFilter}><option value="all">Mọi loại</option><option value="vpn">VPN</option><option value="docker">Docker</option><option value="gitlab">GitLab</option><option value="other">Khác</option></select></label>
         </div>
         {filteredTickets.length === 0 ? <EmptyState title={tickets.length === 0 ? "Chưa có ticket nào" : "Không tìm thấy ticket"} description={tickets.length === 0 ? "Tạo bản nháp để bắt đầu yêu cầu hỗ trợ." : "Thử thay đổi từ khóa hoặc bộ lọc."} /> : (
           <div className="table-scroll">

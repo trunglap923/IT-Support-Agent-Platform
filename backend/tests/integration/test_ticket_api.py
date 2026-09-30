@@ -107,6 +107,12 @@ def test_manual_ticket_draft_approval_and_personal_list(
         assert [(item["title"], item["status"]) for item in tickets.json()["items"]] == [
             ("VPN access is unavailable", "open")
         ]
+        ticket = tickets.json()["items"][0]
+        detail = client.get(f"/api/v1/tickets/{ticket['id']}")
+        assert detail.status_code == 200
+        assert detail.json()["display_key"] == ticket["display_key"]
+        assert client.get("/api/v1/tickets/mine?issue_type=docker").json()["items"] == []
+        assert len(client.get("/api/v1/tickets/mine?issue_type=vpn").json()["items"]) == 1
 
 
 def test_manual_ticket_draft_rejects_device_owned_by_another_user(

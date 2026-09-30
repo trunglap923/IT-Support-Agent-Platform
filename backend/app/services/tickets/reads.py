@@ -10,7 +10,7 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.principal import Principal
-from app.db.models import Ticket, TicketStatus, UserRole
+from app.db.models import Ticket, TicketIssueType, TicketSeverity, TicketStatus, UserRole
 
 
 class TicketReadService:
@@ -21,8 +21,17 @@ class TicketReadService:
         principal: Principal,
         limit: int = 100,
         before: tuple[datetime, UUID] | None = None,
+        status: TicketStatus | None = None,
+        issue_type: TicketIssueType | None = None,
+        severity: TicketSeverity | None = None,
     ) -> list[Ticket]:
         statement = select(Ticket).where(Ticket.owner_id == principal.user_id)
+        if status is not None:
+            statement = statement.where(Ticket.status == status.value)
+        if issue_type is not None:
+            statement = statement.where(Ticket.issue_type == issue_type.value)
+        if severity is not None:
+            statement = statement.where(Ticket.severity == severity.value)
         if before is not None:
             timestamp, item_id = before
             statement = statement.where(
@@ -71,6 +80,8 @@ class TicketReadService:
         status: TicketStatus | None = None,
         limit: int = 100,
         before: tuple[datetime, UUID] | None = None,
+        issue_type: TicketIssueType | None = None,
+        severity: TicketSeverity | None = None,
     ) -> list[Ticket]:
         statement = select(Ticket)
         if principal.role is UserRole.EMPLOYEE:
@@ -79,6 +90,10 @@ class TicketReadService:
             statement = statement.where(Ticket.department_id == principal.department_id)
         if status is not None:
             statement = statement.where(Ticket.status == status.value)
+        if issue_type is not None:
+            statement = statement.where(Ticket.issue_type == issue_type.value)
+        if severity is not None:
+            statement = statement.where(Ticket.severity == severity.value)
         if before is not None:
             timestamp, item_id = before
             statement = statement.where(

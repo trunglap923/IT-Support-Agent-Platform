@@ -23,6 +23,8 @@ from app.db.models import (
     Conversation,
     RunKind,
     RunStatus,
+    TicketIssueType,
+    TicketSeverity,
     TicketStatus,
     UserRole,
 )
@@ -78,6 +80,9 @@ async def list_my_tickets(
     session: Annotated[AsyncSession, Depends(get_db_session)],
     limit: PageLimit = 20,
     cursor: str | None = None,
+    ticket_status: TicketStatus | None = None,
+    issue_type: TicketIssueType | None = None,
+    severity: TicketSeverity | None = None,
 ) -> CursorPage[TicketResponse]:
     position = decode_cursor(cursor)
     tickets = await TicketReadService().list_owned(
@@ -85,6 +90,9 @@ async def list_my_tickets(
         principal=principal,
         limit=limit + 1,
         before=(position.timestamp, position.item_id) if position else None,
+        status=ticket_status,
+        issue_type=issue_type,
+        severity=severity,
     )
     items, next_cursor = build_page(tickets, limit=limit, timestamp=lambda value: value.updated_at)
     return CursorPage[TicketResponse](
@@ -102,6 +110,8 @@ async def list_ticket_queue(
     principal: CurrentPrincipal,
     session: Annotated[AsyncSession, Depends(get_db_session)],
     ticket_status: TicketStatus | None = None,
+    issue_type: TicketIssueType | None = None,
+    severity: TicketSeverity | None = None,
     limit: PageLimit = 20,
     cursor: str | None = None,
 ) -> CursorPage[TicketResponse]:
@@ -112,12 +122,30 @@ async def list_ticket_queue(
         status=ticket_status,
         limit=limit + 1,
         before=(position.timestamp, position.item_id) if position else None,
+        issue_type=issue_type,
+        severity=severity,
     )
     items, next_cursor = build_page(tickets, limit=limit, timestamp=lambda value: value.updated_at)
     return CursorPage[TicketResponse](
         items=[TicketResponse.model_validate(ticket) for ticket in items],
         next_cursor=next_cursor,
     )
+
+
+@router.get("/{ticket_id}", response_model=TicketResponse)
+async def get_ticket(
+    ticket_id: UUID,
+    principal: CurrentPrincipal,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> TicketResponse:
+    ticket = await TicketReadService().get_visible(
+        session,
+        principal=principal,
+        ticket_id=ticket_id,
+    )
+    if ticket is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket was not found")
+    return TicketResponse.model_validate(ticket)
 
 
 @router.post(

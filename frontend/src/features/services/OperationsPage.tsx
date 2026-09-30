@@ -21,6 +21,7 @@ export function OperationsPage() {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [severityFilter, setSeverityFilter] = useState("all");
+  const [issueTypeFilter, setIssueTypeFilter] = useState("all");
   const [ticketCursor, setTicketCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
 
@@ -30,7 +31,11 @@ export function OperationsPage() {
     }
     const controller = new AbortController();
     void Promise.all([
-      listTicketQueuePage(null, controller.signal),
+      listTicketQueuePage(null, controller.signal, {
+        ...(statusFilter !== "all" ? { ticket_status: statusFilter } : {}),
+        ...(severityFilter !== "all" ? { severity: severityFilter } : {}),
+        ...(issueTypeFilter !== "all" ? { issue_type: issueTypeFilter } : {}),
+      }),
       listServiceStates(controller.signal),
     ])
       .then(([ticketPage, serviceItems]) => {
@@ -45,14 +50,18 @@ export function OperationsPage() {
       })
       .finally(() => setLoading(false));
     return () => controller.abort();
-  }, [user?.role]);
+  }, [issueTypeFilter, severityFilter, statusFilter, user?.role]);
 
   async function loadMoreTickets() {
     if (!ticketCursor || loadingMore) return;
     setLoadingMore(true);
     setError(null);
     try {
-      const page = await listTicketQueuePage(ticketCursor);
+      const page = await listTicketQueuePage(ticketCursor, undefined, {
+        ...(statusFilter !== "all" ? { ticket_status: statusFilter } : {}),
+        ...(severityFilter !== "all" ? { severity: severityFilter } : {}),
+        ...(issueTypeFilter !== "all" ? { issue_type: issueTypeFilter } : {}),
+      });
       setTickets((current) => [...current, ...page.items]);
       setTicketCursor(page.next_cursor);
     } catch (caught) {
@@ -68,8 +77,9 @@ export function OperationsPage() {
       .includes(query.toLowerCase());
     return matchesQuery
       && (statusFilter === "all" || ticket.status === statusFilter)
-      && (severityFilter === "all" || ticket.severity === severityFilter);
-  }), [query, severityFilter, statusFilter, tickets]);
+      && (severityFilter === "all" || ticket.severity === severityFilter)
+      && (issueTypeFilter === "all" || ticket.issue_type === issueTypeFilter);
+  }), [issueTypeFilter, query, severityFilter, statusFilter, tickets]);
 
   if (user?.role === "employee") {
     return <AccessDenied message="Khu vực này chỉ dành cho IT hoặc quản trị viên." />;
@@ -151,6 +161,7 @@ export function OperationsPage() {
           <label className="search-field"><span className="sr-only">Tìm ticket trong hàng đợi</span><input onChange={(event) => setQuery(event.target.value)} placeholder="Tìm theo mã, tiêu đề…" type="search" value={query} /></label>
           <label><span className="sr-only">Lọc trạng thái</span><select aria-label="Lọc trạng thái hàng đợi" onChange={(event) => setStatusFilter(event.target.value)} value={statusFilter}><option value="all">Mọi trạng thái</option><option value="open">Open</option><option value="in_progress">In progress</option><option value="resolved">Resolved</option></select></label>
           <label><span className="sr-only">Lọc mức độ</span><select aria-label="Lọc mức độ hàng đợi" onChange={(event) => setSeverityFilter(event.target.value)} value={severityFilter}><option value="all">Mọi mức độ</option><option value="high">Cao</option><option value="normal">Bình thường</option><option value="low">Thấp</option></select></label>
+          <label><span className="sr-only">Lọc loại sự cố</span><select aria-label="Lọc loại sự cố hàng đợi" onChange={(event) => setIssueTypeFilter(event.target.value)} value={issueTypeFilter}><option value="all">Mọi loại</option><option value="vpn">VPN</option><option value="docker">Docker</option><option value="gitlab">GitLab</option><option value="other">Khác</option></select></label>
         </div>
         {filteredTickets.length === 0 ? (
           <EmptyState title={tickets.length === 0 ? "Hàng đợi trống" : "Không tìm thấy ticket"} description={tickets.length === 0 ? "Ticket mới trong phạm vi sẽ xuất hiện tại đây." : "Thử thay đổi từ khóa hoặc bộ lọc."} />

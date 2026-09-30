@@ -33,7 +33,7 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 ## Các bước triển khai
 
 - [x] UITKT-01a: Làm danh sách ticket cá nhân và IT queue theo API.
-- [ ] UITKT-01b: Thêm detail route và bộ lọc owner/status/issue_type.
+- [x] UITKT-01b: Thêm detail route và bộ lọc owner/status/issue_type.
 - [x] UITKT-02: Form nhập title/description/issue_type/severity rồi chuyển tới preview để xác nhận.
 - [x] UITKT-03: Tạo chế độ IT và form status update kèm xử lý version conflict.
 - [ ] UITKT-04: Invalidate danh sách/detail sau receipt hoặc cập nhật; liên kết từ chat tới ticket đã tạo.

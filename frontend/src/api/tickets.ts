@@ -37,6 +37,10 @@ export interface TicketDraftResponse {
   created: boolean;
 }
 
+export type TicketFilters = Partial<
+  Record<"ticket_status" | "issue_type" | "severity", string>
+>;
+
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   return requestJson(url, {
     ...init,
@@ -50,12 +54,17 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 export function listMyTicketsPage(
   cursor: string | null = null,
   signal?: AbortSignal,
+  filters: TicketFilters = {},
 ): Promise<CursorPage<Ticket>> {
-  return request(paginatedUrl("/api/v1/tickets/mine", {}, cursor), { signal });
+  return request(paginatedUrl("/api/v1/tickets/mine", filters, cursor), { signal });
 }
 
 export async function listMyTickets(signal?: AbortSignal): Promise<Ticket[]> {
   return (await listMyTicketsPage(null, signal)).items;
+}
+
+export function getTicket(ticketId: string, signal?: AbortSignal): Promise<Ticket> {
+  return request(`/api/v1/tickets/${encodeURIComponent(ticketId)}`, { signal });
 }
 
 export function listPendingApprovalsPage(
