@@ -18,7 +18,7 @@ PROJECT_UID := $(shell id -u)
 PROJECT_GID := $(shell id -g)
 FRONTEND_DOCKER = docker run --rm --user $(PROJECT_UID):$(PROJECT_GID) -e npm_config_cache=/tmp/npm-cache -v $(CURDIR)/frontend:/app -w /app $(NODE_IMAGE)
 
-.PHONY: help bootstrap bootstrap-host env-init stack-build up down status test \
+.PHONY: help bootstrap bootstrap-host env-init stack-build up down status test test-fast \
 	test-e2e eval demo clean-verify backup restore-test docs-check check backend-sync backend-format backend-check \
 	frontend-install frontend-check frontend-install-docker frontend-check-docker \
 	frontend-e2e-docker \
@@ -40,6 +40,7 @@ help:
 	@echo "  make seed                   Seed business scenarios and published IT knowledge"
 	@echo "  make seed-dry-run           Validate and preview seed changes without persisting"
 	@echo "  make test                   Run backend tests with isolated DB/Redis, then frontend checks"
+	@echo "  make test-fast             Reuse test image; run backend tests without rebuild/frontend"
 	@echo "  make test-e2e               Run browser E2E in pinned Playwright"
 	@echo "  make eval                   Run the deterministic, non-paid evaluation"
 	@echo "  make demo                   Migrate, seed and start the complete demo stack"
@@ -119,6 +120,9 @@ status:
 
 test: env-init
 	bash $(CURDIR)/infra/scripts/run-tests.sh
+
+test-fast: env-init
+	SKIP_TEST_BUILD=1 RUN_FRONTEND=0 bash $(CURDIR)/infra/scripts/run-tests.sh $(TESTS)
 
 test-e2e: frontend-e2e-docker
 

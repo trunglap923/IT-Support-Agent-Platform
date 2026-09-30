@@ -29,6 +29,12 @@ services:
       REQUIRE_REDIS_TESTS: "1"
       COOKIE_SECURE: "false"
       ALLOWED_WEB_ORIGIN: http://testserver
+    volumes:
+      - ../backend/app:/app/app:ro
+      - ../backend/tests:/app/tests:ro
+      - ../evals:/workspace/evals:ro
+      - ../data:/workspace/data:ro
+      - ../reports:/workspace/reports:ro
     depends_on:
       postgres:
         condition: service_healthy

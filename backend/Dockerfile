@@ -14,6 +14,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PATH="/opt/venv/bin:$PATH"
 
 RUN --mount=type=secret,id=host_ca_bundle,required=false \
+    --mount=type=cache,target=/root/.cache/uv \
     groupadd --gid "${APP_GID}" app \
     && useradd --uid "${APP_UID}" --gid app --create-home --home-dir /home/app app \
     && if [ -f /run/secrets/host_ca_bundle ]; then \
@@ -27,6 +28,7 @@ WORKDIR /app
 
 COPY backend/pyproject.toml backend/uv.lock backend/README.md ./
 RUN --mount=type=secret,id=host_ca_bundle,required=false \
+    --mount=type=cache,target=/root/.cache/uv \
     if [ -f /run/secrets/host_ca_bundle ]; then \
         SSL_CERT_FILE=/run/secrets/host_ca_bundle \
             uv sync --system-certs --frozen --no-dev --no-install-project; \
@@ -54,6 +56,7 @@ FROM runtime AS test
 
 USER root
 RUN --mount=type=secret,id=host_ca_bundle,required=false \
+    --mount=type=cache,target=/root/.cache/uv \
     if [ -f /run/secrets/host_ca_bundle ]; then \
         SSL_CERT_FILE=/run/secrets/host_ca_bundle \
             uv sync --system-certs --frozen --all-groups --no-editable; \

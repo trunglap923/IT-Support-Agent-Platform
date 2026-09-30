@@ -15,7 +15,12 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-"${compose[@]}" build test-runner
+if [ "${SKIP_TEST_BUILD:-0}" != "1" ] \
+  || ! docker image inspect it-support-agent-api:test >/dev/null 2>&1; then
+  "${compose[@]}" build test-runner
+else
+  echo "Reusing it-support-agent-api:test with source bind mounts (SKIP_TEST_BUILD=1)."
+fi
 "${compose[@]}" up --detach --wait postgres redis
 if [ "$#" -eq 0 ]; then
   set -- /app/tests
