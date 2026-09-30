@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   listServiceStates,
@@ -8,6 +8,7 @@ import {
   type ServiceState,
 } from "../../api/operations";
 import type { Ticket } from "../../api/tickets";
+import { EmptyState, LoadingState, PageHeader, StatusBadge } from "../../components/ProductUI";
 import { useAuth } from "../auth/useAuth";
 
 export function OperationsPage() {
@@ -17,6 +18,9 @@ export function OperationsPage() {
   const [resolutionNotes, setResolutionNotes] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(user?.role !== "employee");
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [severityFilter, setSeverityFilter] = useState("all");
 
   useEffect(() => {
     if (user?.role === "employee") {
@@ -37,10 +41,19 @@ export function OperationsPage() {
     return () => controller.abort();
   }, [user?.role]);
 
+  const filteredTickets = useMemo(() => tickets.filter((ticket) => {
+    const matchesQuery = `${ticket.display_key} ${ticket.title} ${ticket.description}`
+      .toLowerCase()
+      .includes(query.toLowerCase());
+    return matchesQuery
+      && (statusFilter === "all" || ticket.status === statusFilter)
+      && (severityFilter === "all" || ticket.severity === severityFilter);
+  }), [query, severityFilter, statusFilter, tickets]);
+
   if (user?.role === "employee") {
     return <p className="chat-error" role="alert">Khu vực này chỉ dành cho IT hoặc quản trị viên.</p>;
   }
-  if (loading) return <p>Đang tải hàng đợi IT…</p>;
+  if (loading) return <LoadingState label="Đang tải hàng đợi IT…" />;
 
   async function moveTicket(ticket: Ticket, action: "start" | "resolve" | "reopen") {
     if (!csrfToken) return;
@@ -71,48 +84,84 @@ export function OperationsPage() {
 
   return (
     <div className="operations-page">
-      <header className="section-heading">
-        <p className="eyebrow">IT OPERATIONS</p>
-        <h1>Hàng đợi hỗ trợ</h1>
-      </header>
-      {error ? <p className="chat-error" role="alert">{error}</p> : null}
+      <PageHeader
+        eyebrow="IT OPERATIONS"
+        title="Hàng đợi hỗ trợ"
+        description="Theo dõi tình trạng dịch vụ và xử lý ticket trong phạm vi được phân quyền."
+      />
+      {error ? <div className="alert-banner error" role="alert">{error}</div> : null}
 
-      <section>
-        <h2>Trạng thái dịch vụ mô phỏng</h2>
-        <div className="service-grid">
-          {services.map((service) => (
-            <article key={service.service_id}>
-              <h3>{service.service_id}</h3>
-              <select aria-label={`Trạng thái ${service.service_id}`} disabled={user?.role !== "admin"} value={service.status} onChange={(event) => setServices((current) => current.map((item) => item.service_id === service.service_id ? { ...item, status: event.target.value as ServiceState["status"] } : item))}>
-                <option value="healthy">Healthy</option><option value="degraded">Degraded</option><option value="down">Down</option><option value="unknown">Unknown</option>
-              </select>
-              <input aria-label={`Thông báo ${service.service_id}`} disabled={user?.role !== "admin"} value={service.message} onChange={(event) => setServices((current) => current.map((item) => item.service_id === service.service_id ? { ...item, message: event.target.value } : item))} />
-              {user?.role === "admin" ? <button onClick={() => void saveService(service)} type="button">Lưu</button> : <small>Chỉ quản trị viên được thay đổi trạng thái mô phỏng.</small>}
-            </article>
-          ))}
-        </div>
+      <section className="panel operations-services">
+        <header className="panel-header">
+          <div><h2>Trạng thái dịch vụ mô phỏng</h2><p>{services.length} dịch vụ đang được theo dõi</p></div>
+          {user?.role !== "admin" ? <span className="permission-note">Chỉ quản trị viên được thay đổi trạng thái mô phỏng.</span> : null}
+        </header>
+        {services.length === 0 ? (
+          <EmptyState title="Chưa có dịch vụ" description="Trạng thái dịch vụ mô phỏng sẽ xuất hiện tại đây." />
+        ) : (
+          <div className="table-scroll">
+            <span className="mobile-scroll-hint">Vuốt ngang để xem chi tiết →</span>
+            <table className="data-table service-table">
+              <thead><tr><th>Dịch vụ</th><th>Trạng thái</th><th>Thông báo</th><th>Cập nhật</th><th aria-label="Thao tác" /></tr></thead>
+              <tbody>{services.map((service) => (
+                <tr key={service.service_id}>
+                  <td><strong>{service.service_id}</strong><small>Fault mode: {service.fault_mode}</small></td>
+                  <td>
+                    <div className="service-status-control">
+                      <StatusBadge value={service.status} />
+                      <select aria-label={`Trạng thái ${service.service_id}`} disabled={user?.role !== "admin"} value={service.status} onChange={(event) => setServices((current) => current.map((item) => item.service_id === service.service_id ? { ...item, status: event.target.value as ServiceState["status"] } : item))}>
+                        <option value="healthy">Healthy</option><option value="degraded">Degraded</option><option value="down">Down</option><option value="unknown">Unknown</option>
+                      </select>
+                    </div>
+                  </td>
+                  <td><input aria-label={`Thông báo ${service.service_id}`} disabled={user?.role !== "admin"} value={service.message} onChange={(event) => setServices((current) => current.map((item) => item.service_id === service.service_id ? { ...item, message: event.target.value } : item))} /></td>
+                  <td><time dateTime={service.updated_at}>{new Date(service.updated_at).toLocaleString("vi-VN")}</time></td>
+                  <td>{user?.role === "admin" ? <button className="compact-button" onClick={() => void saveService(service)} type="button">Lưu</button> : null}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        )}
       </section>
 
-      <section>
-        <h2>Ticket trong phạm vi</h2>
-        <div className="ticket-list">
-          {tickets.length === 0 ? <p>Hàng đợi trống.</p> : null}
-          {tickets.map((ticket) => (
-            <article key={ticket.id}>
-              <span>{ticket.display_key} · {ticket.status} · {ticket.severity}</span>
-              <h3>{ticket.title}</h3>
-              <p>{ticket.description}</p>
-              {ticket.status === "open" ? <button onClick={() => void moveTicket(ticket, "start")} type="button">Bắt đầu xử lý</button> : null}
-              {ticket.status === "in_progress" ? (
-                <div className="resolve-controls">
-                  <input aria-label={`Ghi chú xử lý ${ticket.display_key}`} placeholder="Ghi chú xử lý bắt buộc" value={resolutionNotes[ticket.id] ?? ""} onChange={(event) => setResolutionNotes((current) => ({ ...current, [ticket.id]: event.target.value }))} />
-                  <button disabled={!resolutionNotes[ticket.id]?.trim()} onClick={() => void moveTicket(ticket, "resolve")} type="button">Resolve</button>
-                </div>
-              ) : null}
-              {ticket.status === "resolved" ? <button onClick={() => void moveTicket(ticket, "reopen")} type="button">Reopen</button> : null}
-            </article>
-          ))}
+      <section className="panel operations-queue">
+        <header className="panel-header"><div><h2>Ticket trong phạm vi</h2><p>{tickets.length} ticket được phép xử lý</p></div></header>
+        <div className="filter-bar">
+          <label className="search-field"><span className="sr-only">Tìm ticket trong hàng đợi</span><input onChange={(event) => setQuery(event.target.value)} placeholder="Tìm theo mã, tiêu đề…" type="search" value={query} /></label>
+          <label><span className="sr-only">Lọc trạng thái</span><select aria-label="Lọc trạng thái hàng đợi" onChange={(event) => setStatusFilter(event.target.value)} value={statusFilter}><option value="all">Mọi trạng thái</option><option value="open">Open</option><option value="in_progress">In progress</option><option value="resolved">Resolved</option></select></label>
+          <label><span className="sr-only">Lọc mức độ</span><select aria-label="Lọc mức độ hàng đợi" onChange={(event) => setSeverityFilter(event.target.value)} value={severityFilter}><option value="all">Mọi mức độ</option><option value="high">Cao</option><option value="normal">Bình thường</option><option value="low">Thấp</option></select></label>
         </div>
+        {filteredTickets.length === 0 ? (
+          <EmptyState title={tickets.length === 0 ? "Hàng đợi trống" : "Không tìm thấy ticket"} description={tickets.length === 0 ? "Ticket mới trong phạm vi sẽ xuất hiện tại đây." : "Thử thay đổi từ khóa hoặc bộ lọc."} />
+        ) : (
+          <div className="table-scroll">
+            <span className="mobile-scroll-hint">Vuốt ngang để xem thao tác →</span>
+            <table className="data-table operations-ticket-table">
+              <thead><tr><th>Ticket</th><th>Trạng thái</th><th>Ưu tiên</th><th>Thao tác tiếp theo</th></tr></thead>
+              <tbody>{filteredTickets.map((ticket) => (
+                <tr key={ticket.id}>
+                  <td>
+                    <small>{ticket.display_key} · {ticket.status} · {ticket.severity}</small>
+                    <strong>{ticket.title}</strong>
+                    <small>{ticket.description}</small>
+                  </td>
+                  <td><StatusBadge value={ticket.status} /></td>
+                  <td><StatusBadge value={ticket.severity} /></td>
+                  <td className="queue-actions">
+                    {ticket.status === "open" ? <button className="primary-button" onClick={() => void moveTicket(ticket, "start")} type="button">Bắt đầu xử lý</button> : null}
+                    {ticket.status === "in_progress" ? (
+                      <div className="resolve-controls">
+                        <input aria-label={`Ghi chú xử lý ${ticket.display_key}`} placeholder="Ghi chú xử lý bắt buộc" value={resolutionNotes[ticket.id] ?? ""} onChange={(event) => setResolutionNotes((current) => ({ ...current, [ticket.id]: event.target.value }))} />
+                        <button className="primary-button" disabled={!resolutionNotes[ticket.id]?.trim()} onClick={() => void moveTicket(ticket, "resolve")} type="button">Resolve</button>
+                      </div>
+                    ) : null}
+                    {ticket.status === "resolved" ? <button className="secondary-button" onClick={() => void moveTicket(ticket, "reopen")} type="button">Reopen</button> : null}
+                  </td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        )}
       </section>
     </div>
   );

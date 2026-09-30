@@ -8,6 +8,7 @@ const user = {
   department_id: "22222222-2222-2222-2222-222222222222",
   department_key: "engineering",
 };
+const itUser = { ...user, display_name: "IT Engineer", email: "it.engineering@example.com", role: "it" };
 
 const tickets = [
   {
@@ -38,8 +39,8 @@ function json(route: Route, body: unknown) {
   return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
 }
 
-async function mockWorkspace(page: Page) {
-  await page.route("**/api/v1/auth/me", (route) => json(route, { user, csrf_token: "csrf-visual" }));
+async function mockWorkspace(page: Page, actor = user) {
+  await page.route("**/api/v1/auth/me", (route) => json(route, { user: actor, csrf_token: "csrf-visual" }));
   await page.route("**/api/v1/tickets/mine", (route) => json(route, tickets));
   await page.route("**/api/v1/approvals?approval_status=pending", (route) => json(route, []));
   await page.route("**/api/v1/health/live", (route) => json(route, {
@@ -136,4 +137,37 @@ test("chat stays readable on desktop and mobile", async ({ page }, testInfo) => 
   expect(messageListWidth.scrollWidth).toBeLessThanOrEqual(messageListWidth.clientWidth + 1);
   await page.screenshot({ path: testInfo.outputPath("chat-mobile.png"), fullPage: true });
   expect(consoleErrors).toEqual([]);
+});
+
+test("operations tables remain usable on desktop and mobile", async ({ page }, testInfo) => {
+  await mockWorkspace(page, itUser);
+  await page.route("**/api/v1/tickets/queue", (route) => json(route, tickets));
+  await page.route("**/api/v1/service-status", (route) => json(route, [
+    {
+      service_id: "vpn",
+      status: "healthy",
+      message: "VPN is operating normally.",
+      fault_mode: "none",
+      updated_at: "2026-09-30T02:00:00Z",
+    },
+    {
+      service_id: "gitlab",
+      status: "degraded",
+      message: "Repository operations are slower than normal.",
+      fault_mode: "timeout",
+      updated_at: "2026-09-30T02:05:00Z",
+    },
+  ]));
+
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await page.goto("/operations");
+  await expect(page.getByRole("heading", { name: "Hàng đợi hỗ trợ" })).toBeVisible();
+  await expect(page.getByText("IT-2048 · open · high")).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+  await page.screenshot({ path: testInfo.outputPath("operations-desktop.png"), fullPage: true });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(250);
+  await expectNoHorizontalOverflow(page);
+  await page.screenshot({ path: testInfo.outputPath("operations-mobile.png"), fullPage: true });
 });
