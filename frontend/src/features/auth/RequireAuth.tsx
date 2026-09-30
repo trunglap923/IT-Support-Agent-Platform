@@ -1,6 +1,7 @@
 import type { PropsWithChildren } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 
+import { LoadingState } from "../../components/ProductUI";
 import { useAuth } from "./useAuth";
 
 export function RequireAuth({ children }: PropsWithChildren) {
@@ -8,7 +9,7 @@ export function RequireAuth({ children }: PropsWithChildren) {
   const location = useLocation();
 
   if (isLoading) {
-    return <main className="route-loading">Đang kiểm tra phiên đăng nhập…</main>;
+    return <main className="route-loading"><LoadingState label="Đang kiểm tra phiên đăng nhập…" /></main>;
   }
   if (!user) {
     return <Navigate replace state={{ from: location.pathname }} to="/login" />;

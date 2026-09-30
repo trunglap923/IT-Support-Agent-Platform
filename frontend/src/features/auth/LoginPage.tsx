@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
 import { useAuth } from "./useAuth";
 
@@ -31,29 +31,30 @@ export function LoginPage() {
   }
 
   return (
-    <main className="login-page">
-      <section className="login-copy">
-        <Link className="brand" to="/">
+    <main className="auth-page">
+      <section className="auth-context" aria-label="Giới thiệu hệ thống">
+        <div className="auth-brand">
           <span className="brand-mark">IT</span>
-          <strong>Support Agent</strong>
-        </Link>
-        <p className="eyebrow">PORTFOLIO PROJECT</p>
-        <h1>Hỗ trợ IT có nguồn, có kiểm soát.</h1>
-        <p>
-          Hỏi đáp tài liệu nội bộ, kiểm tra dịch vụ mô phỏng và tạo ticket sau khi
-          người dùng xác nhận.
-        </p>
-        <ul>
-          <li>Citation được kiểm tra ở backend</li>
-          <li>Ticket không được tạo trước approval</li>
-          <li>Memory luôn hoạt động nhưng chỉ dùng fact bạn đã xác nhận</li>
+          <span><strong>Support Agent</strong><small>Engineering workspace</small></span>
+        </div>
+        <div className="auth-summary">
+          <p className="eyebrow">INTERNAL SUPPORT WORKSPACE</p>
+          <h1>Giải quyết yêu cầu IT với đúng ngữ cảnh.</h1>
+          <p>Tra cứu hướng dẫn nội bộ, theo dõi ticket và làm việc với trợ lý AI trong một không gian có kiểm soát.</p>
+        </div>
+        <ul className="auth-assurances">
+          <li><span>01</span><div><strong>Câu trả lời có nguồn</strong><small>Citation được xác thực trước khi hiển thị.</small></div></li>
+          <li><span>02</span><div><strong>Hành động cần xác nhận</strong><small>Ticket không được tạo trước khi bạn duyệt.</small></div></li>
+          <li><span>03</span><div><strong>Memory minh bạch</strong><small>Chỉ fact đã xác nhận mới được sử dụng.</small></div></li>
         </ul>
       </section>
 
       <section className="login-card" aria-labelledby="login-title">
-        <p className="eyebrow">DEMO ACCESS</p>
-        <h2 id="login-title">Đăng nhập</h2>
-        <p>Dùng tài khoản demo đã được seed trong PostgreSQL.</p>
+        <div className="login-card-heading">
+          <p className="eyebrow">SECURE ACCESS</p>
+          <h2 id="login-title">Đăng nhập</h2>
+          <p>Sử dụng tài khoản workspace của bạn để tiếp tục.</p>
+        </div>
         <form onSubmit={handleSubmit}>
           <label htmlFor="email">Email</label>
           <input
@@ -78,9 +79,10 @@ export function LoginPage() {
             {isSubmitting ? "Đang đăng nhập…" : "Đăng nhập"}
           </button>
         </form>
-        <Link className="back-link" to="/">
-          ← Xem trạng thái hệ thống
-        </Link>
+        <div className="login-footnote">
+          <span className="environment-indicator"><i /> Demo environment</span>
+          <small>Phiên đăng nhập được bảo vệ bằng cookie HttpOnly.</small>
+        </div>
       </section>
     </main>
   );

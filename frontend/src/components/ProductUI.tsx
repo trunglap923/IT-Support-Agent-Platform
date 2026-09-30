@@ -67,6 +67,15 @@ export function LoadingState({ label = "Đang tải dữ liệu…" }: { label?:
   );
 }
 
+export function AccessDenied({ message }: { message: string }) {
+  return (
+    <div className="access-denied">
+      <span aria-hidden="true">403</span>
+      <strong role="alert">{message}</strong>
+    </div>
+  );
+}
+
 export function AlertBanner({ tone, children }: { tone: "success" | "error" | "info"; children: ReactNode }) {
   return <div className={`alert-banner ${tone}`} role={tone === "error" ? "alert" : "status"}>{children}</div>;
 }

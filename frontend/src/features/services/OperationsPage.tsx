@@ -8,7 +8,7 @@ import {
   type ServiceState,
 } from "../../api/operations";
 import type { Ticket } from "../../api/tickets";
-import { EmptyState, LoadingState, PageHeader, StatusBadge } from "../../components/ProductUI";
+import { AccessDenied, EmptyState, LoadingState, PageHeader, StatusBadge } from "../../components/ProductUI";
 import { useAuth } from "../auth/useAuth";
 
 export function OperationsPage() {
@@ -51,7 +51,7 @@ export function OperationsPage() {
   }), [query, severityFilter, statusFilter, tickets]);
 
   if (user?.role === "employee") {
-    return <p className="chat-error" role="alert">Khu vực này chỉ dành cho IT hoặc quản trị viên.</p>;
+    return <AccessDenied message="Khu vực này chỉ dành cho IT hoặc quản trị viên." />;
   }
   if (loading) return <LoadingState label="Đang tải hàng đợi IT…" />;
 

@@ -126,7 +126,7 @@ export function TicketsPage() {
       />
 
       {notice ? <p className="notice-banner" role="status">{notice}</p> : null}
-      {error ? <p className="chat-error" role="alert">{error}</p> : null}
+      {error ? <div className="alert-banner error" role="alert">{error}</div> : null}
 
       <section className="panel ticket-draft-panel" ref={draftPanel}>
         <header className="panel-header"><div><h2>Tạo bản nháp</h2><p>Ticket chỉ được ghi sau bước xác nhận.</p></div></header>

@@ -255,3 +255,19 @@ test("memory workspace remains clear on desktop and mobile", async ({ page }, te
   await expectNoHorizontalOverflow(page);
   await page.screenshot({ path: testInfo.outputPath("memory-mobile.png"), fullPage: true });
 });
+
+test("login remains focused and usable on desktop and mobile", async ({ page }, testInfo) => {
+  await page.route("**/api/v1/auth/me", (route) => route.fulfill({ status: 401 }));
+
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await page.goto("/login");
+  await expect(page.getByRole("heading", { name: "Đăng nhập" })).toBeVisible();
+  await expect(page.getByLabel("Email")).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+  await page.screenshot({ path: testInfo.outputPath("login-desktop.png"), fullPage: true });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(250);
+  await expectNoHorizontalOverflow(page);
+  await page.screenshot({ path: testInfo.outputPath("login-mobile.png"), fullPage: true });
+});

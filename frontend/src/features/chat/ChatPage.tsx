@@ -16,6 +16,7 @@ import {
 } from "../../api/tickets";
 import { cancelRun, getRunSnapshot } from "../../api/run-events";
 import { useAuth } from "../auth/useAuth";
+import { LoadingState } from "../../components/ProductUI";
 import { ApprovalCard } from "../tickets/ApprovalCard";
 import { formatTicketDraftForChat } from "../tickets/approvalEdit";
 import { CitationList } from "./CitationList";
@@ -175,7 +176,7 @@ export function ChatPage() {
     }
   }
 
-  if (loading) return <p className="chat-loading">Đang tải cuộc trò chuyện…</p>;
+  if (loading) return <LoadingState label="Đang tải cuộc trò chuyện…" />;
 
   return (
     <div className="chat-layout">

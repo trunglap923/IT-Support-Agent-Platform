@@ -13,7 +13,7 @@ import {
   type ManagedDocument,
 } from "../../api/documents";
 import { useAuth } from "../auth/useAuth";
-import { EmptyState, LoadingState, PageHeader, StatusBadge } from "../../components/ProductUI";
+import { AccessDenied, EmptyState, LoadingState, PageHeader, StatusBadge } from "../../components/ProductUI";
 
 function isoNow(): string {
   return new Date().toISOString().slice(0, 16);
@@ -64,7 +64,7 @@ export function DocumentsPage() {
   }), [documents, query, statusFilter]);
 
   if (user?.role !== "admin") {
-    return <p className="chat-error" role="alert">Khu vực tài liệu chỉ dành cho quản trị viên.</p>;
+    return <AccessDenied message="Khu vực tài liệu chỉ dành cho quản trị viên." />;
   }
   if (loading) return <LoadingState label="Đang tải kho tri thức…" />;
 
