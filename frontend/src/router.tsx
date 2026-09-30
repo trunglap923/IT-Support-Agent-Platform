@@ -7,6 +7,7 @@ import { LoginPage } from "./features/auth/LoginPage";
 import { DocumentsPage } from "./features/documents/DocumentsPage";
 import { RequireAuth } from "./features/auth/RequireAuth";
 import { TicketsPage } from "./features/tickets/TicketsPage";
+import { TicketDetailPage } from "./features/tickets/TicketDetailPage";
 import { OperationsPage } from "./features/services/OperationsPage";
 import { MemoryPage } from "./features/memory/MemoryPage";
 import { NotFoundPage } from "./features/NotFoundPage";
@@ -27,6 +28,7 @@ export const router = createBrowserRouter([
       { index: true, element: <DashboardPage /> },
       { path: "chat", element: <ChatPage /> },
       { path: "tickets", element: <TicketsPage /> },
+      { path: "tickets/:ticketId", element: <TicketDetailPage /> },
       { path: "operations", element: <OperationsPage /> },
       { path: "admin/documents", element: <DocumentsPage /> },
       { path: "settings/memory", element: <MemoryPage /> },

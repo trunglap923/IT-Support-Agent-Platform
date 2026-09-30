@@ -28,6 +28,9 @@ export function AppShell() {
   const [navigationOpen, setNavigationOpen] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const currentPageName = location.pathname.startsWith("/tickets/")
+    ? "Chi tiết ticket"
+    : pageNames[location.pathname] ?? "Workspace";
 
   async function handleLogout() {
     setLogoutError(null);
@@ -130,7 +133,7 @@ export function AppShell() {
         </button>
         <div className="topbar-title">
           <small>IT Support</small>
-          <strong>{pageNames[location.pathname] ?? "Workspace"}</strong>
+          <strong>{currentPageName}</strong>
         </div>
         <div className="topbar-context">
           <span className="environment-indicator"><i /> Demo environment</span>

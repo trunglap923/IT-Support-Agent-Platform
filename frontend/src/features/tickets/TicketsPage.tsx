@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 
 import { cancelRun, getRunSnapshot } from "../../api/run-events";
 import {
@@ -167,7 +168,7 @@ export function TicketsPage() {
               <tbody>{filteredTickets.map((ticket) => (
                 <tr key={ticket.id}>
                   <td><strong>{ticket.display_key}</strong></td>
-                  <td><strong>{ticket.title}</strong><small>{ticket.description}</small></td>
+                  <td><Link className="ticket-title-link" to={`/tickets/${ticket.id}`}><strong>{ticket.title}</strong><small>{ticket.description}</small></Link></td>
                   <td><StatusBadge value={ticket.status} /></td>
                   <td><StatusBadge value={ticket.severity} /></td>
                   <td>{ticket.issue_type}</td>
