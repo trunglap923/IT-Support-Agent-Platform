@@ -1,4 +1,6 @@
+import subprocess
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -21,7 +23,7 @@ def test_extracts_text_and_physical_page_numbers(tmp_path: Path) -> None:
 
     assert [page.page_number for page in result.pages] == [1, 2]
     assert [page.text for page in result.pages] == ["VPN setup page", "Registry setup page"]
-    assert result.parser_version == "pypdf-v1"
+    assert result.parser_version == "pypdf-subprocess-v2"
 
 
 @pytest.mark.parametrize(
@@ -56,3 +58,18 @@ def test_rejects_pages_without_extractable_text(tmp_path: Path) -> None:
         PdfParser().parse(path)
 
     assert raised.value.code is PdfErrorCode.NO_TEXT
+
+
+def test_reports_timeout_with_a_stable_error_code(tmp_path: Path) -> None:
+    path = write_fixture(tmp_path / "slow.pdf", build_text_pdf("slow"))
+
+    with (
+        patch(
+            "app.rag.ingestion.pdf_parser.subprocess.run",
+            side_effect=subprocess.TimeoutExpired(["pdf-worker"], timeout=0.01),
+        ),
+        pytest.raises(PdfExtractionError) as raised,
+    ):
+        PdfParser(timeout_seconds=0.01).parse(path)
+
+    assert raised.value.code is PdfErrorCode.TIMEOUT

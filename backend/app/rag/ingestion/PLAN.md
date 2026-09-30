@@ -35,7 +35,7 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 - [x] ING-01: Kiểm tra PDF signature/size/page/text limits trước ingestion.
 - [x] ING-02: Lưu bằng server-generated storage key trong volume riêng.
-- [ ] ING-03: Parse trong subprocess có timeout/resource limits, giữ page numbering từ 1.
+- [x] ING-03: Parse trong subprocess có timeout/resource limits, giữ page numbering từ 1.
 - [x] ING-04: Gọi chunking và embedding theo batch, lưu progress vào DB.
 - [x] ING-05: Dedupe theo job identity và deterministic chunks; chỉ đánh dấu ready khi lưu đủ chunks.
 - [x] ING-06: Re-index có dry-run, giới hạn seed corpus và paid-provider budget guard.
