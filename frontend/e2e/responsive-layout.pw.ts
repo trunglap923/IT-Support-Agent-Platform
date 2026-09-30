@@ -210,3 +210,48 @@ test("document library remains usable on desktop and mobile", async ({ page }, t
   await expect(page.getByText("Vuốt ngang để quản lý version →")).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("documents-mobile.png"), fullPage: true });
 });
+
+test("memory workspace remains clear on desktop and mobile", async ({ page }, testInfo) => {
+  await mockWorkspace(page);
+  await page.route("**/api/v1/memory/devices", (route) => json(route, [{
+    id: "12121212-1212-1212-1212-121212121212",
+    label: "Laptop công ty",
+    platform: "windows",
+    active: true,
+    version: 1,
+  }]));
+  await page.route("**/api/v1/memory/candidates", (route) => json(route, [{
+    id: "13131313-1313-1313-1313-131313131313",
+    kind: "device",
+    key: "operating_system",
+    value: "Windows 11 Enterprise",
+    evidence: "Người dùng xác nhận đang sử dụng Windows 11 Enterprise trên laptop công ty.",
+    device_id: null,
+    status: "pending",
+    version: 1,
+    expires_at: "2026-12-30T02:00:00Z",
+  }]));
+  await page.route("**/api/v1/memory/facts", (route) => json(route, [{
+    id: "14141414-1414-1414-1414-141414141414",
+    kind: "preference",
+    key: "preferred_language",
+    value: "Tiếng Việt",
+    scope: "global",
+    device_id: null,
+    version: 2,
+    expires_at: "2027-03-30T02:00:00Z",
+  }]));
+
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await page.goto("/settings/memory");
+  await expect(page.getByRole("heading", { name: "Memory & thiết bị" })).toBeVisible();
+  await expect(page.getByText("preferred_language · Mọi thiết bị")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Xác nhận" })).toHaveCSS("background-color", "rgb(49, 95, 196)");
+  await expectNoHorizontalOverflow(page);
+  await page.screenshot({ path: testInfo.outputPath("memory-desktop.png"), fullPage: true });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(250);
+  await expectNoHorizontalOverflow(page);
+  await page.screenshot({ path: testInfo.outputPath("memory-mobile.png"), fullPage: true });
+});
