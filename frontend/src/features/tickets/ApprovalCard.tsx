@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import type { Approval } from "../../api/tickets";
+import { ConfirmDialog } from "../../components/ProductUI";
 
 interface ApprovalCardProps {
   approval: Approval;
@@ -13,6 +14,7 @@ export function ApprovalCard({ approval, onDecision, onEdit }: ApprovalCardProps
   const [expired, setExpired] = useState(
     () => Date.parse(approval.expires_at) <= Date.now(),
   );
+  const [confirmReject, setConfirmReject] = useState(false);
   const values = approval.canonical_args;
 
   useEffect(() => {
@@ -33,6 +35,7 @@ export function ApprovalCard({ approval, onDecision, onEdit }: ApprovalCardProps
     setBusy(decision);
     try {
       await onDecision(decision);
+      setConfirmReject(false);
     } finally {
       setBusy(null);
     }
@@ -59,13 +62,23 @@ export function ApprovalCard({ approval, onDecision, onEdit }: ApprovalCardProps
         <button disabled={expired || busy !== null} onClick={() => void edit()} type="button">
           {busy === "edit" ? "Đang mở bản sửa…" : "Sửa bản nháp"}
         </button>
-        <button disabled={expired || busy !== null} onClick={() => void decide("reject")} type="button">
-          {busy === "reject" ? "Đang từ chối…" : "Từ chối"}
+        <button disabled={expired || busy !== null} onClick={() => setConfirmReject(true)} type="button">
+          Từ chối
         </button>
         <button className="primary-button" disabled={expired || busy !== null} onClick={() => void decide("approve")} type="button">
           {busy === "approve" ? "Đang xác nhận…" : "Xác nhận tạo ticket"}
         </button>
       </div>
+      <ConfirmDialog
+        busy={busy === "reject"}
+        confirmLabel="Từ chối bản nháp"
+        description="Bản nháp sẽ bị hủy và ticket sẽ không được tạo."
+        onCancel={() => setConfirmReject(false)}
+        onConfirm={() => void decide("reject")}
+        open={confirmReject}
+        title="Từ chối bản nháp?"
+        tone="danger"
+      />
     </article>
   );
 }

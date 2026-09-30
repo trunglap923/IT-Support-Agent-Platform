@@ -127,6 +127,12 @@ button:disabled, .primary-button:disabled { cursor: not-allowed; opacity: .55; }
 .empty-state p { max-width: 420px; margin: 4px 0 0; font-size: 12px; }
 .loading-state { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 240px; color: var(--text-muted); }
 .loading-spinner { width: 16px; height: 16px; border: 2px solid var(--border-strong); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
+.confirm-dialog { width: min(440px, calc(100vw - 32px)); border: 1px solid var(--border-strong); border-radius: 8px; padding: 20px; color: var(--text); background: var(--surface); box-shadow: 0 18px 48px rgb(15 23 42 / 22%); }
+.confirm-dialog::backdrop { background: rgb(15 23 42 / 42%); }
+.confirm-dialog h2 { margin: 0 0 8px; font-size: 17px; }
+.confirm-dialog p { margin: 0; color: var(--text-muted); font-size: 13px; }
+.confirm-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+.confirm-dialog .danger-button { min-height: 34px; padding: 7px 12px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .access-denied { display: grid; justify-items: center; gap: 10px; max-width: 560px; margin: 10vh auto; border: 1px solid #efc6c6; border-radius: 8px; padding: 32px 24px; color: var(--danger); background: var(--danger-bg); text-align: center; }
 .access-denied > span { display: grid; width: 42px; height: 32px; place-items: center; border: 1px solid #efc6c6; border-radius: 6px; background: white; font-size: 11px; font-weight: 750; }

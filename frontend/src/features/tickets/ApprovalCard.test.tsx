@@ -43,6 +43,8 @@ describe("ApprovalCard", () => {
       <ApprovalCard approval={approval} onDecision={onDecision} onEdit={vi.fn()} />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Từ chối" }));
+    expect(onDecision).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Từ chối bản nháp" }));
     await waitFor(() => expect(onDecision).toHaveBeenCalledWith("reject"));
   });
 

@@ -13,7 +13,7 @@ import {
   type MemoryDevice,
   type MemoryFact,
 } from "../../api/memory";
-import { EmptyState, LoadingState, PageHeader, StatusBadge } from "../../components/ProductUI";
+import { ConfirmDialog, EmptyState, LoadingState, PageHeader, StatusBadge } from "../../components/ProductUI";
 import { useAuth } from "../auth/useAuth";
 
 export function MemoryPage() {
@@ -28,6 +28,7 @@ export function MemoryPage() {
   const [candidateCursor, setCandidateCursor] = useState<string | null>(null);
   const [factCursor, setFactCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState<"candidates" | "facts" | null>(null);
+  const [factToDelete, setFactToDelete] = useState<MemoryFact | null>(null);
 
   async function refresh(signal?: AbortSignal) {
     const [nextDevices, nextCandidates, nextFacts] = await Promise.all([
@@ -65,8 +66,8 @@ export function MemoryPage() {
     return () => controller.abort();
   }, []);
 
-  async function mutate(action: () => Promise<unknown>, message: string) {
-    if (!csrfToken || busy) return;
+  async function mutate(action: () => Promise<unknown>, message: string): Promise<boolean> {
+    if (!csrfToken || busy) return false;
     setBusy(true);
     setError(null);
     setNotice(null);
@@ -74,8 +75,10 @@ export function MemoryPage() {
       await action();
       await refresh();
       setNotice(message);
+      return true;
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Không thể cập nhật memory.");
+      return false;
     } finally {
       setBusy(false);
     }
@@ -199,7 +202,7 @@ export function MemoryPage() {
                   void mutate(() => updateMemoryFact(fact, value, csrfToken ?? ""), "Đã cập nhật memory.");
                 }}>
                   <label>Giá trị<input defaultValue={fact.value} name="value" required /></label>
-                  <div><button className="secondary-button" disabled={busy} type="submit">Lưu sửa đổi</button><button className="danger-button" disabled={busy} onClick={() => void mutate(() => deleteMemoryFact(fact, csrfToken ?? ""), "Đã xóa memory.")} type="button">Xóa</button></div>
+                  <div><button className="secondary-button" disabled={busy} type="submit">Lưu sửa đổi</button><button className="danger-button" disabled={busy} onClick={() => setFactToDelete(fact)} type="button">Xóa</button></div>
                 </form>
               </article>
             ))}
@@ -207,6 +210,24 @@ export function MemoryPage() {
           {factCursor ? <button className="load-more-button" disabled={Boolean(loadingMore)} onClick={() => void loadMore("facts")} type="button">{loadingMore === "facts" ? "Đang tải…" : "Tải thêm memory"}</button> : null}
         </section>
       </div>
+      <ConfirmDialog
+        busy={busy}
+        confirmLabel="Xóa memory"
+        description="Fact đã xác nhận sẽ bị xóa và không còn được dùng để cá nhân hóa câu trả lời."
+        onCancel={() => setFactToDelete(null)}
+        onConfirm={() => {
+          if (!factToDelete) return;
+          void mutate(
+            () => deleteMemoryFact(factToDelete, csrfToken ?? ""),
+            "Đã xóa memory.",
+          ).then((succeeded) => {
+            if (succeeded) setFactToDelete(null);
+          });
+        }}
+        open={factToDelete !== null}
+        title="Xóa memory đã xác nhận?"
+        tone="danger"
+      />
     </div>
   );
 }

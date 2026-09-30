@@ -13,7 +13,7 @@ import {
   type ManagedDocument,
 } from "../../api/documents";
 import { useAuth } from "../auth/useAuth";
-import { AccessDenied, EmptyState, LoadingState, PageHeader, StatusBadge } from "../../components/ProductUI";
+import { AccessDenied, ConfirmDialog, EmptyState, LoadingState, PageHeader, StatusBadge } from "../../components/ProductUI";
 
 function isoNow(): string {
   return new Date().toISOString().slice(0, 16);
@@ -37,6 +37,7 @@ export function DocumentsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [documentCursor, setDocumentCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [documentToRevoke, setDocumentToRevoke] = useState<ManagedDocument | null>(null);
   const uploadPanel = useRef<HTMLElement>(null);
 
   async function refresh(signal?: AbortSignal) {
@@ -74,8 +75,8 @@ export function DocumentsPage() {
   }
   if (loading) return <LoadingState label="Đang tải kho tri thức…" />;
 
-  async function mutate(action: () => Promise<unknown>, message: string) {
-    if (!csrfToken || busy) return;
+  async function mutate(action: () => Promise<unknown>, message: string): Promise<boolean> {
+    if (!csrfToken || busy) return false;
     setBusy(true);
     setError(null);
     setNotice(null);
@@ -83,8 +84,10 @@ export function DocumentsPage() {
       await action();
       await refresh();
       setNotice(message);
+      return true;
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Không thể cập nhật tài liệu.");
+      return false;
     } finally {
       setBusy(false);
     }
@@ -198,7 +201,7 @@ export function DocumentsPage() {
                               <button onClick={() => void previewVersion(document.id, version.id).then(setPreview).catch((caught: unknown) => setError(caught instanceof Error ? caught.message : "Không thể xem preview."))} type="button">Preview</button>
                               {version.status === "draft" || version.status === "failed" ? <button disabled={busy} onClick={() => void mutate(() => processVersion(document.id, version.id, csrfToken ?? ""), "Đã process version; version sẵn sàng publish.")} type="button">Process</button> : null}
                               {version.status === "ready" ? <button disabled={busy} onClick={() => void mutate(() => publishVersion(document, version.id, csrfToken ?? ""), "Đã publish version.")} type="button">Publish</button> : null}
-                              {document.current_version_id === version.id ? <button className="danger-button" disabled={busy} onClick={() => void mutate(() => revokeDocument(document, csrfToken ?? ""), "Đã revoke tài liệu.")} type="button">Revoke</button> : null}
+                              {document.current_version_id === version.id ? <button className="danger-button" disabled={busy} onClick={() => setDocumentToRevoke(document)} type="button">Revoke</button> : null}
                             </div>
                           ))}
                         </div>
@@ -231,6 +234,24 @@ export function DocumentsPage() {
           <div className="preview-pages">{preview.pages.map((page) => <article key={page.page_number}><strong>Trang {page.page_number}</strong><p>{page.text}</p></article>)}</div>
         </aside>
       ) : null}
+      <ConfirmDialog
+        busy={busy}
+        confirmLabel="Revoke tài liệu"
+        description="Version hiện hành sẽ ngừng được dùng cho retrieval và citation mới."
+        onCancel={() => setDocumentToRevoke(null)}
+        onConfirm={() => {
+          if (!documentToRevoke) return;
+          void mutate(
+            () => revokeDocument(documentToRevoke, csrfToken ?? ""),
+            "Đã revoke tài liệu.",
+          ).then((succeeded) => {
+            if (succeeded) setDocumentToRevoke(null);
+          });
+        }}
+        open={documentToRevoke !== null}
+        title="Revoke tài liệu hiện hành?"
+        tone="danger"
+      />
     </div>
   );
 }

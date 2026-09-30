@@ -33,7 +33,7 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 - [ ] UI-01: Dựng layout, navigation, form field, empty/error state khi feature đầu tiên cần.
 - [ ] UI-02: Citation link chỉ mở authenticated server URL đã có; SafeMarkdown còn thiếu vì answer đang render plain text.
-- [ ] UI-03: Thiết lập dialog với focus trap, nhãn rõ ràng và keyboard navigation.
+- [x] UI-03: Thiết lập dialog với focus trap, nhãn rõ ràng và keyboard navigation.
 - [ ] UI-04: Giữ thông báo lỗi dễ hiểu bằng tiếng Việt; không hiển thị raw exception/secret.
 
 ## Điều kiện hoàn thành
