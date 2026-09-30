@@ -9,6 +9,7 @@ const user = {
   department_key: "engineering",
 };
 const itUser = { ...user, display_name: "IT Engineer", email: "it.engineering@example.com", role: "it" };
+const adminUser = { ...user, display_name: "Document Admin", email: "admin@example.com", role: "admin" };
 
 const tickets = [
   {
@@ -170,4 +171,42 @@ test("operations tables remain usable on desktop and mobile", async ({ page }, t
   await page.waitForTimeout(250);
   await expectNoHorizontalOverflow(page);
   await page.screenshot({ path: testInfo.outputPath("operations-mobile.png"), fullPage: true });
+});
+
+test("document library remains usable on desktop and mobile", async ({ page }, testInfo) => {
+  await mockWorkspace(page, adminUser);
+  await page.route("**/api/v1/documents", (route) => json(route, [{
+    id: "99999999-9999-9999-9999-999999999999",
+    document_key: "vpn-admin-guide",
+    title: "VPN administration guide",
+    visibility: "company",
+    department_id: null,
+    archived: false,
+    current_version_id: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+    access_version: 3,
+    version: 4,
+    granted_department_ids: [],
+    versions: [{
+      id: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+      version_label: "v3",
+      status: "published",
+      authority: "IT Operations",
+      language: "vi",
+      effective_at: "2026-09-30T02:00:00Z",
+      expires_at: null,
+      created_at: "2026-09-30T02:00:00Z",
+    }],
+  }]));
+
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await page.goto("/admin/documents");
+  await expect(page.getByRole("heading", { name: "VPN administration guide" })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+  await page.screenshot({ path: testInfo.outputPath("documents-desktop.png"), fullPage: true });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(250);
+  await expectNoHorizontalOverflow(page);
+  await expect(page.getByText("Vuốt ngang để quản lý version →")).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("documents-mobile.png"), fullPage: true });
 });
