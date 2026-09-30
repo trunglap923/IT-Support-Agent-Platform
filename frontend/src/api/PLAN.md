@@ -33,11 +33,11 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 - [x] HTTPUI-01: Dùng shared fetch wrapper với abort timeout, safe error envelope, Retry-After và xử lý 401/403/409/429.
 - [ ] HTTPUI-02: Chuẩn hóa query keys theo user/scope để invalidate và xóa khi logout.
-- [ ] HTTPUI-03: Tạo run dùng client_request_id ổn định khi retry; đổi payload phải dùng id mới.
+- [x] HTTPUI-03: Tạo run dùng client_request_id ổn định khi retry; đổi payload phải dùng id mới.
 - [x] HTTPUI-04: Implement fetch SSE với event cursor/Last-Event-ID, bounded reconnect và GET run snapshot fallback.
 - [ ] HTTPUI-05: Sinh hoặc kiểm tra TypeScript DTO từ OpenAPI bằng bước lặp lại được.
 
 ## Điều kiện hoàn thành
 
-- [ ] Mạng gián đoạn/reconnect không nhân đôi message hoặc tạo ticket mới.
+- [x] Mạng gián đoạn/retry cùng payload giữ client_request_id để backend không nhân đôi message hoặc ticket draft.
 - [ ] Giới hạn retry; abort UI không tự suy thành cancel nghiệp vụ.

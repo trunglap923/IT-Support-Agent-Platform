@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 
 import { cancelRun, getRunSnapshot } from "../../api/run-events";
+import { getOrCreateClientRequest, type ClientRequestIdentity } from "../../api/idempotency";
 import {
   createTicketDraft,
   decideApproval,
@@ -42,6 +43,7 @@ export function TicketsPage() {
   const [draftOpen, setDraftOpen] = useState(true);
   const titleInput = useRef<HTMLInputElement>(null);
   const draftPanel = useRef<HTMLElement>(null);
+  const pendingDraftRequest = useRef<ClientRequestIdentity | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -101,7 +103,13 @@ export function TicketsPage() {
     setError(null);
     setNotice(null);
     try {
-      const created = await createTicketDraft(draft, csrfToken);
+      const request = getOrCreateClientRequest(
+        pendingDraftRequest.current,
+        JSON.stringify(draft),
+      );
+      pendingDraftRequest.current = request;
+      const created = await createTicketDraft(draft, csrfToken, request.id);
+      pendingDraftRequest.current = null;
       setApprovals((current) => [created.approval, ...current]);
       setDraft(initialDraft);
       setNotice("Bản nháp đã được tạo. Hãy kiểm tra và xác nhận bên dưới.");

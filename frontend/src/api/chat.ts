@@ -99,7 +99,7 @@ export function submitMessage(
   conversationId: string,
   content: string,
   csrfToken: string,
-  clientRequestId: string = crypto.randomUUID(),
+  clientRequestId: string,
 ): Promise<SubmittedRun> {
   return request(
     `/api/v1/conversations/${encodeURIComponent(conversationId)}/messages`,

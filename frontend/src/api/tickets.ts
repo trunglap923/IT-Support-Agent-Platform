@@ -84,7 +84,7 @@ export async function listPendingApprovals(signal?: AbortSignal): Promise<Approv
 export function createTicketDraft(
   values: TicketDraftArguments,
   csrfToken: string,
-  clientRequestId: string = crypto.randomUUID(),
+  clientRequestId: string,
 ): Promise<TicketDraftResponse> {
   return request("/api/v1/tickets/drafts", {
     method: "POST",

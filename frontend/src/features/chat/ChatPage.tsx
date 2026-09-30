@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 import {
   createConversation,
@@ -15,6 +15,7 @@ import {
   type Approval,
 } from "../../api/tickets";
 import { cancelRun, getRunSnapshot } from "../../api/run-events";
+import { getOrCreateClientRequest, type ClientRequestIdentity } from "../../api/idempotency";
 import { useAuth } from "../auth/useAuth";
 import { LoadingState } from "../../components/ProductUI";
 import { ApprovalCard } from "../tickets/ApprovalCard";
@@ -41,6 +42,7 @@ export function ChatPage() {
   const [messageCursor, setMessageCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState<"conversations" | "messages" | null>(null);
   const [conversationQuery, setConversationQuery] = useState("");
+  const pendingMessageRequest = useRef<ClientRequestIdentity | null>(null);
 
   const visibleConversations = useMemo(() => conversations.filter((conversation) =>
     conversation.title.toLocaleLowerCase().includes(conversationQuery.trim().toLocaleLowerCase()),
@@ -155,7 +157,13 @@ export function ChatPage() {
         setConversations((current) => [conversation!, ...current]);
         setActive(conversation);
       }
-      const submitted = await submitMessage(conversation.id, content, csrfToken);
+      const request = getOrCreateClientRequest(
+        pendingMessageRequest.current,
+        JSON.stringify([conversation.id, content]),
+      );
+      pendingMessageRequest.current = request;
+      const submitted = await submitMessage(conversation.id, content, csrfToken, request.id);
+      pendingMessageRequest.current = null;
       setDraft("");
       setRunId(submitted.run_id);
       await refreshConversation(conversation.id);

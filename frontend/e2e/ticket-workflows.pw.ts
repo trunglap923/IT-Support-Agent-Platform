@@ -125,6 +125,54 @@ test("employee creates, approves and rejects ticket drafts", async ({ page }) =>
   await expect(page.getByText("Đã từ chối bản nháp.")).toBeVisible();
 });
 
+test("retrying an unchanged ticket draft reuses its client request id", async ({ page }) => {
+  await mockSession(page);
+  const requestIds: string[] = [];
+
+  await page.route("**/api/v1/tickets/mine**", (route) => json(route, cursorPage([])));
+  await page.route("**/api/v1/approvals?approval_status=pending**", (route) =>
+    json(route, cursorPage([])),
+  );
+  await page.route("**/api/v1/tickets/drafts", async (route) => {
+    const body = route.request().postDataJSON();
+    requestIds.push(body.client_request_id);
+    if (requestIds.length === 1) {
+      await json(route, { error: { code: "dependency_unavailable", message: "Unavailable" } }, 503);
+      return;
+    }
+    const approval = {
+      id: "00000000-0000-0000-0000-000000000099",
+      action_id: "ticket:retry",
+      run_id: "10000000-0000-0000-0000-000000000099",
+      tool_name: "create_ticket",
+      canonical_args: {
+        title: body.title,
+        description: body.description,
+        issue_type: body.issue_type,
+        severity: body.severity,
+        device_id: null,
+      },
+      arguments_hash: "b".repeat(64),
+      schema_version: 1,
+      status: "pending",
+      version: 1,
+      expires_at: "2099-09-17T10:00:00Z",
+    };
+    await json(route, { run_id: approval.run_id, approval, created: true }, 201);
+  });
+
+  await page.goto("/tickets");
+  await page.getByLabel("Tiêu đề").fill("Retry-safe VPN request");
+  await page.getByLabel("Mô tả").fill("VPN remains unavailable after documented troubleshooting.");
+  await page.getByRole("button", { name: "Tạo bản nháp" }).click();
+  await expect(page.getByRole("alert")).toBeVisible();
+  await page.getByRole("button", { name: "Tạo bản nháp" }).click();
+  await expect(page.getByRole("heading", { name: "Retry-safe VPN request" })).toBeVisible();
+
+  expect(requestIds).toHaveLength(2);
+  expect(requestIds[1]).toBe(requestIds[0]);
+});
+
 test("IT resolves and reopens tickets", async ({ page }) => {
   await mockSession(page, itUser);
   let ticket = {
