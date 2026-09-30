@@ -79,7 +79,8 @@ def test_manual_ticket_draft_approval_and_personal_list(
             is False
         )
         assert [
-            item["id"] for item in client.get("/api/v1/approvals?approval_status=pending").json()
+            item["id"]
+            for item in client.get("/api/v1/approvals?approval_status=pending").json()["items"]
         ] == [approval["id"]]
 
         approved = client.post(
@@ -103,7 +104,7 @@ def test_manual_ticket_draft_approval_and_personal_list(
         asyncio.run(resume())
         tickets = client.get("/api/v1/tickets/mine")
         assert tickets.status_code == 200
-        assert [(item["title"], item["status"]) for item in tickets.json()] == [
+        assert [(item["title"], item["status"]) for item in tickets.json()["items"]] == [
             ("VPN access is unavailable", "open")
         ]
 

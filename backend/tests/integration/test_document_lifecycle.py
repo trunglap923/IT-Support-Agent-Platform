@@ -166,8 +166,10 @@ def test_publish_acl_revoke_apply_to_retrieval_and_history(
         )
         assert login.status_code == 200
         visible = employee_client.get(f"/api/v1/conversations/{conversation_id}/messages")
-        assert visible.json()[0]["content"] == "Use the managed VPN client and company SSO."
-        assert len(visible.json()[0]["citations"]) == 1
+        assert visible.json()["items"][0]["content"] == (
+            "Use the managed VPN client and company SSO."
+        )
+        assert len(visible.json()["items"][0]["citations"]) == 1
         source = employee_client.get(f"/api/v1/sources/{source_id}")
         assert source.status_code == 200
         assert source.json()["page_number"] == 1
@@ -247,8 +249,8 @@ def test_publish_acl_revoke_apply_to_retrieval_and_history(
         )
         hidden = employee_client.get(f"/api/v1/conversations/{conversation_id}/messages")
         assert hidden.status_code == 200
-        assert hidden.json()[0]["outcome"] == "source_revoked"
-        assert hidden.json()[0]["citations"] == []
-        assert "managed VPN" not in hidden.json()[0]["content"]
+        assert hidden.json()["items"][0]["outcome"] == "source_revoked"
+        assert hidden.json()["items"][0]["citations"] == []
+        assert "managed VPN" not in hidden.json()["items"][0]["content"]
         assert employee_client.get(f"/api/v1/sources/{source_id}").status_code == 404
         assert employee_client.get(f"/api/v1/sources/{source_id}/download").status_code == 404

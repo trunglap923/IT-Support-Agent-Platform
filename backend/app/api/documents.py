@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.pagination import CursorPage, PageLimit, build_page, decode_cursor
 from app.auth.csrf import require_csrf
 from app.auth.policies import require_roles
 from app.config import Settings
@@ -195,14 +196,29 @@ async def _document_response(session: AsyncSession, document: Document) -> Docum
 
 @router.get(
     "",
-    response_model=list[DocumentResponse],
+    response_model=CursorPage[DocumentResponse],
     dependencies=[Depends(require_roles(UserRole.ADMIN))],
 )
 async def list_documents(
     session: Annotated[AsyncSession, Depends(get_db_session)],
-) -> list[DocumentResponse]:
-    values = await DocumentRepository().list_documents(session)
-    return [await _document_response(session, value) for value in values]
+    limit: PageLimit = 20,
+    cursor: str | None = None,
+) -> CursorPage[DocumentResponse]:
+    position = decode_cursor(cursor)
+    values = await DocumentRepository().list_documents(
+        session,
+        limit=limit + 1,
+        before=(position.timestamp, position.item_id) if position else None,
+    )
+    items, next_cursor = build_page(
+        values,
+        limit=limit,
+        timestamp=lambda value: value.updated_at,
+    )
+    return CursorPage[DocumentResponse](
+        items=[await _document_response(session, value) for value in items],
+        next_cursor=next_cursor,
+    )
 
 
 @router.post(

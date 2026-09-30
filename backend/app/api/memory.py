@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.pagination import CursorPage, PageLimit, build_page, decode_cursor
 from app.auth.csrf import require_csrf
 from app.dependencies import CurrentPrincipal, get_db_session
 from app.memory.lifecycle import (
@@ -80,15 +81,29 @@ class UpdateFactRequest(BaseModel):
     value: str = Field(min_length=1, max_length=240)
 
 
-@router.get("/candidates", response_model=list[MemoryCandidateResponse])
+@router.get("/candidates", response_model=CursorPage[MemoryCandidateResponse])
 async def list_memory_candidates(
     principal: CurrentPrincipal,
     session: Annotated[AsyncSession, Depends(get_db_session)],
-) -> list[MemoryCandidateResponse]:
+    limit: PageLimit = 20,
+    cursor: str | None = None,
+) -> CursorPage[MemoryCandidateResponse]:
+    position = decode_cursor(cursor)
     values = await MemoryLifecycleService().list_pending_candidates(
-        session, owner_id=principal.user_id
+        session,
+        owner_id=principal.user_id,
+        limit=limit + 1,
+        after=(position.timestamp, position.item_id) if position else None,
     )
-    return [MemoryCandidateResponse.model_validate(value) for value in values]
+    items, next_cursor = build_page(
+        values,
+        limit=limit,
+        timestamp=lambda value: value.created_at,
+    )
+    return CursorPage[MemoryCandidateResponse](
+        items=[MemoryCandidateResponse.model_validate(value) for value in items],
+        next_cursor=next_cursor,
+    )
 
 
 @router.get("/devices", response_model=list[DeviceResponse])
@@ -184,13 +199,29 @@ async def reject_candidate(
     return MemoryCandidateResponse.model_validate(value)
 
 
-@router.get("/facts", response_model=list[MemoryFactResponse])
+@router.get("/facts", response_model=CursorPage[MemoryFactResponse])
 async def list_facts(
     principal: CurrentPrincipal,
     session: Annotated[AsyncSession, Depends(get_db_session)],
-) -> list[MemoryFactResponse]:
-    values = await MemoryLifecycleService().list_facts(session, owner_id=principal.user_id)
-    return [MemoryFactResponse.model_validate(value) for value in values]
+    limit: PageLimit = 20,
+    cursor: str | None = None,
+) -> CursorPage[MemoryFactResponse]:
+    position = decode_cursor(cursor)
+    values = await MemoryLifecycleService().list_facts(
+        session,
+        owner_id=principal.user_id,
+        limit=limit + 1,
+        before=(position.timestamp, position.item_id) if position else None,
+    )
+    items, next_cursor = build_page(
+        values,
+        limit=limit,
+        timestamp=lambda value: value.updated_at,
+    )
+    return CursorPage[MemoryFactResponse](
+        items=[MemoryFactResponse.model_validate(value) for value in items],
+        next_cursor=next_cursor,
+    )
 
 
 @router.patch(

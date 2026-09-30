@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import (
@@ -234,19 +234,30 @@ class MemoryLifecycleService:
         *,
         owner_id: UUID,
         now: datetime | None = None,
+        limit: int | None = None,
+        after: tuple[datetime, UUID] | None = None,
     ) -> list[MemoryCandidate]:
         current_time = now or datetime.now(UTC)
-        return list(
-            await session.scalars(
-                select(MemoryCandidate)
-                .where(
-                    MemoryCandidate.owner_id == owner_id,
-                    MemoryCandidate.status == "pending",
-                    MemoryCandidate.expires_at > current_time,
-                )
-                .order_by(MemoryCandidate.created_at, MemoryCandidate.id)
-            )
+        statement = select(MemoryCandidate).where(
+            MemoryCandidate.owner_id == owner_id,
+            MemoryCandidate.status == "pending",
+            MemoryCandidate.expires_at > current_time,
         )
+        if after is not None:
+            timestamp, item_id = after
+            statement = statement.where(
+                or_(
+                    MemoryCandidate.created_at > timestamp,
+                    and_(
+                        MemoryCandidate.created_at == timestamp,
+                        MemoryCandidate.id > item_id,
+                    ),
+                )
+            )
+        statement = statement.order_by(MemoryCandidate.created_at, MemoryCandidate.id)
+        if limit is not None:
+            statement = statement.limit(limit)
+        return list(await session.scalars(statement))
 
     async def confirm_candidate(
         self,
@@ -366,19 +377,27 @@ class MemoryLifecycleService:
         *,
         owner_id: UUID,
         now: datetime | None = None,
+        limit: int | None = None,
+        before: tuple[datetime, UUID] | None = None,
     ) -> list[MemoryFact]:
         current_time = now or datetime.now(UTC)
-        return list(
-            await session.scalars(
-                select(MemoryFact)
-                .where(
-                    MemoryFact.owner_id == owner_id,
-                    MemoryFact.deleted_at.is_(None),
-                    MemoryFact.expires_at > current_time,
-                )
-                .order_by(MemoryFact.updated_at.desc(), MemoryFact.id)
-            )
+        statement = select(MemoryFact).where(
+            MemoryFact.owner_id == owner_id,
+            MemoryFact.deleted_at.is_(None),
+            MemoryFact.expires_at > current_time,
         )
+        if before is not None:
+            timestamp, item_id = before
+            statement = statement.where(
+                or_(
+                    MemoryFact.updated_at < timestamp,
+                    and_(MemoryFact.updated_at == timestamp, MemoryFact.id < item_id),
+                )
+            )
+        statement = statement.order_by(MemoryFact.updated_at.desc(), MemoryFact.id.desc())
+        if limit is not None:
+            statement = statement.limit(limit)
+        return list(await session.scalars(statement))
 
     async def update_fact(
         self,

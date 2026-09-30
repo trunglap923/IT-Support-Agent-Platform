@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createConversation, submitMessage, submitMessageFeedback } from "./chat";
+import {
+  createConversation,
+  listConversations,
+  submitMessage,
+  submitMessageFeedback,
+} from "./chat";
 
 describe("chat API", () => {
   afterEach(() => vi.unstubAllGlobals());
@@ -28,6 +33,24 @@ describe("chat API", () => {
   it("creates a conversation through the protected endpoint", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: "c1", title: "IT support" }), { status: 201 })));
     await expect(createConversation("csrf-token")).resolves.toEqual({ id: "c1", title: "IT support" });
+  });
+
+  it("unwraps the bounded cursor page used by list endpoints", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      Response.json({
+        items: [{ id: "c1", title: "IT support" }],
+        next_cursor: "opaque-next-page",
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(listConversations()).resolves.toEqual([
+      { id: "c1", title: "IT support" },
+    ]);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/conversations?limit=100",
+      expect.objectContaining({ credentials: "same-origin" }),
+    );
   });
 
   it("sends owner feedback with CSRF protection", async () => {

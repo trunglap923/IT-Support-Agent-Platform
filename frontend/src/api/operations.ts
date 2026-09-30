@@ -1,5 +1,7 @@
 import type { Ticket } from "./tickets";
 import { requestJson } from "./client";
+import type { CursorPage } from "./pagination";
+import { paginatedUrl } from "./pagination";
 
 export interface ServiceState {
   service_id: string;
@@ -22,8 +24,11 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   });
 }
 
-export function listTicketQueue(signal?: AbortSignal): Promise<Ticket[]> {
-  return request("/api/v1/tickets/queue", { signal });
+export async function listTicketQueue(signal?: AbortSignal): Promise<Ticket[]> {
+  const page = await request<CursorPage<Ticket>>(paginatedUrl("/api/v1/tickets/queue"), {
+    signal,
+  });
+  return page.items;
 }
 
 export function transitionTicket(

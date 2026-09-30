@@ -47,12 +47,20 @@ export function listMemoryDevices(signal?: AbortSignal): Promise<MemoryDevice[]>
   return request("/api/v1/memory/devices", { signal });
 }
 
-export function listMemoryCandidates(signal?: AbortSignal): Promise<MemoryCandidate[]> {
-  return request("/api/v1/memory/candidates", { signal });
+export async function listMemoryCandidates(signal?: AbortSignal): Promise<MemoryCandidate[]> {
+  const page = await request<CursorPage<MemoryCandidate>>(
+    paginatedUrl("/api/v1/memory/candidates"),
+    { signal },
+  );
+  return page.items;
 }
 
-export function listMemoryFacts(signal?: AbortSignal): Promise<MemoryFact[]> {
-  return request("/api/v1/memory/facts", { signal });
+export async function listMemoryFacts(signal?: AbortSignal): Promise<MemoryFact[]> {
+  const page = await request<CursorPage<MemoryFact>>(
+    paginatedUrl("/api/v1/memory/facts"),
+    { signal },
+  );
+  return page.items;
 }
 
 export function createMemoryDevice(
@@ -121,3 +129,5 @@ export async function deleteMemoryFact(
   );
 }
 import { requestJson } from "./client";
+import type { CursorPage } from "./pagination";
+import { paginatedUrl } from "./pagination";

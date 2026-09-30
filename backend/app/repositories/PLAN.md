@@ -1,6 +1,6 @@
 # Queries và data access
 
-Trạng thái: scoped query/repository layer đã có; cursor pagination và query-plan evidence còn thiếu.
+Trạng thái: scoped query/repository layer và cursor pagination đã có; query-plan evidence còn thiếu.
 Work packages: WP-02, WP-05, WP-07, WP-11, WP-12.
 Nguồn: [kế hoạch tổng](../../../plan.md), mục 5.3, 13; [thứ tự triển khai](../../../docs/implementation-roadmap.md).
 
@@ -36,7 +36,7 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [x] REPO-01: Owner conversation/run/memory và employee/IT/admin ticket scope được áp ngay trong SQL.
 - [x] REPO-02: Retrieval, history redaction và source download dùng chung current/effective/ACL predicate.
 - [x] REPO-03: Run/approval/ticket/document/usage writes dùng row locks, expected version và unique conflict handling.
-- [ ] REPO-04: Thêm cursor pagination ổn định bằng timestamp + ID.
+- [x] REPO-04: Thêm cursor pagination ổn định bằng timestamp + ID.
 - [ ] REPO-05: Event/job/receipt lookups đã có; query-plan evidence cho dataset lớn còn thiếu.
 
 ## Điều kiện hoàn thành

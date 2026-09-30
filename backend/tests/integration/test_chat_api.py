@@ -70,14 +70,38 @@ def test_chat_api_creates_conversation_and_enqueues_owned_run(
         assert submitted.status_code == 202
         assert submitted.json()["status"] == "queued"
         assert dispatcher.enqueued == [UUID(submitted.json()["run_id"])]
-        messages = client.get(f"/api/v1/conversations/{conversation_id}/messages").json()
+        messages = client.get(f"/api/v1/conversations/{conversation_id}/messages").json()["items"]
         assert [(message["role"], message["content"]) for message in messages] == [
             ("user", "How do I connect?")
         ]
 
-        assert client.get("/api/v1/conversations").json() == [
-            {"id": conversation_id, "title": "VPN help"}
-        ]
+        assert client.get("/api/v1/conversations").json() == {
+            "items": [{"id": conversation_id, "title": "VPN help"}],
+            "next_cursor": None,
+        }
+
+        for title in ("Docker help", "GitLab help"):
+            assert (
+                client.post(
+                    "/api/v1/conversations", json={"title": title}, headers=headers
+                ).status_code
+                == 201
+            )
+        first_page = client.get("/api/v1/conversations?limit=2").json()
+        assert len(first_page["items"]) == 2
+        assert first_page["next_cursor"] is not None
+        second_page = client.get(
+            "/api/v1/conversations",
+            params={"limit": 2, "cursor": first_page["next_cursor"]},
+        ).json()
+        assert len(second_page["items"]) == 1
+        assert second_page["next_cursor"] is None
+        assert {item["id"] for item in first_page["items"]}.isdisjoint(
+            item["id"] for item in second_page["items"]
+        )
+        invalid = client.get("/api/v1/conversations?cursor=not-a-cursor")
+        assert invalid.status_code == 422
+        assert invalid.json()["error"]["code"] == "INVALID_CURSOR"
 
 
 def test_chat_api_hides_another_users_conversation(migrated_database_url: str) -> None:

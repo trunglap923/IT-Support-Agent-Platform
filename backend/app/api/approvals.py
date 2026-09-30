@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.pagination import CursorPage, PageLimit, build_page, decode_cursor
 from app.auth.csrf import require_csrf
 from app.db.models import AgentRun, ApprovalRequest, ApprovalStatus, Message, RunStatus
 from app.dependencies import CurrentPrincipal, get_db_session
@@ -51,18 +52,31 @@ def approval_response(approval: ApprovalRequest) -> ApprovalResponse:
     return ApprovalResponse.model_validate(approval)
 
 
-@router.get("", response_model=list[ApprovalResponse])
+@router.get("", response_model=CursorPage[ApprovalResponse])
 async def list_approvals(
     principal: CurrentPrincipal,
     session: Annotated[AsyncSession, Depends(get_db_session)],
     approval_status: ApprovalStatus | None = None,
-) -> list[ApprovalResponse]:
+    limit: PageLimit = 20,
+    cursor: str | None = None,
+) -> CursorPage[ApprovalResponse]:
+    position = decode_cursor(cursor)
     approvals = await ApprovalService().list_owned(
         session,
         owner_id=principal.user_id,
         status=approval_status,
+        limit=limit + 1,
+        before=(position.timestamp, position.item_id) if position else None,
     )
-    return [approval_response(approval) for approval in approvals]
+    items, next_cursor = build_page(
+        approvals,
+        limit=limit,
+        timestamp=lambda value: value.created_at,
+    )
+    return CursorPage[ApprovalResponse](
+        items=[approval_response(approval) for approval in items],
+        next_cursor=next_cursor,
+    )
 
 
 @router.get("/{approval_id}", response_model=ApprovalResponse)

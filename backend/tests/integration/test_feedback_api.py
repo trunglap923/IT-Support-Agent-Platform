@@ -130,7 +130,9 @@ def test_feedback_is_idempotent_csrf_protected_and_owner_scoped(
             "comment": None,
         }
 
-        messages = client.get(f"/api/v1/conversations/{fixture.conversation_id}/messages").json()
+        messages = client.get(f"/api/v1/conversations/{fixture.conversation_id}/messages").json()[
+            "items"
+        ]
         assistant = next(item for item in messages if item["role"] == "assistant")
         assert assistant["feedback"]["rating"] == "unhelpful"
 

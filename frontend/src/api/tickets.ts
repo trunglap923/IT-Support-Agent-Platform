@@ -47,12 +47,19 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   });
 }
 
-export function listMyTickets(signal?: AbortSignal): Promise<Ticket[]> {
-  return request("/api/v1/tickets/mine", { signal });
+export async function listMyTickets(signal?: AbortSignal): Promise<Ticket[]> {
+  const page = await request<CursorPage<Ticket>>(paginatedUrl("/api/v1/tickets/mine"), {
+    signal,
+  });
+  return page.items;
 }
 
-export function listPendingApprovals(signal?: AbortSignal): Promise<Approval[]> {
-  return request("/api/v1/approvals?approval_status=pending", { signal });
+export async function listPendingApprovals(signal?: AbortSignal): Promise<Approval[]> {
+  const page = await request<CursorPage<Approval>>(
+    paginatedUrl("/api/v1/approvals", { approval_status: "pending" }),
+    { signal },
+  );
+  return page.items;
 }
 
 export function createTicketDraft(
@@ -79,3 +86,5 @@ export function decideApproval(
   });
 }
 import { requestJson } from "./client";
+import type { CursorPage } from "./pagination";
+import { paginatedUrl } from "./pagination";

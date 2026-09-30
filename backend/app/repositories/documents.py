@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import cast
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import (
@@ -118,14 +118,26 @@ class DocumentRepository:
         await session.flush()
         return version, job
 
-    async def list_documents(self, session: AsyncSession) -> list[Document]:
-        return list(
-            (
-                await session.scalars(
-                    select(Document).order_by(Document.updated_at.desc(), Document.id.desc())
+    async def list_documents(
+        self,
+        session: AsyncSession,
+        *,
+        limit: int | None = None,
+        before: tuple[datetime, UUID] | None = None,
+    ) -> list[Document]:
+        statement = select(Document)
+        if before is not None:
+            timestamp, item_id = before
+            statement = statement.where(
+                or_(
+                    Document.updated_at < timestamp,
+                    and_(Document.updated_at == timestamp, Document.id < item_id),
                 )
-            ).all()
-        )
+            )
+        statement = statement.order_by(Document.updated_at.desc(), Document.id.desc())
+        if limit is not None:
+            statement = statement.limit(limit)
+        return list((await session.scalars(statement)).all())
 
     async def list_versions(
         self, session: AsyncSession, *, document_id: UUID

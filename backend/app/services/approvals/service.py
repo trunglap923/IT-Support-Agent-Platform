@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Literal, cast
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import AgentRun, ApprovalRequest, ApprovalStatus, RunStatus, UserDevice
@@ -104,11 +104,26 @@ class ApprovalService:
         *,
         owner_id: UUID,
         status: ApprovalStatus | None = None,
+        limit: int | None = None,
+        before: tuple[datetime, UUID] | None = None,
     ) -> list[ApprovalRequest]:
         statement = select(ApprovalRequest).where(ApprovalRequest.owner_id == owner_id)
         if status is not None:
             statement = statement.where(ApprovalRequest.status == status.value)
+        if before is not None:
+            timestamp, item_id = before
+            statement = statement.where(
+                or_(
+                    ApprovalRequest.created_at < timestamp,
+                    and_(
+                        ApprovalRequest.created_at == timestamp,
+                        ApprovalRequest.id < item_id,
+                    ),
+                )
+            )
         statement = statement.order_by(ApprovalRequest.created_at.desc(), ApprovalRequest.id.desc())
+        if limit is not None:
+            statement = statement.limit(limit)
         return list((await session.scalars(statement)).all())
 
     async def create_ticket_draft(

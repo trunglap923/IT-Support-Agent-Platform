@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import cast
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.principal import Principal
@@ -14,13 +15,24 @@ from app.db.models import Ticket, TicketStatus, UserRole
 
 class TicketReadService:
     async def list_owned(
-        self, session: AsyncSession, *, principal: Principal, limit: int = 100
+        self,
+        session: AsyncSession,
+        *,
+        principal: Principal,
+        limit: int = 100,
+        before: tuple[datetime, UUID] | None = None,
     ) -> list[Ticket]:
-        statement = (
-            select(Ticket)
-            .where(Ticket.owner_id == principal.user_id)
-            .order_by(Ticket.updated_at.desc(), Ticket.id.desc())
-            .limit(min(max(limit, 1), 100))
+        statement = select(Ticket).where(Ticket.owner_id == principal.user_id)
+        if before is not None:
+            timestamp, item_id = before
+            statement = statement.where(
+                or_(
+                    Ticket.updated_at < timestamp,
+                    and_(Ticket.updated_at == timestamp, Ticket.id < item_id),
+                )
+            )
+        statement = statement.order_by(Ticket.updated_at.desc(), Ticket.id.desc()).limit(
+            min(max(limit, 1), 101)
         )
         return list((await session.scalars(statement)).all())
 
@@ -58,6 +70,7 @@ class TicketReadService:
         principal: Principal,
         status: TicketStatus | None = None,
         limit: int = 100,
+        before: tuple[datetime, UUID] | None = None,
     ) -> list[Ticket]:
         statement = select(Ticket)
         if principal.role is UserRole.EMPLOYEE:
@@ -66,8 +79,16 @@ class TicketReadService:
             statement = statement.where(Ticket.department_id == principal.department_id)
         if status is not None:
             statement = statement.where(Ticket.status == status.value)
+        if before is not None:
+            timestamp, item_id = before
+            statement = statement.where(
+                or_(
+                    Ticket.updated_at < timestamp,
+                    and_(Ticket.updated_at == timestamp, Ticket.id < item_id),
+                )
+            )
         statement = statement.order_by(Ticket.updated_at.desc(), Ticket.id.desc()).limit(
-            min(max(limit, 1), 100)
+            min(max(limit, 1), 101)
         )
         return list((await session.scalars(statement)).all())
 

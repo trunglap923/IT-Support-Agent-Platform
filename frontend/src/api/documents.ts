@@ -56,8 +56,12 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   });
 }
 
-export function listDocuments(signal?: AbortSignal): Promise<ManagedDocument[]> {
-  return request("/api/v1/documents", { signal });
+export async function listDocuments(signal?: AbortSignal): Promise<ManagedDocument[]> {
+  const page = await request<CursorPage<ManagedDocument>>(
+    paginatedUrl("/api/v1/documents"),
+    { signal },
+  );
+  return page.items;
 }
 
 export function uploadDocument(form: FormData, csrfToken: string): Promise<DocumentPreview> {
@@ -141,3 +145,5 @@ export function replaceDocumentAcl(
   });
 }
 import { requestJson } from "./client";
+import type { CursorPage } from "./pagination";
+import { paginatedUrl } from "./pagination";

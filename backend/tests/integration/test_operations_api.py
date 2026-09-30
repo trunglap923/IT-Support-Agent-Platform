@@ -108,8 +108,8 @@ def test_it_queue_transitions_service_status_and_role_scope(
         headers = {"Origin": ORIGIN, "X-CSRF-Token": csrf}
         queue = it_client.get("/api/v1/tickets/queue")
         assert queue.status_code == 200
-        assert [item["display_key"] for item in queue.json()] == ["IT-OPS-ENG"]
-        ticket = queue.json()[0]
+        assert [item["display_key"] for item in queue.json()["items"]] == ["IT-OPS-ENG"]
+        ticket = queue.json()["items"][0]
 
         started = it_client.post(
             f"/api/v1/tickets/{ticket['id']}/transition",

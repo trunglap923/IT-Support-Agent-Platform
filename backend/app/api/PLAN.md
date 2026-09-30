@@ -47,11 +47,11 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [x] API-04b2a: Bổ sung document version/process/publish/revoke/ACL routes.
 - [x] API-04b2b: Bổ sung owner-scoped device/candidate/fact memory routes.
 - [x] API-05a: Chuẩn hóa error envelope cho 401/403/404/409/410/413/422/429/503, request ID và Retry-After.
-- [ ] API-05b: Thêm cursor pagination cho các list API lớn.
+- [x] API-05b: Thêm cursor pagination cho các list API lớn.
 
 ## Điều kiện hoàn thành
 
 - [x] Integration tests chứng minh đúng owner, CSRF và version conflict cho routes hiện có.
-- [ ] Cursor pagination cho các list lớn ở WP hoàn thiện API.
+- [x] Cursor pagination cho các list lớn ở WP hoàn thiện API.
 - [x] Reconnect SSE chỉ đọc event đã persist và không tạo run/message/job mới.
 - [ ] Endpoint chưa triển khai không được mô tả là đang hoạt động trong README.

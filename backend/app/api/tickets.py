@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.approval_checkpoint import ApprovalCheckpointError, pause_ticket_approval
 from app.api.approvals import ApprovalResponse, approval_response
+from app.api.pagination import CursorPage, PageLimit, build_page, decode_cursor
 from app.auth.csrf import require_csrf
 from app.auth.policies import require_roles
 from app.db.models import (
@@ -71,31 +72,52 @@ class TicketDraftResponse(BaseModel):
     created: bool
 
 
-@router.get("/mine", response_model=list[TicketResponse])
+@router.get("/mine", response_model=CursorPage[TicketResponse])
 async def list_my_tickets(
     principal: CurrentPrincipal,
     session: Annotated[AsyncSession, Depends(get_db_session)],
-) -> list[TicketResponse]:
-    tickets = await TicketReadService().list_owned(session, principal=principal)
-    return [TicketResponse.model_validate(ticket) for ticket in tickets]
+    limit: PageLimit = 20,
+    cursor: str | None = None,
+) -> CursorPage[TicketResponse]:
+    position = decode_cursor(cursor)
+    tickets = await TicketReadService().list_owned(
+        session,
+        principal=principal,
+        limit=limit + 1,
+        before=(position.timestamp, position.item_id) if position else None,
+    )
+    items, next_cursor = build_page(tickets, limit=limit, timestamp=lambda value: value.updated_at)
+    return CursorPage[TicketResponse](
+        items=[TicketResponse.model_validate(ticket) for ticket in items],
+        next_cursor=next_cursor,
+    )
 
 
 @router.get(
     "/queue",
-    response_model=list[TicketResponse],
+    response_model=CursorPage[TicketResponse],
     dependencies=[Depends(require_roles(UserRole.IT, UserRole.ADMIN))],
 )
 async def list_ticket_queue(
     principal: CurrentPrincipal,
     session: Annotated[AsyncSession, Depends(get_db_session)],
     ticket_status: TicketStatus | None = None,
-) -> list[TicketResponse]:
+    limit: PageLimit = 20,
+    cursor: str | None = None,
+) -> CursorPage[TicketResponse]:
+    position = decode_cursor(cursor)
     tickets = await TicketReadService().list_visible(
         session,
         principal=principal,
         status=ticket_status,
+        limit=limit + 1,
+        before=(position.timestamp, position.item_id) if position else None,
     )
-    return [TicketResponse.model_validate(ticket) for ticket in tickets]
+    items, next_cursor = build_page(tickets, limit=limit, timestamp=lambda value: value.updated_at)
+    return CursorPage[TicketResponse](
+        items=[TicketResponse.model_validate(ticket) for ticket in items],
+        next_cursor=next_cursor,
+    )
 
 
 @router.post(

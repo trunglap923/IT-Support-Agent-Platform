@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.pagination import CursorPage, PageLimit, build_page, decode_cursor
 from app.auth.csrf import require_csrf
 from app.db.models import Conversation, Message, MessageFeedback, RunStatus
 from app.dependencies import CurrentPrincipal, get_db_session
@@ -109,13 +110,29 @@ def _feedback_response(value: MessageFeedback) -> FeedbackResponse:
     )
 
 
-@router.get("", response_model=list[ConversationResponse])
+@router.get("", response_model=CursorPage[ConversationResponse])
 async def list_conversations(
     principal: CurrentPrincipal,
     session: Annotated[AsyncSession, Depends(get_db_session)],
-) -> list[ConversationResponse]:
-    values = await ConversationRepository().list_owned(session, owner_id=principal.user_id)
-    return [_conversation_response(value) for value in values]
+    limit: PageLimit = 20,
+    cursor: str | None = None,
+) -> CursorPage[ConversationResponse]:
+    position = decode_cursor(cursor)
+    values = await ConversationRepository().list_owned(
+        session,
+        owner_id=principal.user_id,
+        limit=limit + 1,
+        before=(position.timestamp, position.item_id) if position else None,
+    )
+    items, next_cursor = build_page(
+        values,
+        limit=limit,
+        timestamp=lambda value: value.created_at,
+    )
+    return CursorPage[ConversationResponse](
+        items=[_conversation_response(value) for value in items],
+        next_cursor=next_cursor,
+    )
 
 
 @router.post(
@@ -163,12 +180,14 @@ async def select_conversation_device(
     return _conversation_response(conversation)
 
 
-@router.get("/{conversation_id}/messages", response_model=list[MessageResponse])
+@router.get("/{conversation_id}/messages", response_model=CursorPage[MessageResponse])
 async def list_messages(
     conversation_id: UUID,
     principal: CurrentPrincipal,
     session: Annotated[AsyncSession, Depends(get_db_session)],
-) -> list[MessageResponse]:
+    limit: PageLimit = 20,
+    cursor: str | None = None,
+) -> CursorPage[MessageResponse]:
     repository = ConversationRepository()
     conversation = await repository.get_owned(
         session,
@@ -177,25 +196,36 @@ async def list_messages(
     )
     if conversation is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+    position = decode_cursor(cursor)
     values = await repository.list_messages_owned(
         session,
         conversation_id=conversation_id,
         owner_id=principal.user_id,
+        limit=limit + 1,
+        after=(position.timestamp, position.item_id) if position else None,
+    )
+    items, next_cursor = build_page(
+        values,
+        limit=limit,
+        timestamp=lambda value: value.created_at,
     )
     redactions = await redact_revoked_message_citations(
         session,
         principal=principal,
-        messages=values,
+        messages=items,
     )
     feedback = await FeedbackService().for_messages(
         session,
         owner_id=principal.user_id,
-        message_ids=[value.id for value in values],
+        message_ids=[value.id for value in items],
     )
-    return [
-        _message_response(value, redactions.get(value.id), feedback.get(value.id))
-        for value in values
-    ]
+    return CursorPage[MessageResponse](
+        items=[
+            _message_response(value, redactions.get(value.id), feedback.get(value.id))
+            for value in items
+        ],
+        next_cursor=next_cursor,
+    )
 
 
 @router.put(
