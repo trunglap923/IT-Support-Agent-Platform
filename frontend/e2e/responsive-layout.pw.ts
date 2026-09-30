@@ -154,6 +154,24 @@ test("chat stays readable on desktop and mobile", async ({ page }, testInfo) => 
   expect(consoleErrors).toEqual([]);
 });
 
+test("ticket workspace keeps the create drawer usable", async ({ page }, testInfo) => {
+  await mockWorkspace(page);
+
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await page.goto("/tickets");
+  await expect(page.getByRole("heading", { name: "Ticket của tôi", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Tạo ticket hỗ trợ" })).toBeVisible();
+  await expect(page.getByText("IT-2048")).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+  await page.screenshot({ path: testInfo.outputPath("tickets-desktop.png"), fullPage: true });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(250);
+  await expect(page.getByRole("button", { name: "Đóng panel tạo ticket" })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+  await page.screenshot({ path: testInfo.outputPath("tickets-mobile.png"), fullPage: true });
+});
+
 test("operations tables remain usable on desktop and mobile", async ({ page }, testInfo) => {
   await mockWorkspace(page, itUser);
   await page.route("**/api/v1/tickets/queue**", (route) => json(route, cursorPage(tickets)));

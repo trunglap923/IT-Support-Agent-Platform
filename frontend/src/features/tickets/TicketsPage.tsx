@@ -156,8 +156,8 @@ export function TicketsPage() {
   return (
     <div className={draftOpen ? "tickets-page draft-visible" : "tickets-page"}>
       <PageHeader
-        eyebrow="TICKET MANAGEMENT"
-        title="Ticket hỗ trợ"
+        eyebrow="IT SUPPORT"
+        title="Ticket của tôi"
         description="Theo dõi yêu cầu và xác nhận rõ nội dung trước khi tạo ticket."
         actions={<button className="primary-button" onClick={() => { setDraftOpen(true); window.setTimeout(() => titleInput.current?.focus(), 0); }} type="button">+ Tạo ticket</button>}
       />
