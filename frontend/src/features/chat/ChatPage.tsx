@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 
 import {
   createConversation,
@@ -40,6 +40,21 @@ export function ChatPage() {
   const [conversationCursor, setConversationCursor] = useState<string | null>(null);
   const [messageCursor, setMessageCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState<"conversations" | "messages" | null>(null);
+  const [conversationQuery, setConversationQuery] = useState("");
+
+  const visibleConversations = useMemo(() => conversations.filter((conversation) =>
+    conversation.title.toLocaleLowerCase().includes(conversationQuery.trim().toLocaleLowerCase()),
+  ), [conversationQuery, conversations]);
+  const contextSources = useMemo(() => {
+    const unique = new Map<string, NonNullable<ChatMessage["citations"]>[number]>();
+    for (const message of [...messages].reverse()) {
+      for (const citation of message.citations ?? []) {
+        const key = citation.document_id ?? citation.source_id;
+        if (!unique.has(key)) unique.set(key, citation);
+      }
+    }
+    return [...unique.values()].slice(0, 4);
+  }, [messages]);
 
   const refreshConversation = useCallback(async (conversationId: string) => {
     const [messagePage, approvalPage] = await Promise.all([
@@ -221,7 +236,9 @@ export function ChatPage() {
         <button className="new-chat-button" onClick={startConversation} type="button">
           + Cuộc trò chuyện mới
         </button>
-        {conversations.map((conversation) => (
+        <label className="conversation-search"><span aria-hidden="true">⌕</span><span className="sr-only">Tìm cuộc trò chuyện</span><input onChange={(event) => setConversationQuery(event.target.value)} placeholder="Tìm cuộc trò chuyện…" type="search" value={conversationQuery} /></label>
+        <p className="conversation-period">Gần đây</p>
+        {visibleConversations.map((conversation) => (
           <button
             className={conversation.id === active?.id ? "active" : ""}
             key={conversation.id}
@@ -231,7 +248,7 @@ export function ChatPage() {
             }}
             type="button"
           >
-            {conversation.title}
+            <span aria-hidden="true">○</span><strong>{conversation.title}</strong>
           </button>
         ))}
         {conversationCursor ? (
@@ -247,8 +264,9 @@ export function ChatPage() {
       </aside>
       <section className="chat-panel">
         <header>
-          <p className="eyebrow">AI SUPPORT · EVIDENCE FIRST</p>
-          <h1>{active?.title ?? "Hỏi trợ lý IT"}</h1>
+          <span className="assistant-mark" aria-hidden="true">✦</span>
+          <div><h1>Trợ lý AI</h1><p>{active?.title ?? "Hỏi đáp hỗ trợ IT dựa trên tài liệu nội bộ"}</p></div>
+          <span className="assistant-scope">IT support⌄</span>
         </header>
         <div className="message-list" aria-live="polite">
           {messageCursor ? (
@@ -338,6 +356,20 @@ export function ChatPage() {
           </button>
         </form>
       </section>
+      <aside className="chat-context-rail">
+        <section className="context-card">
+          <header><div><span aria-hidden="true">▧</span><h2>Nguồn tham chiếu</h2></div><span>{contextSources.length}</span></header>
+          {contextSources.length ? <ul>{contextSources.map((source) => <li key={source.source_id}><span className="context-item-icon" aria-hidden="true">▤</span><div><strong>{source.title}</strong><small>{source.page_number ? `Trang ${source.page_number}` : "Kho tri thức"}</small></div></li>)}</ul> : <p className="context-empty">Nguồn của câu trả lời gần nhất sẽ xuất hiện tại đây.</p>}
+        </section>
+        <section className="context-card">
+          <header><div><span aria-hidden="true">▣</span><h2>Thao tác đang chờ</h2></div><span>{approvals.length}</span></header>
+          {approvals.length ? <ul>{approvals.slice(0, 3).map((approval) => <li key={approval.id}><span className="context-item-icon amber" aria-hidden="true">!</span><div><strong>{approval.canonical_args.title}</strong><small>Chờ bạn xác nhận</small></div></li>)}</ul> : <p className="context-empty">Không có bản nháp cần xác nhận.</p>}
+        </section>
+        <section className="context-card context-tip">
+          <header><div><span aria-hidden="true">⚡</span><h2>Gợi ý</h2></div></header>
+          <p>Hãy nêu thiết bị, thông báo lỗi và thao tác bạn đã thử để nhận câu trả lời chính xác hơn.</p>
+        </section>
+      </aside>
     </div>
   );
 }

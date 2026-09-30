@@ -4,20 +4,20 @@ import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../features/auth/useAuth";
 
 const primaryNav = [
-  { to: "/", label: "Tổng quan", glyph: "01", end: true },
-  { to: "/chat", label: "Trợ lý AI", glyph: "02" },
-  { to: "/tickets", label: "Ticket của tôi", glyph: "03" },
+  { to: "/", label: "Tổng quan", glyph: "⌂", end: true },
+  { to: "/chat", label: "Trợ lý AI", glyph: "✦" },
+  { to: "/tickets", label: "Ticket của tôi", glyph: "▣" },
 ];
 
 const contextNav = [
-  { to: "/settings/memory", label: "Thiết bị & memory", glyph: "04" },
+  { to: "/settings/memory", label: "Thiết bị & memory", glyph: "▤" },
 ];
 
 const pageNames: Record<string, string> = {
   "/": "Tổng quan",
   "/chat": "Trợ lý AI",
   "/tickets": "Ticket của tôi",
-  "/operations": "Vận hành IT",
+  "/operations": "Hàng đợi IT",
   "/admin/documents": "Kho tri thức",
   "/settings/memory": "Thiết bị & memory",
 };
@@ -61,7 +61,6 @@ export function AppShell() {
         </NavLink>
 
         <nav aria-label="Điều hướng chính" className="sidebar-nav">
-          <p className="nav-group-label">Workspace</p>
           {primaryNav.map((item) => (
             <NavLink
               className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
@@ -74,7 +73,6 @@ export function AppShell() {
             </NavLink>
           ))}
 
-          <p className="nav-group-label">Ngữ cảnh</p>
           {contextNav.map((item) => (
             <NavLink className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")} key={item.to} to={item.to}>
               <span className="nav-glyph" aria-hidden="true">{item.glyph}</span>
@@ -84,34 +82,35 @@ export function AppShell() {
 
           {user?.role !== "employee" ? (
             <>
-              <p className="nav-group-label">Vận hành</p>
               <NavLink className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")} to="/operations">
-                <span className="nav-glyph" aria-hidden="true">05</span>
+                <span className="nav-glyph" aria-hidden="true">▥</span>
                 <span>Hàng đợi IT</span>
               </NavLink>
             </>
           ) : null}
           {user?.role === "admin" ? (
             <NavLink className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")} to="/admin/documents">
-              <span className="nav-glyph" aria-hidden="true">06</span>
+              <span className="nav-glyph" aria-hidden="true">◇</span>
               <span>Kho tri thức</span>
             </NavLink>
           ) : null}
         </nav>
 
         <div className="sidebar-account">
-          <span className="user-avatar" aria-hidden="true">{user?.display_name?.slice(0, 1).toUpperCase() ?? "U"}</span>
-          <span className="account-copy">
-            <strong>{user?.display_name}</strong>
-            <small>{user?.role} · {user?.department_key}</small>
-          </span>
+          <div className="sidebar-identity">
+            <span className="user-avatar" aria-hidden="true">{user?.display_name?.slice(0, 1).toUpperCase() ?? "U"}</span>
+            <span className="account-copy">
+              <strong>{user?.display_name}</strong>
+              <small>{user?.role} · {user?.department_key}</small>
+            </span>
+          </div>
           <button
             className="ghost-button"
             disabled={isLoggingOut}
             onClick={() => void handleLogout()}
             type="button"
           >
-            {isLoggingOut ? "…" : "Thoát"}
+            <span aria-hidden="true">↪</span> {isLoggingOut ? "Đang đăng xuất…" : "Đăng xuất"}
           </button>
           {logoutError ? <small className="logout-error" role="alert">{logoutError}</small> : null}
         </div>
@@ -137,7 +136,11 @@ export function AppShell() {
         </div>
         <div className="topbar-context">
           <span className="environment-indicator"><i /> Demo environment</span>
+          <span className="topbar-divider" />
+          <span className="notification-mark" aria-label="Thông báo">♧<i /></span>
+          <span className="topbar-divider" />
           <span className="topbar-avatar" aria-hidden="true">{user?.display_name?.slice(0, 1).toUpperCase() ?? "U"}</span>
+          <strong className="topbar-user-name">{user?.display_name}</strong>
         </div>
       </header>
 

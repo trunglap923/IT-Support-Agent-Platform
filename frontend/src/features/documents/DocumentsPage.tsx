@@ -38,6 +38,7 @@ export function DocumentsPage() {
   const [documentCursor, setDocumentCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [documentToRevoke, setDocumentToRevoke] = useState<ManagedDocument | null>(null);
+  const [uploadOpen, setUploadOpen] = useState(false);
   const uploadPanel = useRef<HTMLElement>(null);
 
   async function refresh(signal?: AbortSignal) {
@@ -116,6 +117,7 @@ export function DocumentsPage() {
     await mutate(async () => {
       const uploaded = await uploadDocument(form, csrfToken);
       setPreview(uploaded);
+      setUploadOpen(false);
       formElement.reset();
     }, "Đã tạo document và version draft.");
   }
@@ -133,18 +135,25 @@ export function DocumentsPage() {
   }
 
   return (
-    <div className="documents-page">
+    <div className={uploadOpen || preview ? "documents-page drawer-visible" : "documents-page"}>
       <PageHeader
         eyebrow="KNOWLEDGE GOVERNANCE"
-        title="Quản lý tài liệu"
+        title="Kho tri thức"
         description="Chỉ version đã xử lý và publish mới được dùng làm nguồn trả lời."
-        actions={<button className="primary-button" onClick={() => uploadPanel.current?.scrollIntoView({ behavior: "smooth" })} type="button">+ Tải tài liệu</button>}
+        actions={<button className="primary-button" onClick={() => { setPreview(null); setUploadOpen(true); }} type="button">+ Tài liệu mới</button>}
       />
       {notice ? <p className="notice-banner" role="status">{notice}</p> : null}
       {error ? <div className="alert-banner error" role="alert">{error}</div> : null}
 
-      <section className="document-upload-panel" ref={uploadPanel}>
-        <header className="panel-header"><div><h2>Tạo tài liệu</h2><p>PDF mới luôn bắt đầu ở trạng thái draft để kiểm tra trước khi publish.</p></div></header>
+      <section className="document-summary" aria-label="Tổng quan tài liệu">
+        <div><span className="metric-icon">▤</span><span><small>Tổng tài liệu</small><strong>{documents.length}</strong></span></div>
+        <div><span className="metric-icon green">✓</span><span><small>Published</small><strong>{documents.filter((document) => getDocumentStatus(document) === "published").length}</strong></span></div>
+        <div><span className="metric-icon amber">▧</span><span><small>Draft</small><strong>{documents.filter((document) => getDocumentStatus(document) === "draft").length}</strong></span></div>
+        <div><span className="metric-icon red">△</span><span><small>Cần rà soát</small><strong>{documents.filter((document) => ["failed", "revoked"].includes(getDocumentStatus(document))).length}</strong></span></div>
+      </section>
+
+      {uploadOpen ? <section className="document-upload-panel document-drawer" ref={uploadPanel}>
+        <header className="panel-header"><div><h2>Tạo tài liệu mới</h2><p>PDF bắt đầu ở trạng thái draft để kiểm tra trước khi publish.</p></div><button aria-label="Đóng panel tài liệu mới" className="drawer-close" onClick={() => setUploadOpen(false)} type="button">×</button></header>
         <form onSubmit={(event) => void submitNewDocument(event)}>
           <label>PDF<input accept="application/pdf" name="file" required type="file" /></label>
           <label>Document key<input name="document_key" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" required /></label>
@@ -156,7 +165,7 @@ export function DocumentsPage() {
           <label>Phạm vi<select defaultValue="company" name="visibility"><option value="company">Company</option><option value="it_only">IT only</option></select></label>
           <button className="primary-button" disabled={busy} type="submit">Upload draft</button>
         </form>
-      </section>
+      </section> : null}
 
       <section className="panel document-library">
         <header className="panel-header"><div><h2>Kho tài liệu</h2><p>{documents.length} tài liệu được quản lý</p></div></header>
@@ -191,14 +200,14 @@ export function DocumentsPage() {
                   </td>
                   <td>{document.versions.length}</td>
                   <td>
-                    <details className="document-manage" open>
+                    <details className="document-manage">
                       <summary>Quản lý</summary>
                       <div className="document-manage-panel">
                         <div className="document-version-list">
                           {document.versions.map((version) => (
                             <div key={version.id}>
                               <strong>{version.version_label}</strong><StatusBadge value={version.status} />
-                              <button onClick={() => void previewVersion(document.id, version.id).then(setPreview).catch((caught: unknown) => setError(caught instanceof Error ? caught.message : "Không thể xem preview."))} type="button">Preview</button>
+                              <button onClick={() => void previewVersion(document.id, version.id).then((nextPreview) => { setUploadOpen(false); setPreview(nextPreview); }).catch((caught: unknown) => setError(caught instanceof Error ? caught.message : "Không thể xem preview."))} type="button">Preview</button>
                               {version.status === "draft" || version.status === "failed" ? <button disabled={busy} onClick={() => void mutate(() => processVersion(document.id, version.id, csrfToken ?? ""), "Đã process version; version sẵn sàng publish.")} type="button">Process</button> : null}
                               {version.status === "ready" ? <button disabled={busy} onClick={() => void mutate(() => publishVersion(document, version.id, csrfToken ?? ""), "Đã publish version.")} type="button">Publish</button> : null}
                               {document.current_version_id === version.id ? <button className="danger-button" disabled={busy} onClick={() => setDocumentToRevoke(document)} type="button">Revoke</button> : null}
@@ -228,7 +237,7 @@ export function DocumentsPage() {
       </section>
 
       {preview ? (
-        <aside className="document-preview" aria-label="Preview tài liệu">
+        <aside className="document-preview document-drawer" aria-label="Preview tài liệu">
           <div><div><p className="eyebrow">DOCUMENT PREVIEW</p><h2>Preview</h2></div><button onClick={() => setPreview(null)} type="button">Đóng</button></div>
           <p>{preview.pages.length} trang · {preview.byte_size} bytes · {preview.parser_version}</p>
           <div className="preview-pages">{preview.pages.map((page) => <article key={page.page_number}><strong>Trang {page.page_number}</strong><p>{page.text}</p></article>)}</div>

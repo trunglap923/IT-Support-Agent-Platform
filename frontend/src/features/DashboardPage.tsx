@@ -33,10 +33,10 @@ export function DashboardPage() {
   }, []);
 
   const metrics = useMemo(() => [
-    { label: "Ticket đang mở", value: tickets.filter((ticket) => ticket.status === "open").length },
-    { label: "Đang xử lý", value: tickets.filter((ticket) => ticket.status === "in_progress").length },
-    { label: "Chờ xác nhận", value: pendingApprovals },
-    { label: "Đã giải quyết", value: tickets.filter((ticket) => ticket.status === "resolved").length },
+    { label: "Ticket đang mở", value: tickets.filter((ticket) => ticket.status === "open").length, icon: "▤", tone: "blue" },
+    { label: "Đang xử lý", value: tickets.filter((ticket) => ticket.status === "in_progress").length, icon: "⚙", tone: "amber" },
+    { label: "Chờ xác nhận", value: pendingApprovals, icon: "◷", tone: "red" },
+    { label: "Đã giải quyết", value: tickets.filter((ticket) => ticket.status === "resolved").length, icon: "✓", tone: "green" },
   ], [pendingApprovals, tickets]);
 
   const attention = tickets
@@ -47,24 +47,40 @@ export function DashboardPage() {
   return (
     <div className="dashboard-page">
       <PageHeader
-        eyebrow="WORKSPACE OVERVIEW"
-        title={`Chào ${user?.display_name?.split(" ")[0] ?? "bạn"}`}
-        description="Theo dõi các yêu cầu cần chú ý và tiếp tục công việc hỗ trợ từ một nơi."
-        actions={<Link className="primary-button" to="/chat">Hỏi trợ lý AI</Link>}
+        title="Tổng quan"
+        description={`Theo dõi hoạt động IT Support của ${user?.display_name ?? "workspace"} trong thời gian thực.`}
+        actions={<select aria-label="Khoảng thời gian" defaultValue="7"><option value="7">7 ngày qua</option><option value="30">30 ngày qua</option></select>}
       />
 
       {error ? <div className="alert-banner error" role="alert">{error}</div> : null}
 
       <section className="metrics-strip" aria-label="Tổng quan ticket">
         {metrics.map((metric) => (
-          <div className="metric" key={metric.label}>
-            <span>{metric.label}</span>
-            <strong>{loading ? "—" : metric.value}</strong>
+          <div className={`metric ${metric.tone}`} key={metric.label}>
+            <span className="metric-icon" aria-hidden="true">{metric.icon}</span>
+            <span className="metric-copy"><span>{metric.label}</span><strong>{loading ? "—" : metric.value}</strong><small>Dữ liệu hiện tại</small></span>
           </div>
         ))}
       </section>
 
       <div className="dashboard-grid">
+        <section className="panel dashboard-breakdown">
+          <header className="panel-header"><div><h2>Phân bổ ticket hiện tại</h2><p>Theo trạng thái trong phạm vi của bạn.</p></div><Link className="text-link" to="/tickets">Xem tất cả →</Link></header>
+          <div className="breakdown-bars">
+            {metrics.filter((metric) => metric.label !== "Chờ xác nhận").map((metric) => {
+              const maximum = Math.max(1, ...metrics.map((item) => item.value));
+              return <div className={`breakdown-row ${metric.tone}`} key={metric.label}><span>{metric.label}</span><div><i style={{ width: `${Math.max(8, metric.value / maximum * 100)}%` }} /></div><strong>{metric.value}</strong></div>;
+            })}
+          </div>
+        </section>
+
+        <aside className="dashboard-aside dashboard-status-aside">
+          <section className="panel system-panel">
+            <header className="panel-header"><div><h2>Trạng thái hệ thống</h2><p>Kết nối dịch vụ hiện tại.</p></div></header>
+            <HealthStatus />
+          </section>
+        </aside>
+
         <section className="panel">
           <header className="panel-header">
             <div>
@@ -94,10 +110,6 @@ export function DashboardPage() {
         </section>
 
         <aside className="dashboard-aside">
-          <section className="panel system-panel">
-            <header className="panel-header"><div><h2>Trạng thái hệ thống</h2><p>Kết nối backend hiện tại.</p></div></header>
-            <HealthStatus />
-          </section>
           <section className="panel quick-actions">
             <header className="panel-header"><div><h2>Thao tác nhanh</h2><p>Tiếp tục luồng công việc thường dùng.</p></div></header>
             <Link to="/chat"><strong>Khắc phục sự cố</strong><span>Hỏi đáp dựa trên tài liệu nội bộ</span></Link>

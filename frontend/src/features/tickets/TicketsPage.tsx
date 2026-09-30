@@ -39,6 +39,7 @@ export function TicketsPage() {
   const [ticketCursor, setTicketCursor] = useState<string | null>(null);
   const [approvalCursor, setApprovalCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState<"tickets" | "approvals" | null>(null);
+  const [draftOpen, setDraftOpen] = useState(true);
   const titleInput = useRef<HTMLInputElement>(null);
   const draftPanel = useRef<HTMLElement>(null);
 
@@ -153,24 +154,33 @@ export function TicketsPage() {
   if (loading) return <LoadingState label="Đang tải ticket…" />;
 
   return (
-    <div className="tickets-page">
+    <div className={draftOpen ? "tickets-page draft-visible" : "tickets-page"}>
       <PageHeader
         eyebrow="TICKET MANAGEMENT"
         title="Ticket hỗ trợ"
         description="Theo dõi yêu cầu và xác nhận rõ nội dung trước khi tạo ticket."
-        actions={<button className="primary-button" onClick={() => { draftPanel.current?.scrollIntoView({ behavior: "smooth" }); titleInput.current?.focus(); }} type="button">+ Tạo ticket</button>}
+        actions={<button className="primary-button" onClick={() => { setDraftOpen(true); window.setTimeout(() => titleInput.current?.focus(), 0); }} type="button">+ Tạo ticket</button>}
       />
 
       {notice ? <p className="notice-banner" role="status">{notice}</p> : null}
       {error ? <div className="alert-banner error" role="alert">{error}</div> : null}
 
-      <section className="panel ticket-draft-panel" ref={draftPanel}>
-        <header className="panel-header"><div><h2>Tạo bản nháp</h2><p>Ticket chỉ được ghi sau bước xác nhận.</p></div></header>
+      <section className="ticket-summary" aria-label="Tổng quan ticket">
+        <button className={statusFilter === "all" ? "active" : ""} onClick={() => setStatusFilter("all")} type="button"><span>Tất cả</span><strong>{tickets.length}</strong></button>
+        <button className={statusFilter === "open" ? "active" : ""} onClick={() => setStatusFilter("open")} type="button"><span>Mới tạo</span><strong>{tickets.filter((ticket) => ticket.status === "open").length}</strong></button>
+        <button className={statusFilter === "in_progress" ? "active" : ""} onClick={() => setStatusFilter("in_progress")} type="button"><span>Đang xử lý</span><strong>{tickets.filter((ticket) => ticket.status === "in_progress").length}</strong></button>
+        <button className="warning" onClick={() => setDraftOpen(true)} type="button"><span>Chờ xác nhận</span><strong>{approvals.length}</strong></button>
+        <button className={statusFilter === "resolved" ? "active" : ""} onClick={() => setStatusFilter("resolved")} type="button"><span>Đã giải quyết</span><strong>{tickets.filter((ticket) => ticket.status === "resolved").length}</strong></button>
+      </section>
+
+      {draftOpen ? <aside className="ticket-side-panel" aria-label="Tạo ticket và phê duyệt">
+      <section className="ticket-draft-panel" ref={draftPanel}>
+        <header className="panel-header"><div><h2>Tạo ticket hỗ trợ</h2><p>Gửi yêu cầu hỗ trợ tới đội ngũ IT.</p></div><button aria-label="Đóng panel tạo ticket" className="drawer-close" onClick={() => setDraftOpen(false)} type="button">×</button></header>
         <form onSubmit={submitDraft}>
           <label>Tiêu đề<input minLength={5} ref={titleInput} required value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} /></label>
           <label>Mô tả<textarea minLength={10} required rows={4} value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></label>
-          <label>Loại sự cố<select value={draft.issue_type} onChange={(event) => setDraft({ ...draft, issue_type: event.target.value as TicketDraftArguments["issue_type"] })}><option value="vpn">VPN</option><option value="docker">Docker</option><option value="gitlab">GitLab</option><option value="other">Khác</option></select></label>
-          <label>Mức độ<select value={draft.severity} onChange={(event) => setDraft({ ...draft, severity: event.target.value as TicketDraftArguments["severity"] })}><option value="low">Thấp</option><option value="normal">Bình thường</option><option value="high">Cao</option></select></label>
+          <label>Loại sự cố<select aria-label="Loại sự cố" value={draft.issue_type} onChange={(event) => setDraft({ ...draft, issue_type: event.target.value as TicketDraftArguments["issue_type"] })}><option value="vpn">VPN</option><option value="docker">Docker</option><option value="gitlab">GitLab</option><option value="other">Khác</option></select></label>
+          <label>Mức độ<select aria-label="Mức độ" value={draft.severity} onChange={(event) => setDraft({ ...draft, severity: event.target.value as TicketDraftArguments["severity"] })}><option value="low">Thấp</option><option value="normal">Bình thường</option><option value="high">Cao</option></select></label>
           <button className="primary-button" disabled={submitting} type="submit">{submitting ? "Đang tạo…" : "Tạo bản nháp"}</button>
         </form>
       </section>
@@ -190,8 +200,9 @@ export function TicketsPage() {
         </div>
         {approvalCursor ? <button className="load-more-button" disabled={Boolean(loadingMore)} onClick={() => void loadMore("approvals")} type="button">{loadingMore === "approvals" ? "Đang tải…" : "Tải thêm phê duyệt"}</button> : null}
       </section>
+      </aside> : null}
 
-      <section className="panel">
+      <section className="panel ticket-library">
         <header className="panel-header"><div><h2>Ticket cá nhân</h2><p>{tickets.length} ticket trong phạm vi của bạn</p></div></header>
         <div className="filter-bar">
           <label className="search-field"><span className="sr-only">Tìm ticket</span><input onChange={(event) => setQuery(event.target.value)} placeholder="Tìm theo mã, tiêu đề…" type="search" value={query} /></label>

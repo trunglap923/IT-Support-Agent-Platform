@@ -117,10 +117,17 @@ export function OperationsPage() {
     <div className="operations-page">
       <PageHeader
         eyebrow="IT OPERATIONS"
-        title="Hàng đợi hỗ trợ"
+        title="Hàng đợi IT"
         description="Theo dõi tình trạng dịch vụ và xử lý ticket trong phạm vi được phân quyền."
       />
       {error ? <div className="alert-banner error" role="alert">{error}</div> : null}
+
+      <section className="operations-metrics" aria-label="Tổng quan hàng đợi">
+        <div><span className="metric-icon">▤</span><span><small>Tổng ticket</small><strong>{tickets.length}</strong></span></div>
+        <div><span className="metric-icon amber">◷</span><span><small>Đang xử lý</small><strong>{tickets.filter((ticket) => ticket.status === "in_progress").length}</strong></span></div>
+        <div><span className="metric-icon red">△</span><span><small>Mức độ cao</small><strong>{tickets.filter((ticket) => ticket.severity === "high").length}</strong></span></div>
+        <div><span className="metric-icon">♙</span><span><small>Chưa xử lý</small><strong>{tickets.filter((ticket) => ticket.status === "open").length}</strong></span></div>
+      </section>
 
       <section className="panel operations-services">
         <header className="panel-header">
@@ -130,27 +137,23 @@ export function OperationsPage() {
         {services.length === 0 ? (
           <EmptyState title="Chưa có dịch vụ" description="Trạng thái dịch vụ mô phỏng sẽ xuất hiện tại đây." />
         ) : (
-          <div className="table-scroll">
-            <span className="mobile-scroll-hint">Vuốt ngang để xem chi tiết →</span>
-            <table className="data-table service-table">
-              <thead><tr><th>Dịch vụ</th><th>Trạng thái</th><th>Thông báo</th><th>Cập nhật</th><th aria-label="Thao tác" /></tr></thead>
-              <tbody>{services.map((service) => (
-                <tr key={service.service_id}>
-                  <td><strong>{service.service_id}</strong><small>Fault mode: {service.fault_mode}</small></td>
-                  <td>
+          <div className="service-cards">
+            {services.map((service) => (
+              <article key={service.service_id}>
+                <div className="service-card-heading"><span className="service-logo" aria-hidden="true">{service.service_id.slice(0, 1).toUpperCase()}</span><div><strong>{service.service_id}</strong><small>Fault mode: {service.fault_mode}</small></div></div>
+                <div className="service-card-state">
                     <div className="service-status-control">
                       <StatusBadge value={service.status} />
                       <select aria-label={`Trạng thái ${service.service_id}`} disabled={user?.role !== "admin"} value={service.status} onChange={(event) => setServices((current) => current.map((item) => item.service_id === service.service_id ? { ...item, status: event.target.value as ServiceState["status"] } : item))}>
                         <option value="healthy">Healthy</option><option value="degraded">Degraded</option><option value="down">Down</option><option value="unknown">Unknown</option>
                       </select>
                     </div>
-                  </td>
-                  <td><input aria-label={`Thông báo ${service.service_id}`} disabled={user?.role !== "admin"} value={service.message} onChange={(event) => setServices((current) => current.map((item) => item.service_id === service.service_id ? { ...item, message: event.target.value } : item))} /></td>
-                  <td><time dateTime={service.updated_at}>{new Date(service.updated_at).toLocaleString("vi-VN")}</time></td>
-                  <td>{user?.role === "admin" ? <button className="compact-button" onClick={() => void saveService(service)} type="button">Lưu</button> : null}</td>
-                </tr>
-              ))}</tbody>
-            </table>
+                    <time dateTime={service.updated_at}>{new Date(service.updated_at).toLocaleString("vi-VN")}</time>
+                </div>
+                <input aria-label={`Thông báo ${service.service_id}`} disabled={user?.role !== "admin"} value={service.message} onChange={(event) => setServices((current) => current.map((item) => item.service_id === service.service_id ? { ...item, message: event.target.value } : item))} />
+                {user?.role === "admin" ? <button className="compact-button" onClick={() => void saveService(service)} type="button">Lưu trạng thái</button> : null}
+              </article>
+            ))}
           </div>
         )}
       </section>
@@ -169,7 +172,7 @@ export function OperationsPage() {
           <div className="table-scroll">
             <span className="mobile-scroll-hint">Vuốt ngang để xem thao tác →</span>
             <table className="data-table operations-ticket-table">
-              <thead><tr><th>Ticket</th><th>Trạng thái</th><th>Ưu tiên</th><th>Thao tác tiếp theo</th></tr></thead>
+              <thead><tr><th>Ticket</th><th>Dịch vụ</th><th>Ưu tiên</th><th>Trạng thái</th><th>Thao tác tiếp theo</th></tr></thead>
               <tbody>{filteredTickets.map((ticket) => (
                 <tr key={ticket.id}>
                   <td>
@@ -177,8 +180,9 @@ export function OperationsPage() {
                     <strong>{ticket.title}</strong>
                     <small>{ticket.description}</small>
                   </td>
-                  <td><StatusBadge value={ticket.status} /></td>
+                  <td><StatusBadge value={ticket.issue_type} label={ticket.issue_type} /></td>
                   <td><StatusBadge value={ticket.severity} /></td>
+                  <td><StatusBadge value={ticket.status} /></td>
                   <td className="queue-actions">
                     {ticket.status === "open" ? <button className="primary-button" onClick={() => void moveTicket(ticket, "start")} type="button">Bắt đầu xử lý</button> : null}
                     {ticket.status === "in_progress" ? (

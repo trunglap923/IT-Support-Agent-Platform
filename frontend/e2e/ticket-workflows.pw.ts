@@ -16,6 +16,10 @@ function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
 }
 
+function cursorPage(items: unknown[]) {
+  return { items, next_cursor: null };
+}
+
 async function mockSession(page: Page, user = employee) {
   await page.route("**/api/v1/auth/me", (route) =>
     json(route, { user, csrf_token: "csrf-browser-test" }),
@@ -28,9 +32,9 @@ test("employee creates, approves and rejects ticket drafts", async ({ page }) =>
   const cancelledRuns: string[] = [];
   let draftCounter = 0;
 
-  await page.route("**/api/v1/tickets/mine", (route) => json(route, []));
-  await page.route("**/api/v1/approvals?approval_status=pending", (route) =>
-    json(route, pending),
+  await page.route("**/api/v1/tickets/mine**", (route) => json(route, cursorPage([])));
+  await page.route("**/api/v1/approvals?approval_status=pending**", (route) =>
+    json(route, cursorPage(pending)),
   );
   await page.route("**/api/v1/tickets/drafts", async (route) => {
     const request = route.request();
@@ -99,7 +103,7 @@ test("employee creates, approves and rejects ticket drafts", async ({ page }) =>
   await page.goto("/tickets");
   await page.getByLabel("Tiêu đề").fill("VPN access issue");
   await page.getByLabel("Mô tả").fill("VPN remains unavailable after all documented steps.");
-  await page.getByLabel("Loại sự cố").selectOption("vpn");
+  await page.getByLabel("Loại sự cố", { exact: true }).selectOption("vpn");
   await page.getByRole("button", { name: "Tạo bản nháp" }).click();
   await expect(page.getByRole("heading", { name: "VPN access issue" })).toBeVisible();
   await page.getByRole("button", { name: "Sửa bản nháp" }).click();
@@ -114,9 +118,10 @@ test("employee creates, approves and rejects ticket drafts", async ({ page }) =>
 
   await page.getByLabel("Tiêu đề").fill("GitLab access issue");
   await page.getByLabel("Mô tả").fill("GitLab access is denied for the required project.");
-  await page.getByLabel("Loại sự cố").selectOption("gitlab");
+  await page.getByLabel("Loại sự cố", { exact: true }).selectOption("gitlab");
   await page.getByRole("button", { name: "Tạo bản nháp" }).click();
   await page.getByRole("button", { name: "Từ chối" }).click();
+  await page.getByRole("button", { name: "Từ chối bản nháp" }).click();
   await expect(page.getByText("Đã từ chối bản nháp.")).toBeVisible();
 });
 
@@ -140,7 +145,7 @@ test("IT resolves and reopens tickets", async ({ page }) => {
     fault_mode: "none",
     updated_at: "2026-09-16T00:00:00Z",
   };
-  await page.route("**/api/v1/tickets/queue", (route) => json(route, [ticket]));
+  await page.route("**/api/v1/tickets/queue**", (route) => json(route, cursorPage([ticket])));
   await page.route("**/api/v1/service-status", (route) => json(route, [service]));
   await page.route("**/api/v1/tickets/*/transition", async (route) => {
     const body = route.request().postDataJSON();
@@ -171,7 +176,7 @@ test("admin updates simulated service state", async ({ page }) => {
     fault_mode: "none",
     updated_at: "2026-09-16T00:00:00Z",
   };
-  await page.route("**/api/v1/tickets/queue", (route) => json(route, []));
+  await page.route("**/api/v1/tickets/queue**", (route) => json(route, cursorPage([])));
   await page.route("**/api/v1/service-status", (route) => json(route, [service]));
   await page.route("**/api/v1/service-status/vpn", async (route) => {
     service = { ...service, ...route.request().postDataJSON() };
