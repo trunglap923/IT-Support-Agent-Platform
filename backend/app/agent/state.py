@@ -43,6 +43,8 @@ class SupportAgentState(TypedDict, total=False):
     tool_calls: int
     context_estimated_tokens: int
     context_truncated: bool
+    conversation_summary: str | None
+    summarized_messages: int
     suggested_steps: list[str]
     confirmed_attempted_steps: list[str]
     evidence: list[EvidenceState]

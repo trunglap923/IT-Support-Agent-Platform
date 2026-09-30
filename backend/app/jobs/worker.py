@@ -147,7 +147,7 @@ async def execute_support_run(
                             Message.id != user_message.id,
                         )
                         .order_by(Message.created_at.desc(), Message.id.desc())
-                        .limit(40)
+                        .limit(120)
                     )
                 ).all()
             )

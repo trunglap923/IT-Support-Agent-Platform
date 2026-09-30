@@ -240,7 +240,7 @@ Metadata bắt buộc:
 | `/it/tickets` | Hàng đợi IT | Ticket đúng scope; đổi trạng thái và thêm resolution note |
 | `/admin/documents` | Quản lý knowledge | Upload, tiến độ, phiên bản, publish/archive, preview text |
 | `/admin/services` | Mô phỏng dịch vụ | Chọn status và tình huống timeout cho demo |
-| `/settings/memory` | Memory | Bật/tắt, xem nguồn, duyệt đề xuất, sửa/xóa |
+| `/settings/memory` | Memory | Xem nguồn, duyệt đề xuất, sửa/xóa confirmed fact |
 
 Chat hiển thị sự kiện như “Đang tra tài liệu”, “Đang kiểm tra VPN”, “Cần bạn xác nhận”. Không hiển thị hidden reasoning, raw prompt, raw checkpoint hoặc internal tool payload.
 
@@ -377,13 +377,14 @@ LangGraph resume có thể chạy lại node chứa interrupt. Tách việc tạ
 
 ## 10. Tool contract và MCP
 
-### 10.1. Bốn tool model nhìn thấy
+### 10.1. Năm tool model nhìn thấy
 
 | Tool | Arguments do model được phép tạo | Execution |
 |---|---|---|
 | `search_knowledge_base` | `query: string[1..1000]` | RAG local trong agent worker |
 | `check_service_status` | `service: vpn \| registry \| gitlab` | MCP read |
-| `get_my_open_tickets` | Không có | MCP read, tối đa 10 ticket mới nhất |
+| `get_my_open_tickets` | Không có | MCP read, tối đa 10 ticket đang mở |
+| `get_my_recent_tickets` | Không có | MCP read, tối đa 10 ticket cập nhật gần nhất, gồm resolved |
 | `create_ticket` | `title, description, issue_type, severity, device_id` | Propose → approval → MCP write |
 
 Title dài 5–160 ký tự; description 10–4.000 ký tự; issue_type là vpn/docker/gitlab/other; device_id nullable và phải thuộc actor. Nullable fields vẫn khai báo rõ trong strict schema.
@@ -492,15 +493,15 @@ V1 dùng structured lookup theo owner/device/issue_type và lịch sử gần nh
 - Fact active hết hạn sau 90 ngày nếu chưa xác nhận lại; incident lookup mặc định trong 90 ngày.
 - Job deduplicate theo user/source_message/extractor_version; job lỗi không làm chat thất bại.
 
-### 12.3. Tắt, sửa, xóa
+### 12.3. Xác nhận, sửa, xóa
 
-Memory settings có counter `memory_epoch`. Khi tắt/xóa, tăng counter; worker phải so sánh lại trước khi commit để job cũ không tái tạo dữ liệu vừa bị xóa. Candidate pending từ epoch cũ không được accept; active facts còn giữ được không tự mất chỉ vì epoch tăng.
+Memory luôn hoạt động và có counter `memory_epoch`. Khi sửa/xóa, tăng counter; worker phải so sánh lại trước khi commit để job cũ không tái tạo dữ liệu vừa bị xóa. Candidate pending từ epoch cũ không được accept; active facts còn giữ được không tự mất chỉ vì epoch tăng.
 
-Mỗi run tải lại memory active đã được xác nhận và đúng owner, đọc settings/epoch hiện tại để phát hiện thay đổi trong lúc build context. Epoch kiểm soát job/race, không phải điều kiện loại bỏ mọi active fact cũ. Tắt memory ngừng sử dụng và ghi mới; bật lại dùng các active fact chưa xóa/chưa hết hạn. Xóa một mục không xóa các mục khác.
+Mỗi run tải lại tối đa năm memory active đã được xác nhận và đúng owner/device, đồng thời đọc epoch hiện tại để phát hiện thay đổi trong lúc build context. Epoch kiểm soát job/race, không phải điều kiện loại bỏ mọi active fact cũ. Xóa một mục không xóa các mục khác.
 
 Không hồi sinh memory từ checkpoint của run cũ. UI phân biệt “xóa mục ghi nhớ” với “xóa lịch sử chat”; xóa memory không xóa phát biểu gốc trong conversation hiện tại. Extraction chỉ xử lý source messages mới của run, không quét lại toàn bộ history.
 
-Khi dùng lịch sử sự cố từ các conversation khác, luôn kiểm tra memory enabled và chỉ bắt đầu từ episodic records còn active rồi mới lấy ticket status hiện tại. Không quét tất cả ticket cũ để tự dựng lại memory đã xóa. Ticket resolved event chỉ cập nhật memory sự cố còn tồn tại; không tự tạo lại mục đã xóa. Người dùng vẫn xem được ticket của mình qua ticket tool/UI.
+Khi dùng lịch sử sự cố từ các conversation khác, chỉ bắt đầu từ fact còn active hoặc đọc ticket gần đây qua owner-scoped tool. Không quét tất cả ticket cũ để tự dựng lại memory đã xóa. Ticket resolved event không tự tạo lại mục đã xóa.
 
 ### 12.4. Context budget
 
@@ -717,7 +718,7 @@ Read tool có thể retry. Ticket write timeout phải tra receipt theo approval
 | Worker chết khi chờ approval | Approval đã lưu, worker không cần chạy; refresh vẫn hiển thị draft |
 | Worker chết sau ticket commit | Retry tìm ticket bằng approval_id và hoàn thiện receipt |
 | Ingestion bị ngắt | Version đang publish vẫn hoạt động; retry version draft bằng checksum |
-| Memory job bị ngắt | Chat thành công; retry không vượt epoch/consent |
+| Memory job bị ngắt | Chat thành công; retry không vượt memory epoch |
 
 Form tạo ticket khi model không sẵn sàng dùng cùng validate → approval → ticket service. UI nhập đủ title/description/issue_type/severity rồi gọi `POST /conversations/{id}/ticket-drafts` tại mục 14. Chỉ tạo run mới khi run trước đã kết thúc hoặc đã hủy draft; form này vẫn cần DB/Redis/MCP hoạt động.
 
@@ -779,7 +780,7 @@ Ví dụ 8.000 input + 1.000 output token cộng dồn cả run trên GPT-4.1 mi
 - Trước mỗi call, reserve chi phí tối đa theo input/output cap bằng DB transaction; cộng cả reservations đang chạy khi kiểm tra quota.
 - Sau response, đối soát usage thật; timeout không biết token phải giữ mức reservation bảo thủ, không ghi cost=0.
 - Run, memory và ingestion đều qua cùng budget service. Không âm thầm tăng giá hoặc fallback sang model đắt hơn.
-- Memory extraction tối đa một call/run, tối đa 2.000 input/500 output token, chỉ khi consent bật và có nội dung thuộc allowlist.
+- Memory extraction tối đa một call/run, chỉ tạo candidate cho nội dung thuộc allowlist; fact chỉ active sau xác nhận.
 - Embedding cache key gồm model, dimensions, preprocessing_version và text hash; TTL 7 ngày, có namespace/quota.
 - Query embedding cache có namespace actor_id; document embedding cache chỉ dùng nội bộ worker. Lọc secret trước embedding, không cache raw query text.
 - Không cache retrieval results hoặc câu trả lời trong V1; tránh invalidation theo quyền và phiên bản.
@@ -1073,7 +1074,7 @@ Không dùng reset database thật trong tests. README ghi cấu hình máy th�
 | M2 | Seed corpus, ingestion cơ bản, RAG graph, chat/SSE/citations, Langfuse trace | 18–28 | Demo hỏi tài liệu có nguồn chạy end-to-end; baseline được ghi |
 | M3 | MCP status/ticket reads, ticket draft, approval, atomic write, UI ticket | 28–40 | UC-02/04/05/09 chạy; duplicate/permission/crash-after-commit tests pass |
 | M4 | Recovery/reconcile, full document admin/versioning, ACL và output enforcement | 18–26 | Refresh/restart/dependency errors có hành vi đúng; publish/ACL tests pass |
-| M5 | Device-scoped memory, consent, confirm/edit/delete, cross-conversation context | 24–36 | UC-06/11/12 chạy; multi-device và epoch race tests pass |
+| M5 | Device-scoped always-on memory, confirm/edit/delete, cross-conversation context | 24–36 | UC-06/11/12 chạy; multi-device và epoch race tests pass |
 | M6 | 120-case dataset, live eval, feedback, load/cost report | 16–24 | Báo cáo gates, baseline comparison, lỗi chất lượng quan trọng được sửa |
 | M7 | Hoàn thiện UI/README/demo, backup-restore drill, clean-machine verification | 24–36 | V1 đủ năm thành phần yêu cầu và đạt Definition of Done |
 

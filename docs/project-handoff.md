@@ -25,7 +25,7 @@ có implementation cùng bằng chứng test. Mỗi phần code độc lập nê
 - Đọc ticket đúng owner; tạo ticket bắt buộc có approval và receipt idempotent.
 - IT queue có resolve/reopen; admin quản lý service status và tài liệu.
 - Tài liệu có upload, version, publish/revoke và ACL company/department/IT-only.
-- Memory qua nhiều conversation chỉ hoạt động khi có consent và confirmation.
+- Memory luôn hoạt động qua nhiều conversation nhưng chỉ dùng fact đã được xác nhận.
 - PostgreSQL/pgvector là nguồn trạng thái bền vững; Redis/Celery xử lý job và recovery.
 - Fake mode chạy độc lập, deterministic và không cần API key; OpenAI/Langfuse là tùy chọn.
 
@@ -34,7 +34,7 @@ Tên portfolio đề xuất: **Stateful IT Support Agent with Evaluated RAG and 
 ## 2. Trạng thái hiện tại
 
 - WP-01 đến WP-14 đã có implementation chính và local evidence.
-- Alembic head: `0017_ticket_device_owner`.
+- Alembic head: `0018_always_on_memory`.
 - Stack Docker có 7 service: frontend, API, agent worker, background worker, scheduler,
   PostgreSQL/pgvector và Redis.
 - Tại snapshot này, 7/7 service đang healthy.
@@ -107,7 +107,7 @@ Xem [architecture.md](architecture.md) và
 
 ### Memory, observability và evaluation
 
-- Memory consent, candidate, confirm/reject, device scope, edit/delete và epoch protection.
+- Always-on memory, candidate confirmation/rejection, device scope, edit/delete và epoch protection.
 - Durable memory extraction job được commit trước enqueue; reconciliation replay idempotent.
 - Langfuse adapter/no-op fake mode, feedback metadata, token usage và budget ledger.
 - Evaluation dataset 120 cases, chia đều RAG/permission/tool/approval/memory/failure.

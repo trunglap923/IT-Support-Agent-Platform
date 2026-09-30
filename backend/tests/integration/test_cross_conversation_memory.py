@@ -9,10 +9,14 @@ from app.auth.principal import Principal
 from app.db import Database
 from app.db.models import Conversation, Message
 from app.memory.lifecycle import MemoryLifecycleService
-from app.memory.retrieval import MemoryContextService
+from app.memory.retrieval import MAX_MEMORY_CONTEXT_FACTS, MemoryContextService
 from app.providers.fake import FakeTextProvider
 
 PASSWORD = "correct-horse-battery-staple"
+
+
+def test_memory_context_limit_is_fixed_at_five() -> None:
+    assert MAX_MEMORY_CONTEXT_FACTS == 5
 
 
 def test_confirmed_memory_crosses_conversations_but_device_memory_stays_scoped(
@@ -24,9 +28,6 @@ def test_confirmed_memory_crosses_conversations_but_device_memory_stays_scoped(
         try:
             async with database.session() as session, session.begin():
                 user = await ensure_demo_identity(session, password=PASSWORD)
-                await lifecycle.set_consent(
-                    session, owner_id=user.id, enabled=True, expected_epoch=0
-                )
                 laptop = await lifecycle.create_device(
                     session,
                     owner_id=user.id,

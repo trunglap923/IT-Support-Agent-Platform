@@ -21,18 +21,6 @@ from app.memory.lifecycle import (
 router = APIRouter(prefix="/memory", tags=["memory"])
 
 
-class ConsentResponse(BaseModel):
-    enabled: bool
-    epoch: int
-
-
-class UpdateConsentRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    enabled: bool
-    expected_epoch: int = Field(ge=0)
-
-
 class MemoryCandidateResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -90,39 +78,6 @@ class UpdateFactRequest(BaseModel):
 
     expected_version: int = Field(ge=1)
     value: str = Field(min_length=1, max_length=240)
-
-
-@router.get("/consent", response_model=ConsentResponse)
-async def get_consent(
-    principal: CurrentPrincipal,
-    session: Annotated[AsyncSession, Depends(get_db_session)],
-) -> ConsentResponse:
-    value = await MemoryLifecycleService().get_consent(session, owner_id=principal.user_id)
-    return ConsentResponse(enabled=value.enabled, epoch=value.epoch)
-
-
-@router.put(
-    "/consent",
-    response_model=ConsentResponse,
-    dependencies=[Depends(require_csrf)],
-)
-async def update_consent(
-    payload: UpdateConsentRequest,
-    principal: CurrentPrincipal,
-    session: Annotated[AsyncSession, Depends(get_db_session)],
-) -> ConsentResponse:
-    try:
-        value = await MemoryLifecycleService().set_consent(
-            session,
-            owner_id=principal.user_id,
-            enabled=payload.enabled,
-            expected_epoch=payload.expected_epoch,
-        )
-        await session.commit()
-    except MemoryConflictError as error:
-        await session.rollback()
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
-    return ConsentResponse(enabled=value.enabled, epoch=value.epoch)
 
 
 @router.get("/candidates", response_model=list[MemoryCandidateResponse])

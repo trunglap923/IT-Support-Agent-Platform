@@ -38,3 +38,7 @@ class TicketSummary(BaseModel):
 
 class OpenTicketsResult(BaseModel):
     tickets: list[TicketSummary] = Field(max_length=10)
+
+
+class RecentTicketsResult(BaseModel):
+    tickets: list[TicketSummary] = Field(max_length=10)

@@ -29,7 +29,7 @@ make up
 1. Mở `http://127.0.0.1:5173`.
 2. Login `employee.engineering@example.com` bằng `DEMO_SEED_PASSWORD`.
 3. Mở `/chat`, tạo conversation và quan sát message/run status/SSE UI.
-4. Mở `/tickets` và `/settings/memory` để trình bày các state/error/consent controls.
+4. Mở `/tickets` và `/settings/memory` để trình bày candidate confirmation và fact controls.
 5. Với fake provider, hỏi về VPN/Docker/GitLab để kiểm tra citation từ corpus đã publish.
 
 ## Automated feature evidence

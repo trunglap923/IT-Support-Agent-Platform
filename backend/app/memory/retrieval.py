@@ -9,7 +9,9 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.context.builder import ContextMessage
-from app.db.models import MemoryFact, User
+from app.db.models import MemoryFact
+
+MAX_MEMORY_CONTEXT_FACTS = 5
 
 
 class MemoryContextService:
@@ -20,12 +22,8 @@ class MemoryContextService:
         owner_id: UUID,
         device_id: UUID | None,
         now: datetime | None = None,
-        limit: int = 5,
     ) -> list[ContextMessage]:
         current_time = now or datetime.now(UTC)
-        consent = await session.execute(select(User.memory_enabled).where(User.id == owner_id))
-        if consent.scalar_one_or_none() is not True:
-            return []
         scope_filter = MemoryFact.scope == "global"
         if device_id is not None:
             scope_filter = or_(
@@ -42,7 +40,7 @@ class MemoryContextService:
                     scope_filter,
                 )
                 .order_by(MemoryFact.updated_at.desc(), MemoryFact.id)
-                .limit(limit)
+                .limit(MAX_MEMORY_CONTEXT_FACTS)
             )
         )
         return [

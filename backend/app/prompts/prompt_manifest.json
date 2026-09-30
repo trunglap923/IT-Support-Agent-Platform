@@ -3,8 +3,8 @@
   "assets": {
     "support_agent": {
       "path": "agent.md",
-      "version": "support-agent-v3",
-      "sha256": "67296635a8f73a9b0526ccf395656902aedf654bcb84598ae939e037433766ff"
+      "version": "support-agent-v4",
+      "sha256": "25200c83e0c74bc0245a2123e70a28664053f4108a8e017ace0ac3c499d63c33"
     },
     "memory_extraction": {
       "path": "memory_extraction.md",

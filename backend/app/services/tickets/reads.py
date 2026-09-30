@@ -38,6 +38,19 @@ class TicketReadService:
         )
         return list((await session.scalars(statement)).all())
 
+    async def list_my_recent(
+        self, session: AsyncSession, *, principal: Principal, limit: int = 10
+    ) -> list[Ticket]:
+        """Return recent tickets owned by the actor, including terminal states."""
+
+        statement = (
+            select(Ticket)
+            .where(Ticket.owner_id == principal.user_id)
+            .order_by(Ticket.updated_at.desc(), Ticket.id.desc())
+            .limit(min(max(limit, 1), 10))
+        )
+        return list((await session.scalars(statement)).all())
+
     async def list_visible(
         self,
         session: AsyncSession,

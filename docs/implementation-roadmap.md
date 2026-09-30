@@ -19,7 +19,7 @@ Nguồn yêu cầu: [plan.md](../plan.md), đặc biệt mục 21.1. Bản đồ
 - [x] WP-09: approval/ticket/IT operations UI cùng browser E2E theo role đã đạt local.
 - [x] WP-10: lease, retry, reconcile, crash/receipt recovery và failure tests đã đạt local.
 - [x] WP-11: upload/preview, version/publish/revoke/ACL và document admin E2E đã đạt local.
-- [x] WP-12: consent memory, device scope, LangGraph context, epoch concurrency và settings UI đã đạt local.
+- [x] WP-12: always-on confirmed memory, device scope, LangGraph context/summary, epoch concurrency và settings UI đã đạt local.
 - [x] WP-13: 120-case dataset, deterministic/live-guarded runner, feedback và G-01–G-09 reports đã có; overall gate decision vẫn `not_ready`.
 - [x] WP-14: production images, 7-service stack, reproducible commands, backup/restore, CI definition và handoff docs đã đạt local; independent review/video/remote CI còn mở.
 

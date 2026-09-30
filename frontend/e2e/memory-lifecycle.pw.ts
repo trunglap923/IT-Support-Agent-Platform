@@ -19,21 +19,13 @@ async function mockSession(page: Page) {
   );
 }
 
-test("user enables memory, confirms a candidate, edits and deletes the fact", async ({ page }) => {
+test("always-on memory still requires confirmation and supports edit/delete", async ({ page }) => {
   await mockSession(page);
-  let consent = { enabled: false, epoch: 0 };
   const device = { id: "30000000-0000-0000-0000-000000000001", label: "Laptop công ty", platform: "windows", active: true, version: 1 };
   let devices: typeof device[] = [];
   let candidates = [{ id: "40000000-0000-0000-0000-000000000001", kind: "device", key: "operating_system", value: "Windows 11", evidence: "Tôi dùng Windows 11.", device_id: null, status: "pending", version: 1, expires_at: "2026-09-23T00:00:00Z" }];
   let facts: Array<{ id: string; kind: string; key: string; value: string; scope: "device"; device_id: string; version: number; expires_at: string }> = [];
 
-  await page.route("**/api/v1/memory/consent", async (route) => {
-    if (route.request().method() === "PUT") {
-      expect(route.request().headers()["x-csrf-token"]).toBe("csrf-memory-e2e");
-      consent = { enabled: true, epoch: 1 };
-    }
-    await json(route, consent);
-  });
   await page.route("**/api/v1/memory/devices", async (route) => {
     if (route.request().method() === "POST") devices = [device];
     await json(route, route.request().method() === "POST" ? device : devices, route.request().method() === "POST" ? 201 : 200);
@@ -57,8 +49,7 @@ test("user enables memory, confirms a candidate, edits and deletes the fact", as
   });
 
   await page.goto("/settings/memory");
-  await page.getByRole("button", { name: "Bật memory" }).click();
-  await expect(page.getByText("Trạng thái:")).toContainText("Đang bật");
+  await expect(page.getByText(/Memory luôn hoạt động/)).toBeVisible();
   await page.getByLabel("Tên thiết bị").fill("Laptop công ty");
   await page.getByRole("button", { name: "Thêm thiết bị" }).click();
   await expect(page.getByRole("listitem").filter({ hasText: "Laptop công ty" })).toBeVisible();

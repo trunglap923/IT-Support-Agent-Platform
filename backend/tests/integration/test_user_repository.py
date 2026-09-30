@@ -34,7 +34,7 @@ def test_demo_identity_is_hashed_idempotent_and_queryable(
             assert count == 1
             assert found is not None
             assert found.role is UserRole.EMPLOYEE
-            assert found.memory_enabled is False
+            assert found.memory_enabled is True
             assert found.password_hash != "correct-horse-battery-staple"
             assert verify_password("updated-demo-password", found.password_hash)
             assert not verify_password("correct-horse-battery-staple", found.password_hash)
@@ -83,7 +83,7 @@ def test_full_demo_accounts_are_hashed_mapped_and_idempotent(
             assert all(user.password_hash.startswith("$argon2") for user in users)
             assert all(verify_password(password, user.password_hash) for user in users)
             assert all(user.active for user in users)
-            assert all(user.memory_enabled is False for user in users)
+            assert all(user.memory_enabled is True for user in users)
 
             expected = {spec.email: spec for spec in DEMO_USERS}
             assert {user.role for user in users} == {

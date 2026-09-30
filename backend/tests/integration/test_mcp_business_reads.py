@@ -101,6 +101,17 @@ def test_mcp_stdio_reads_revalidate_actor_and_preserve_ownership(
                             severity="low",
                             status="open",
                         ),
+                        Ticket(
+                            display_key="IT-MCP-A-RESOLVED",
+                            owner_id=alice.id,
+                            department_id=department.id,
+                            title="Alice resolved Docker issue",
+                            description="Alice's earlier registry issue was resolved.",
+                            issue_type="docker",
+                            severity="low",
+                            status="resolved",
+                            resolution_note="Token renewed.",
+                        ),
                     ]
                 )
                 await ServiceStatusService().ensure_defaults(session)
@@ -115,7 +126,11 @@ def test_mcp_stdio_reads_revalidate_actor_and_preserve_ownership(
             run_id=alice_run_id,
             database_url=migrated_database_url,
         )
-        assert set(discovered) == {"check_service_status", "get_my_open_tickets"}
+        assert set(discovered) == {
+            "check_service_status",
+            "get_my_open_tickets",
+            "get_my_recent_tickets",
+        }
 
         alice_result, bob_result = await asyncio.gather(
             call_business_tool(
@@ -136,6 +151,19 @@ def test_mcp_stdio_reads_revalidate_actor_and_preserve_ownership(
         assert alice_result[0] is False
         assert [item["display_key"] for item in alice_result[1]["tickets"]] == ["IT-MCP-A"]
         assert [item["display_key"] for item in bob_result[1]["tickets"]] == ["IT-MCP-B"]
+
+        recent_error, recent_result = await call_business_tool(
+            actor_id=alice_id,
+            run_id=alice_run_id,
+            database_url=migrated_database_url,
+            name="get_my_recent_tickets",
+            arguments={},
+        )
+        assert recent_error is False
+        assert {item["display_key"] for item in recent_result["tickets"]} == {
+            "IT-MCP-A",
+            "IT-MCP-A-RESOLVED",
+        }
 
         is_error, forbidden = await call_business_tool(
             actor_id=bob_id,

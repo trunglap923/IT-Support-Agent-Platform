@@ -56,6 +56,15 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
         arguments_model=EmptyArguments,
         route="mcp_read",
     ),
+    "get_my_recent_tickets": ToolSpec(
+        name="get_my_recent_tickets",
+        description=(
+            "List at most ten recently updated tickets owned by the current user, "
+            "including resolved tickets."
+        ),
+        arguments_model=EmptyArguments,
+        route="mcp_read",
+    ),
     "create_ticket": ToolSpec(
         name="create_ticket",
         description="Draft a support ticket that requires explicit user approval before creation.",
@@ -72,11 +81,7 @@ def model_tool_definitions() -> list[dict[str, object]]:
 def read_tool_definitions() -> list[dict[str, object]]:
     """Return only side-effect-free business reads available during chat routing."""
 
-    return [
-        spec.model_definition()
-        for spec in TOOL_REGISTRY.values()
-        if spec.route == "mcp_read"
-    ]
+    return [spec.model_definition() for spec in TOOL_REGISTRY.values() if spec.route == "mcp_read"]
 
 
 def support_tool_definitions() -> list[dict[str, object]]:

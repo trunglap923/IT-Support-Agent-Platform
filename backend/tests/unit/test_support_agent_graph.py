@@ -173,3 +173,26 @@ def test_long_context_keeps_current_query_and_old_confirmed_attempt() -> None:
     assert context.current_query == "VPN vẫn báo lỗi certificate."
     assert context.confirmed_attempted_steps == ("đồng bộ giờ hệ thống",)
     assert context.truncated is True
+
+
+def test_long_conversation_compacts_older_turns_and_keeps_recent_history() -> None:
+    history = [
+        ContextMessage(
+            role="user" if index % 2 == 0 else "assistant",
+            content=f"Turn {index} contains conversation detail.",
+        )
+        for index in range(24)
+    ]
+    history.append(ContextMessage(role="memory", content="Confirmed user data: x=y"))
+
+    context = build_agent_context(current_query="Current question", history=history)
+
+    assert context.conversation_summary is not None
+    assert "Turn 11 contains conversation detail." in context.conversation_summary
+    assert "Turn 12 contains conversation detail." not in context.conversation_summary
+    assert context.summarized_messages == 12
+    assert [message.content for message in context.history] == [
+        *(f"Turn {index} contains conversation detail." for index in range(12, 24)),
+        "Confirmed user data: x=y",
+    ]
+    assert context.truncated is True

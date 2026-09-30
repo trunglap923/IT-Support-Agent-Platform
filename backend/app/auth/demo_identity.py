@@ -166,7 +166,7 @@ async def _ensure_user(
             role=spec.role,
             department_id=department.id,
             active=True,
-            memory_enabled=False,
+            memory_enabled=True,
             memory_epoch=0,
         )
         repository.add(session, user)
@@ -179,6 +179,7 @@ async def _ensure_user(
         "role": spec.role,
         "department_id": department.id,
         "active": True,
+        "memory_enabled": True,
     }
     for attribute, value in desired.items():
         if getattr(user, attribute) != value:

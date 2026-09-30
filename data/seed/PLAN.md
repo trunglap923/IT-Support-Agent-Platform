@@ -48,4 +48,4 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [x] Chạy seed hai lần không nhân đôi user/ticket/document/chunk.
 - [x] Dry-run validate và phân loại created/updated/unchanged nhưng rollback mọi thay đổi.
 - [x] User cùng phòng ban và khác phòng ban đều có negative cases riêng.
-- [x] Không tự bật consent hoặc tạo active memory của người dùng ngoài fixture test explicit.
+- [x] Không tự tạo candidate hoặc confirmed memory của người dùng.

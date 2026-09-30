@@ -58,8 +58,7 @@ URL riêng hay dữ liệu cá nhân thật.
 
 - Password không nằm trong JSON. Seed command đọc `DEMO_SEED_PASSWORD`, hash tại runtime và
   từ chối chạy nếu trống; log không in password/hash.
-- Tất cả user mặc định `memory_enabled=false`. Chỉ fixture test chuyên biệt mới bật consent;
-  M0 không tạo active memory.
+- Memory luôn active cho mọi user; seed không tạo candidate hoặc confirmed fact.
 - Timestamp là ISO-8601 UTC, cố định để dữ liệu tái lập. Kịch bản cần “hiện tại” dùng clock
   injection ở test thay vì sửa fixture theo ngày chạy.
 - Nội dung không chứa API key, token, cookie, email thật hoặc thông tin định danh cá nhân.
@@ -81,4 +80,4 @@ stable key được coi là record mới, không phải rename ngầm.
 - JSON Schema và semantic references đều hợp lệ; checksum trùng file và không có path escape.
 - Có negative case khác owner, khác department, employee đọc `it_only` và câu hỏi no-answer.
 - Có ít nhất một user hai thiết bị, ticket ở cả ba trạng thái và service ở cả ba fault mode.
-- Chạy seed hai lần cho cùng số record; reset guard được test; không tự bật memory consent.
+- Chạy seed hai lần cho cùng số record; reset guard được test; không tự tạo confirmed memory.

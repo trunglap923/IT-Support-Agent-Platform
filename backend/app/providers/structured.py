@@ -18,7 +18,12 @@ class SupportToolCall(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     call_id: str = Field(min_length=1, max_length=160)
-    name: Literal["check_service_status", "get_my_open_tickets", "create_ticket"]
+    name: Literal[
+        "check_service_status",
+        "get_my_open_tickets",
+        "get_my_recent_tickets",
+        "create_ticket",
+    ]
     arguments: dict[str, Any]
 
 

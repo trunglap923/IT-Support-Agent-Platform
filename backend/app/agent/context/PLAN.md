@@ -1,6 +1,6 @@
 # Context và compaction
 
-Trạng thái: context contract, bounded history và confirmed memory theo device đã có; summary còn lại.
+Trạng thái: context contract, bounded history, extractive summary và confirmed memory theo device đã có.
 Work packages: WP-06, WP-12.
 Nguồn: [kế hoạch tổng](../../../../plan.md), mục 8.3, 9.3, 12.4; [thứ tự triển khai](../../../../docs/implementation-roadmap.md).
 
@@ -36,9 +36,10 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [x] CTX-03: Phân biệt suggested_steps với confirmed_attempted_steps khi tạo summary.
 - [x] CTX-04: Loại sources/history nay trái quyền; label nguồn superseded là historical.
 - [x] CTX-05: Đọc lại memory settings/epoch khi build; không hồi sinh dữ liệu từ checkpoint cũ.
+- [x] CTX-06: Compact hội thoại dài thành summary có nhãn untrusted và giữ 12 message gần nhất.
 
 ## Điều kiện hoàn thành
 
 - [x] Conversation dài vẫn giữ current query và các bước đã xác nhận.
 - [x] ACL thu hồi làm source text biến mất khỏi context/history được đọc lại.
-- [ ] Bật/tắt hoặc xóa một memory không làm mất các active fact hợp lệ khác.
+- [x] Xóa một memory không làm mất các active fact hợp lệ khác.

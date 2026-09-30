@@ -1,6 +1,6 @@
 # IT Support Agent Platform
 
-Portfolio prototype cho trợ lý IT có trạng thái: chat RAG kèm nguồn, service status mô phỏng, ticket cần phê duyệt, memory có consent và quản trị tài liệu có version/ACL.
+Portfolio prototype cho trợ lý IT có trạng thái: chat RAG kèm nguồn, service status mô phỏng, ticket cần phê duyệt, confirmed memory và quản trị tài liệu có version/ACL.
 
 ## Trạng thái
 
@@ -78,7 +78,7 @@ mà không lưu thay đổi vào database hoặc document storage. `make seed` d
 in cùng summary sau khi áp dụng. Không có seed target reset/xóa database đang sử dụng.
 
 Seed account chạy lại không tạo bản sao, chỉ cập nhật hash khi password environment thay đổi
-và không tự bật/tắt memory đã được người dùng cấu hình. Seed còn tạo ba thiết bị demo
+và giữ memory ở chế độ always-on nhưng không tự tạo confirmed fact. Seed còn tạo ba thiết bị demo
 (Ubuntu/Windows cho Engineering, Windows cho Operations), trạng thái `healthy` mặc định cho
 VPN, Docker Registry và GitLab, cùng 18 ticket thuộc nhiều user/phòng ban và cân bằng giữa
 `open`, `in_progress`, `resolved`. Corpus tự viết được ingest bằng fake embedding thành

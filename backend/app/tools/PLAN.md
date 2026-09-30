@@ -10,7 +10,8 @@ Cung cấp đúng bốn capabilities cho model và kiểm soát execution.
 
 ## Hợp đồng và trách nhiệm
 
-- Model tools: search_knowledge_base, check_service_status, get_my_open_tickets, create_ticket.
+- Model tools: search_knowledge_base, check_service_status, get_my_open_tickets,
+  get_my_recent_tickets, create_ticket.
 - RAG chạy local; ba business tools qua MCP.
 - create_ticket là đề xuất; executor chỉ dispatch write sau approval.
 

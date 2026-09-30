@@ -11,10 +11,15 @@ from pydantic import ValidationError
 
 from app.db import Database
 from app.mcp_server.context import MCPContextError, load_execution_context
-from app.mcp_server.read_tools import check_service_status, get_my_open_tickets
+from app.mcp_server.read_tools import (
+    check_service_status,
+    get_my_open_tickets,
+    get_my_recent_tickets,
+)
 from app.mcp_server.schemas import (
     EmptyArguments,
     OpenTicketsResult,
+    RecentTicketsResult,
     ServiceStatusArguments,
     ServiceStatusResult,
 )
@@ -31,6 +36,11 @@ READ_TOOL_DEFINITIONS: tuple[dict[str, Any], ...] = (
     {
         "name": "get_my_open_tickets",
         "description": "List at most ten open tickets owned by the current actor.",
+        "inputSchema": EmptyArguments.model_json_schema(),
+    },
+    {
+        "name": "get_my_recent_tickets",
+        "description": "List at most ten recently updated tickets owned by the current actor.",
         "inputSchema": EmptyArguments.model_json_schema(),
     },
 )
@@ -93,7 +103,7 @@ async def dispatch(message: dict[str, Any]) -> dict[str, Any] | None:
         context = load_execution_context()
         database = Database(context.database_url)
         try:
-            response: ServiceStatusResult | OpenTicketsResult
+            response: ServiceStatusResult | OpenTicketsResult | RecentTicketsResult
             if name == "check_service_status":
                 arguments = ServiceStatusArguments.model_validate(raw_arguments)
                 response = await check_service_status(
@@ -102,6 +112,9 @@ async def dispatch(message: dict[str, Any]) -> dict[str, Any] | None:
             elif name == "get_my_open_tickets":
                 EmptyArguments.model_validate(raw_arguments)
                 response = await get_my_open_tickets(database, context=context)
+            elif name == "get_my_recent_tickets":
+                EmptyArguments.model_validate(raw_arguments)
+                response = await get_my_recent_tickets(database, context=context)
             else:
                 return _tool_error(request_id, "tool_not_allowed")
         finally:

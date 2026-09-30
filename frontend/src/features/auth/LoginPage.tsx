@@ -46,7 +46,7 @@ export function LoginPage() {
         <ul>
           <li>Citation được kiểm tra ở backend</li>
           <li>Ticket không được tạo trước approval</li>
-          <li>Memory tắt mặc định và cần sự đồng ý</li>
+          <li>Memory luôn hoạt động nhưng chỉ dùng fact bạn đã xác nhận</li>
         </ul>
       </section>
 

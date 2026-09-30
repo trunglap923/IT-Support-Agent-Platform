@@ -1,8 +1,3 @@
-export interface MemoryConsent {
-  enabled: boolean;
-  epoch: number;
-}
-
 export interface MemoryDevice {
   id: string;
   label: string;
@@ -48,10 +43,6 @@ function mutationHeaders(csrfToken: string) {
   return { "Content-Type": "application/json", "X-CSRF-Token": csrfToken };
 }
 
-export function getMemoryConsent(signal?: AbortSignal): Promise<MemoryConsent> {
-  return request("/api/v1/memory/consent", { signal });
-}
-
 export function listMemoryDevices(signal?: AbortSignal): Promise<MemoryDevice[]> {
   return request("/api/v1/memory/devices", { signal });
 }
@@ -62,18 +53,6 @@ export function listMemoryCandidates(signal?: AbortSignal): Promise<MemoryCandid
 
 export function listMemoryFacts(signal?: AbortSignal): Promise<MemoryFact[]> {
   return request("/api/v1/memory/facts", { signal });
-}
-
-export function setMemoryConsent(
-  consent: MemoryConsent,
-  enabled: boolean,
-  csrfToken: string,
-): Promise<MemoryConsent> {
-  return request("/api/v1/memory/consent", {
-    method: "PUT",
-    headers: mutationHeaders(csrfToken),
-    body: JSON.stringify({ enabled, expected_epoch: consent.epoch }),
-  });
 }
 
 export function createMemoryDevice(

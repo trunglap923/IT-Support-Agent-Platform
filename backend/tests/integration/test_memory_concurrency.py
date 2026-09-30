@@ -27,9 +27,6 @@ def test_delete_while_extraction_runs_discards_stale_job(
             async with database.session() as session, session.begin():
                 user = await ensure_demo_identity(session, password=PASSWORD)
                 owner_id = user.id
-                await lifecycle.set_consent(
-                    session, owner_id=owner_id, enabled=True, expected_epoch=0
-                )
                 conversation = Conversation(owner_id=owner_id, title="Memory concurrency")
                 session.add(conversation)
                 await session.flush()

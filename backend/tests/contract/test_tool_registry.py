@@ -20,17 +20,22 @@ def test_registry_and_mcp_discovery_share_read_contracts() -> None:
             run_id=uuid4(),
             database_url="postgresql+asyncpg://unused:unused@127.0.0.1/unused",
         )
-        for name in ("check_service_status", "get_my_open_tickets"):
+        for name in (
+            "check_service_status",
+            "get_my_open_tickets",
+            "get_my_recent_tickets",
+        ):
             assert discovered[name]["input_schema"] == TOOL_REGISTRY[name].input_schema()
 
     asyncio.run(scenario())
 
 
-def test_registry_exposes_only_four_model_capabilities() -> None:
+def test_registry_exposes_only_five_model_capabilities() -> None:
     assert tuple(TOOL_REGISTRY) == (
         "search_knowledge_base",
         "check_service_status",
         "get_my_open_tickets",
+        "get_my_recent_tickets",
         "create_ticket",
     )
     for spec in TOOL_REGISTRY.values():
@@ -42,10 +47,12 @@ def test_chat_router_exposes_only_read_tools() -> None:
     assert [item["name"] for item in read_tool_definitions()] == [
         "check_service_status",
         "get_my_open_tickets",
+        "get_my_recent_tickets",
     ]
     assert [item["name"] for item in support_tool_definitions()] == [
         "check_service_status",
         "get_my_open_tickets",
+        "get_my_recent_tickets",
         "create_ticket",
     ]
 

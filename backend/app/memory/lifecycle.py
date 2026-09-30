@@ -1,4 +1,4 @@
-"""Database lifecycle for consent records and unconfirmed memory candidates."""
+"""Database lifecycle for confirmed facts and unconfirmed memory candidates."""
 
 from __future__ import annotations
 
@@ -12,7 +12,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import (
     Conversation,
     MemoryCandidate,
-    MemoryConsentEvent,
     MemoryExtractionJob,
     MemoryFact,
     Message,
@@ -28,12 +27,6 @@ class MemoryConflictError(RuntimeError):
 
 class MemoryNotFoundError(LookupError):
     """An owner-scoped memory resource was not found."""
-
-
-@dataclass(frozen=True, slots=True)
-class ConsentState:
-    enabled: bool
-    epoch: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,36 +93,6 @@ class MemoryLifecycleService:
         await session.flush()
         return conversation
 
-    async def get_consent(self, session: AsyncSession, *, owner_id: UUID) -> ConsentState:
-        value = await session.execute(
-            select(User.memory_enabled, User.memory_epoch).where(User.id == owner_id)
-        )
-        row = value.one_or_none()
-        if row is None:
-            raise LookupError("User not found")
-        return ConsentState(enabled=row.memory_enabled, epoch=row.memory_epoch)
-
-    async def set_consent(
-        self,
-        session: AsyncSession,
-        *,
-        owner_id: UUID,
-        enabled: bool,
-        expected_epoch: int,
-    ) -> ConsentState:
-        user = await session.scalar(select(User).where(User.id == owner_id).with_for_update())
-        if user is None:
-            raise LookupError("User not found")
-        if user.memory_epoch != expected_epoch:
-            raise MemoryConflictError("Memory settings changed; refresh and retry")
-        if user.memory_enabled == enabled:
-            return ConsentState(enabled=enabled, epoch=user.memory_epoch)
-        user.memory_enabled = enabled
-        user.memory_epoch += 1
-        session.add(MemoryConsentEvent(owner_id=owner_id, enabled=enabled, epoch=user.memory_epoch))
-        await session.flush()
-        return ConsentState(enabled=enabled, epoch=user.memory_epoch)
-
     async def extract_from_message(
         self,
         session: AsyncSession,
@@ -181,8 +144,6 @@ class MemoryLifecycleService:
         user = await session.scalar(select(User).where(User.id == owner_id).with_for_update())
         if user is None:
             raise LookupError("User not found")
-        if not user.memory_enabled:
-            return None
         source = (
             await session.execute(
                 select(Message, Conversation.owner_id)
@@ -235,7 +196,7 @@ class MemoryLifecycleService:
         user = await session.scalar(select(User).where(User.id == owner_id).with_for_update())
         if user is None:
             raise MemoryNotFoundError("User not found")
-        if not user.memory_enabled or user.memory_epoch != job.captured_epoch:
+        if user.memory_epoch != job.captured_epoch:
             job.status = "discarded"
             job.error_code = "stale_memory_epoch"
             job.completed_at = current_time
@@ -315,8 +276,8 @@ class MemoryLifecycleService:
             candidate.decided_at = current_time
             raise MemoryConflictError("Memory candidate expired")
         job = await session.get(MemoryExtractionJob, candidate.job_id)
-        if job is None or not user.memory_enabled or job.captured_epoch != user.memory_epoch:
-            raise MemoryConflictError("Memory consent changed after extraction")
+        if job is None or job.captured_epoch != user.memory_epoch:
+            raise MemoryConflictError("Memory changed after extraction")
         scope = "device" if candidate.kind == "device" else "global"
         if (scope == "device") != (device_id is not None):
             raise MemoryConflictError("Device memory requires an owned device")

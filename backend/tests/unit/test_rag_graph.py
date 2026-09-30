@@ -202,6 +202,43 @@ def test_graph_routes_owned_ticket_read_without_retrieval() -> None:
     asyncio.run(scenario())
 
 
+def test_graph_routes_recent_ticket_history_including_resolved() -> None:
+    async def scenario() -> None:
+        runner = StubToolRunner(
+            ToolResult(
+                call_id="call-recent",
+                name="get_my_recent_tickets",
+                status="success",
+                data={
+                    "tickets": [
+                        {
+                            "display_key": "IT-0999",
+                            "title": "Registry token",
+                            "status": "resolved",
+                        }
+                    ]
+                },
+            )
+        )
+        nodes = RAGGraphNodes(
+            session=SimpleNamespace(),  # type: ignore[arg-type]
+            principal=principal(),
+            retriever=StubRetriever([]),  # type: ignore[arg-type]
+            provider=FakeTextProvider(),
+            tool_runner=runner,
+        )
+        result = await run_support_graph(
+            build_support_graph(nodes.graph_nodes()),
+            {"query": "Cho tôi xem ticket gần đây", "run_id": "run-tool-recent"},
+        )
+        assert result["outcome"] == "answered"
+        assert "IT-0999" in result["answer"]
+        assert "gần đây" in result["answer"]
+        assert runner.calls[0]["name"] == "get_my_recent_tickets"
+
+    asyncio.run(scenario())
+
+
 def test_graph_returns_ticket_proposal_without_executing_write() -> None:
     async def scenario() -> None:
         runner = StubToolRunner(

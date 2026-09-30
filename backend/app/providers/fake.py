@@ -82,7 +82,15 @@ class FakeTextProvider:
         del history, max_output_tokens, operation_id
         normalized = " ".join(query.casefold().split())
         call: SupportToolCall | None = None
-        ticket_phrases = ("ticket của tôi", "ticket đang mở", "my open ticket", "my tickets")
+        recent_ticket_phrases = (
+            "ticket gần đây",
+            "lịch sử ticket",
+            "ticket của tôi",
+            "recent ticket",
+            "ticket history",
+            "my tickets",
+        )
+        open_ticket_phrases = ("ticket đang mở", "open ticket", "active ticket")
         status_phrases = (
             "trạng thái",
             "dịch vụ có lỗi",
@@ -122,10 +130,16 @@ class FakeTextProvider:
                     "device_id": fields.get("thiết bị"),
                 },
             )
-        elif any(phrase in normalized for phrase in ticket_phrases):
+        elif any(phrase in normalized for phrase in open_ticket_phrases):
             call = SupportToolCall(
                 call_id=self._fake_call_id(normalized),
                 name="get_my_open_tickets",
+                arguments={},
+            )
+        elif any(phrase in normalized for phrase in recent_ticket_phrases):
+            call = SupportToolCall(
+                call_id=self._fake_call_id(normalized),
+                name="get_my_recent_tickets",
                 arguments={},
             )
         elif any(phrase in normalized for phrase in status_phrases):

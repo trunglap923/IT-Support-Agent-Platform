@@ -112,7 +112,7 @@ def expire_approvals() -> dict[str, int]:
 
 @shared_task(name="jobs.extract_memory")  # type: ignore[untyped-decorator]
 def extract_memory(job_id: str) -> dict[str, str]:
-    """Complete one durable, consent-checked memory extraction job."""
+    """Complete one durable, epoch-checked memory extraction job."""
 
     settings = Settings()
     if settings.database_url is None:

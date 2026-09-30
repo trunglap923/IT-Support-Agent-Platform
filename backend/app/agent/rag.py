@@ -87,6 +87,7 @@ class RAGGraphNodes:
             {"role": message.role, "content": message.content} for message in context.history
         ]
         summary_parts = [
+            *([context.conversation_summary] if context.conversation_summary else []),
             *(f"Suggested step: {step}" for step in context.suggested_steps),
             *(
                 f"User-confirmed attempted step: {step}"
@@ -105,6 +106,8 @@ class RAGGraphNodes:
             "history": history,
             "context_estimated_tokens": context.estimated_tokens,
             "context_truncated": context.truncated,
+            "conversation_summary": context.conversation_summary,
+            "summarized_messages": context.summarized_messages,
             "suggested_steps": list(context.suggested_steps),
             "confirmed_attempted_steps": list(context.confirmed_attempted_steps),
         }
@@ -142,9 +145,7 @@ class RAGGraphNodes:
             return {"tool_result": {"status": "failed", "error": {"code": "missing_tool"}}}
         raw_arguments = call.get("arguments")
         if not isinstance(raw_arguments, dict):
-            return {
-                "tool_result": {"status": "failed", "error": {"code": "invalid_arguments"}}
-            }
+            return {"tool_result": {"status": "failed", "error": {"code": "invalid_arguments"}}}
         result = await self._tool_runner.execute(
             call_id=str(call["call_id"]),
             name=str(call["name"]),
@@ -192,7 +193,7 @@ class RAGGraphNodes:
                 f"Trạng thái {data.get('service_id', 'dịch vụ')}: "
                 f"{data.get('status', 'unknown')}. {data.get('message', '')}"
             ).strip()
-        else:
+        elif result.get("name") == "get_my_open_tickets":
             tickets = data.get("tickets", [])
             if tickets:
                 lines = [
@@ -204,6 +205,18 @@ class RAGGraphNodes:
                 answer = "Các ticket đang mở của bạn:\n" + "\n".join(lines)
             else:
                 answer = "Bạn không có ticket đang mở."
+        else:
+            tickets = data.get("tickets", [])
+            if tickets:
+                lines = [
+                    f"- {item.get('display_key', 'Ticket')}: {item.get('title', '')} "
+                    f"({item.get('status', 'unknown')})"
+                    for item in tickets
+                    if isinstance(item, dict)
+                ]
+                answer = "Các ticket gần đây của bạn:\n" + "\n".join(lines)
+            else:
+                answer = "Bạn chưa có ticket nào gần đây."
         return {
             "answer": answer,
             "citations": [],

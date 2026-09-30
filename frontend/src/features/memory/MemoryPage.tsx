@@ -4,15 +4,12 @@ import {
   confirmMemoryCandidate,
   createMemoryDevice,
   deleteMemoryFact,
-  getMemoryConsent,
   listMemoryCandidates,
   listMemoryDevices,
   listMemoryFacts,
   rejectMemoryCandidate,
-  setMemoryConsent,
   updateMemoryFact,
   type MemoryCandidate,
-  type MemoryConsent,
   type MemoryDevice,
   type MemoryFact,
 } from "../../api/memory";
@@ -20,7 +17,6 @@ import { useAuth } from "../auth/useAuth";
 
 export function MemoryPage() {
   const { csrfToken } = useAuth();
-  const [consent, setConsent] = useState<MemoryConsent | null>(null);
   const [devices, setDevices] = useState<MemoryDevice[]>([]);
   const [candidates, setCandidates] = useState<MemoryCandidate[]>([]);
   const [facts, setFacts] = useState<MemoryFact[]>([]);
@@ -30,13 +26,11 @@ export function MemoryPage() {
   const [error, setError] = useState<string | null>(null);
 
   async function refresh(signal?: AbortSignal) {
-    const [nextConsent, nextDevices, nextCandidates, nextFacts] = await Promise.all([
-      getMemoryConsent(signal),
+    const [nextDevices, nextCandidates, nextFacts] = await Promise.all([
       listMemoryDevices(signal),
       listMemoryCandidates(signal),
       listMemoryFacts(signal),
     ]);
-    setConsent(nextConsent);
     setDevices(nextDevices);
     setCandidates(nextCandidates);
     setFacts(nextFacts);
@@ -45,13 +39,11 @@ export function MemoryPage() {
   useEffect(() => {
     const controller = new AbortController();
     void Promise.all([
-      getMemoryConsent(controller.signal),
       listMemoryDevices(controller.signal),
       listMemoryCandidates(controller.signal),
       listMemoryFacts(controller.signal),
     ])
-      .then(([nextConsent, nextDevices, nextCandidates, nextFacts]) => {
-        setConsent(nextConsent);
+      .then(([nextDevices, nextCandidates, nextFacts]) => {
         setDevices(nextDevices);
         setCandidates(nextCandidates);
         setFacts(nextFacts);
@@ -114,34 +106,17 @@ export function MemoryPage() {
   }
 
   if (loading) return <p>Đang tải memory…</p>;
-  if (!consent) return <p className="chat-error" role="alert">{error ?? "Không thể tải memory."}</p>;
   const deviceNames = new Map(devices.map((device) => [device.id, device.label]));
 
   return (
     <div className="memory-page">
       <header className="section-heading">
-        <p className="eyebrow">CONSENTED MEMORY</p>
+        <p className="eyebrow">CONFIRMED MEMORY</p>
         <h1>Memory của bạn</h1>
-        <p>Chỉ dữ liệu bạn xác nhận mới được dùng. Tắt memory không xóa các mục đã lưu.</p>
+        <p>Memory luôn hoạt động, nhưng chỉ dữ liệu bạn xác nhận mới được dùng. Bạn có thể sửa hoặc xóa từng mục bất cứ lúc nào.</p>
       </header>
       {notice ? <p className="notice-banner" role="status">{notice}</p> : null}
       {error ? <p className="chat-error" role="alert">{error}</p> : null}
-
-      <section className="memory-consent-card">
-        <div>
-          <h2>Cho phép memory</h2>
-          <p>Trạng thái: <strong>{consent.enabled ? "Đang bật" : "Đang tắt"}</strong> · epoch {consent.epoch}</p>
-        </div>
-        <button
-          className={consent.enabled ? "secondary-button" : "primary-button"}
-          disabled={busy}
-          onClick={() => void mutate(
-            () => setMemoryConsent(consent, !consent.enabled, csrfToken ?? ""),
-            consent.enabled ? "Đã tắt memory; dữ liệu cũ vẫn được giữ." : "Đã bật memory.",
-          )}
-          type="button"
-        >{consent.enabled ? "Tắt memory" : "Bật memory"}</button>
-      </section>
 
       <section className="memory-section">
         <h2>Thiết bị</h2>
