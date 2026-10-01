@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import time
 from collections.abc import AsyncIterator
 from typing import Annotated, Any, Literal, cast
@@ -19,6 +20,7 @@ from app.config import Settings
 from app.db import Database
 from app.db.models import AgentRun, RunEvent, RunStatus
 from app.dependencies import CurrentPrincipal, DatabaseSession, get_database
+from app.diagnostics import content_log_fields, log_event
 from app.repositories.runs import RunRepository
 from app.services.conversations.cancellation import RunCancellationService
 from app.services.conversations.run_state import (
@@ -29,6 +31,7 @@ from app.services.conversations.run_state import (
 )
 
 router = APIRouter(prefix="/runs", tags=["runs"])
+logger = logging.getLogger(__name__)
 
 
 class RunResponse(BaseModel):
@@ -145,34 +148,66 @@ async def persisted_event_stream(
     cursor: int,
     poll_interval_seconds: float,
     heartbeat_seconds: float,
+    log_prompts: bool = False,
 ) -> AsyncIterator[str]:
     repository = RunRepository()
     last_heartbeat = time.monotonic()
-    while not await request.is_disconnected():
-        async with database.session() as session:
-            run = await repository.get_owned(
-                session,
-                run_id=run_id,
-                actor_id=principal.user_id,
-            )
-            events = await repository.list_events_after_owned(
-                session,
-                run_id=run_id,
-                actor_id=principal.user_id,
-                after_sequence=cursor,
-            )
-        if run is None:
-            return
-        for event in events:
-            cursor = event.sequence
-            yield encode_sse_event(event)
-        if run.status in TERMINAL_RUN_STATUSES and len(events) < 100:
-            return
-        now = time.monotonic()
-        if now - last_heartbeat >= heartbeat_seconds:
-            yield encode_sse_heartbeat()
-            last_heartbeat = now
-        await asyncio.sleep(poll_interval_seconds)
+    close_reason = "client_disconnected"
+    try:
+        while not await request.is_disconnected():
+            async with database.session() as session:
+                run = await repository.get_owned(
+                    session,
+                    run_id=run_id,
+                    actor_id=principal.user_id,
+                )
+                events = await repository.list_events_after_owned(
+                    session,
+                    run_id=run_id,
+                    actor_id=principal.user_id,
+                    after_sequence=cursor,
+                )
+            if run is None:
+                close_reason = "run_not_found"
+                return
+            for event in events:
+                cursor = event.sequence
+                event_fields: dict[str, Any] = {}
+                delta = event.safe_payload.get("delta")
+                if isinstance(delta, str):
+                    event_fields.update(
+                        content_log_fields(
+                            "delta",
+                            delta,
+                            include_content=log_prompts,
+                            max_chars=1_000,
+                        )
+                    )
+                log_event(
+                    logger,
+                    "sse.event.delivered",
+                    run_id=str(run_id),
+                    sequence=event.sequence,
+                    event_type=event.type,
+                    **event_fields,
+                )
+                yield encode_sse_event(event)
+            if run.status in TERMINAL_RUN_STATUSES and len(events) < 100:
+                close_reason = f"terminal:{run.status.value}"
+                return
+            now = time.monotonic()
+            if now - last_heartbeat >= heartbeat_seconds:
+                yield encode_sse_heartbeat()
+                last_heartbeat = now
+            await asyncio.sleep(poll_interval_seconds)
+    finally:
+        log_event(
+            logger,
+            "sse.stream.closed",
+            run_id=str(run_id),
+            cursor=cursor,
+            reason=close_reason,
+        )
 
 
 @router.get("/{run_id}/events", response_class=StreamingResponse)
@@ -196,6 +231,14 @@ async def stream_run_events(
 
     settings = cast(Settings, request.app.state.settings)
     cursor = resolve_event_cursor(last_event_id, after_sequence)
+    log_event(
+        logger,
+        "sse.stream.opened",
+        request_id=request.state.request_id,
+        run_id=str(run_id),
+        actor_id=str(principal.user_id),
+        cursor=cursor,
+    )
     return StreamingResponse(
         persisted_event_stream(
             request=request,
@@ -205,6 +248,7 @@ async def stream_run_events(
             cursor=cursor,
             poll_interval_seconds=settings.sse_poll_interval_seconds,
             heartbeat_seconds=settings.sse_heartbeat_seconds,
+            log_prompts=settings.log_prompts,
         ),
         media_type="text/event-stream",
         headers={

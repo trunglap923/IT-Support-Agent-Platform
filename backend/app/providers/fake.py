@@ -5,7 +5,7 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from app.providers.base import GeneratedText
+from app.providers.base import GeneratedText, TextDeltaCallback
 from app.providers.structured import (
     EvidenceInput,
     StructuredModelResponse,
@@ -245,8 +245,9 @@ class FakeTextProvider:
         *,
         evidence: list[EvidenceInput],
         history: Sequence[tuple[str, str]] = (),
-        max_output_tokens: int = 400,
+        max_output_tokens: int = 800,
         operation_id: str | None = None,
+        on_text_delta: TextDeltaCallback | None = None,
     ) -> StructuredModelResponse:
         del history, max_output_tokens, operation_id
         vietnamese = self._uses_vietnamese(query)
@@ -273,6 +274,9 @@ class FakeTextProvider:
                 answer=answer,
                 citations=citations,
             )
+        if on_text_delta is not None:
+            for delta in re.findall(r"\S+\s*|\s+", reply.answer):
+                await on_text_delta(delta)
         return StructuredModelResponse(
             reply=reply,
             provider_request_id="fake-structured-response",

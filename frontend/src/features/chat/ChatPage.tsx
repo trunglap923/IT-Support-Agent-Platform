@@ -35,6 +35,7 @@ export function ChatPage() {
   const [runId, setRunId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [streamingAnswer, setStreamingAnswer] = useState("");
   const [feedbackPending, setFeedbackPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -43,6 +44,7 @@ export function ChatPage() {
   const [loadingMore, setLoadingMore] = useState<"conversations" | "messages" | null>(null);
   const [conversationQuery, setConversationQuery] = useState("");
   const pendingMessageRequest = useRef<ClientRequestIdentity | null>(null);
+  const terminalRunIds = useRef(new Set<string>());
 
   const visibleConversations = useMemo(() => conversations.filter((conversation) =>
     conversation.title.toLocaleLowerCase().includes(conversationQuery.trim().toLocaleLowerCase()),
@@ -66,7 +68,9 @@ export function ChatPage() {
     setMessages(messagePage.items);
     setMessageCursor(messagePage.next_cursor);
     setApprovals(approvalPage.items);
-    setRunId(recoverActiveRun(messagePage.items, approvalPage.items));
+    setRunId(
+      recoverActiveRun(messagePage.items, approvalPage.items, terminalRunIds.current),
+    );
   }, []);
 
   useEffect(() => {
@@ -84,7 +88,9 @@ export function ChatPage() {
           setMessages(messagePage.items);
           setMessageCursor(messagePage.next_cursor);
           setApprovals(approvalPage.items);
-          setRunId(recoverActiveRun(messagePage.items, approvalPage.items));
+          setRunId(
+            recoverActiveRun(messagePage.items, approvalPage.items, terminalRunIds.current),
+          );
         }
       })
       .catch((caught: unknown) => {
@@ -108,6 +114,7 @@ export function ChatPage() {
       setMessageCursor(null);
       setApprovals([]);
       setRunId(null);
+      setStreamingAnswer("");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Không thể tạo hội thoại.");
     }
@@ -148,6 +155,7 @@ export function ChatPage() {
     const content = draft.trim();
     if (!content || !csrfToken || sending) return;
     setSending(true);
+    setStreamingAnswer("");
     setError(null);
     setNotice(null);
     try {
@@ -199,6 +207,7 @@ export function ChatPage() {
       await cancelRun(run.id, run.version, csrfToken, "draft_replaced");
       setApprovals((current) => current.filter((item) => item.id !== approval.id));
       setRunId(null);
+      setStreamingAnswer("");
       setDraft(formatTicketDraftForChat(approval.canonical_args));
       setNotice("Đã hủy bản nháp cũ. Hãy chỉnh sửa nội dung rồi gửi để tạo bản nháp mới.");
     } catch (caught) {
@@ -214,6 +223,21 @@ export function ChatPage() {
     },
     [active, refreshConversation],
   );
+
+  const handleRunTerminal = useCallback((status: string) => {
+    if (runId) terminalRunIds.current.add(runId);
+    setRunId(null);
+    if (status === "failed") {
+      setStreamingAnswer("");
+      setError("Trợ lý không thể xử lý yêu cầu. Vui lòng thử lại.");
+    }
+    if (status === "cancelled") setStreamingAnswer("");
+    if (active) {
+      void refreshConversation(active.id).finally(() => setStreamingAnswer(""));
+    } else {
+      setStreamingAnswer("");
+    }
+  }, [active, refreshConversation, runId]);
 
   async function handleFeedback(
     messageId: string,
@@ -252,6 +276,7 @@ export function ChatPage() {
             key={conversation.id}
             onClick={() => {
               setActive(conversation);
+              setStreamingAnswer("");
               void refreshConversation(conversation.id);
             }}
             type="button"
@@ -323,15 +348,19 @@ export function ChatPage() {
               ) : null}
             </article>
           ))}
+          {streamingAnswer ? (
+            <article className="chat-message assistant streaming" aria-label="Câu trả lời đang được tạo">
+              <span>IT Assistant · Đang trả lời</span>
+              <SafeMarkdown content={streamingAnswer} />
+            </article>
+          ) : null}
         </div>
         {runId ? (
           <RunStatusPanel
             runId={runId}
             onStatus={handleRunStatus}
-            onTerminal={() => {
-              if (active) void refreshConversation(active.id);
-              setRunId(null);
-            }}
+            onStreamText={setStreamingAnswer}
+            onTerminal={handleRunTerminal}
           />
         ) : null}
         {approvals

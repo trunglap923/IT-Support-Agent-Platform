@@ -28,11 +28,15 @@ class ToolSpec:
         return self.arguments_model.model_json_schema()
 
     def model_definition(self) -> dict[str, object]:
+        parameters = self.input_schema()
+        properties = parameters.get("properties")
+        if isinstance(properties, dict):
+            parameters["required"] = list(properties)
         return {
             "type": "function",
             "name": self.name,
             "description": self.description,
-            "parameters": self.input_schema(),
+            "parameters": parameters,
             "strict": True,
         }
 

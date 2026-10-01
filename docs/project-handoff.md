@@ -205,7 +205,9 @@ RUN_OPENAI_LIVE_SPIKE=1 make spike-openai-live
 TEXT_PROVIDER=openai RUN_LIVE_EVAL=1 make eval-agent-live
 ```
 
-Không chạy lệnh paid/live nếu user chưa opt-in rõ ràng. Không log hoặc commit API key.
+`eval-agent-live` tạo, migrate và dọn một PostgreSQL/pgvector container riêng; không cần đặt
+`EVAL_DATABASE_URL` và không ghi ledger vào database development. Không chạy lệnh paid/live nếu
+user chưa opt-in rõ ràng. Không log hoặc commit API key.
 
 ## 8. Bằng chứng kiểm thử gần nhất
 

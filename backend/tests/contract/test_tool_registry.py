@@ -43,6 +43,13 @@ def test_registry_exposes_only_five_model_capabilities() -> None:
         assert not {"user_id", "role", "sql", "token", "approved"}.intersection(properties)
 
 
+def test_model_definitions_require_every_property_for_strict_mode() -> None:
+    for spec in TOOL_REGISTRY.values():
+        parameters = spec.model_definition()["parameters"]
+        assert isinstance(parameters, dict)
+        assert parameters["required"] == list(parameters.get("properties", {}))
+
+
 def test_chat_router_exposes_only_read_tools() -> None:
     assert [item["name"] for item in read_tool_definitions()] == [
         "check_service_status",

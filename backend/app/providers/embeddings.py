@@ -89,6 +89,7 @@ class OpenAIEmbeddingProvider:
     async def embed(self, texts: list[str], *, operation_id: str) -> EmbeddingBatch:
         validate_embedding_input(texts)
         estimated_tokens = estimate_input_tokens(texts)
+        client_request_id = f"emb-{hashlib.sha256(operation_id.encode('utf-8')).hexdigest()}"
         await self._ledger.reserve(
             operation_id=operation_id,
             provider="openai",
@@ -101,6 +102,7 @@ class OpenAIEmbeddingProvider:
                 model=self._model,
                 dimensions=self._dimensions,
                 encoding_format="float",
+                extra_headers={"X-Client-Request-Id": client_request_id},
             )
             vectors = tuple(
                 tuple(float(value) for value in item.embedding) for item in response.data
@@ -110,10 +112,11 @@ class OpenAIEmbeddingProvider:
             ):
                 raise RuntimeError("Embedding response shape does not match the request")
             input_tokens = int(response.usage.prompt_tokens)
+            provider_request_id = response._request_id or client_request_id
             await self._ledger.complete(
                 operation_id=operation_id,
                 actual_input_tokens=input_tokens,
-                provider_request_id=response.id,
+                provider_request_id=provider_request_id,
             )
         except Exception:
             await self._ledger.mark_unknown(operation_id=operation_id)
@@ -122,7 +125,7 @@ class OpenAIEmbeddingProvider:
             vectors=vectors,
             model=self._model,
             dimensions=self._dimensions,
-            provider_request_id=response.id,
+            provider_request_id=provider_request_id,
             input_tokens=input_tokens,
         )
 

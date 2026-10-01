@@ -19,6 +19,16 @@ const knownStatuses = new Set<RunStatus>([
   "cancelled",
 ]);
 
+export function streamedTextAfterEvent(
+  current: string,
+  event: RunEventData,
+): string {
+  if (event.type === "assistant.stream.started") return "";
+  if (event.type !== "assistant.stream.delta") return current;
+  const delta = event.payload.delta;
+  return typeof delta === "string" ? current + delta : current;
+}
+
 function statusFromEvent(event: RunEventData): RunStatus | null {
   const value = event.type.startsWith("run.") ? event.type.slice(4) : "";
   return knownStatuses.has(value as RunStatus) ? (value as RunStatus) : null;
@@ -27,6 +37,7 @@ function statusFromEvent(event: RunEventData): RunStatus | null {
 export function useRunEvents(runId: string) {
   const [snapshot, setSnapshot] = useState<RunSnapshot | null>(null);
   const [events, setEvents] = useState<RunEventData[]>([]);
+  const [streamedText, setStreamedText] = useState("");
   const [connectionState, setConnectionState] = useState<RunConnectionState>("closed");
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -34,6 +45,7 @@ export function useRunEvents(runId: string) {
 
   useEffect(() => {
     const controller = new AbortController();
+    const receivedSequences = new Set<number>();
     let active = true;
 
     void Promise.resolve()
@@ -41,6 +53,7 @@ export function useRunEvents(runId: string) {
         if (!active) return;
         setSnapshot(null);
         setEvents([]);
+        setStreamedText("");
         setError(null);
         setConnectionState("connecting");
       })
@@ -58,12 +71,10 @@ export function useRunEvents(runId: string) {
             if (active) setConnectionState(state);
           },
           onEvent: (event) => {
-            if (!active) return;
-            setEvents((current) =>
-              current.some((item) => item.sequence === event.sequence)
-                ? current
-                : [...current, event],
-            );
+            if (!active || receivedSequences.has(event.sequence)) return;
+            receivedSequences.add(event.sequence);
+            setEvents((current) => [...current, event]);
+            setStreamedText((current) => streamedTextAfterEvent(current, event));
             const status = statusFromEvent(event);
             if (status) setSnapshot((current) => (current ? { ...current, status } : current));
           },
@@ -83,5 +94,5 @@ export function useRunEvents(runId: string) {
     };
   }, [runId, attempt]);
 
-  return { snapshot, events, connectionState, error, retry };
+  return { snapshot, events, streamedText, connectionState, error, retry };
 }

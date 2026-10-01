@@ -50,6 +50,7 @@ def run_agent(run_id: str) -> dict[str, str]:
                     lease_seconds=settings.run_lease_seconds,
                     max_attempts=settings.run_max_attempts,
                     memory_dispatcher=CeleryMemoryExtractionDispatcher(celery_app),
+                    log_prompts=settings.log_prompts,
                 )
             )
             return {key: str(value) for key, value in receipt.items()}

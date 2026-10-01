@@ -9,6 +9,7 @@ from app.providers.fake import FakeTextProvider
 from app.providers.openai import OpenAITextProvider
 from app.providers.structured import (
     EvidenceInput,
+    IncompleteStructuredResponseError,
     ProviderContractError,
     SupportReply,
 )
@@ -37,6 +38,60 @@ class FakeResponsesApi:
             output_parsed=self.reply,
             usage=SimpleNamespace(input_tokens=20, output_tokens=8),
         )
+
+
+class FakeResponseStream:
+    def __init__(
+        self,
+        deltas: list[str],
+        final_response: object,
+        stream_error: Exception | None = None,
+    ) -> None:
+        self._deltas = deltas
+        self._final_response = final_response
+        self._stream_error = stream_error
+
+    async def __aiter__(self):  # type: ignore[no-untyped-def]
+        for delta in self._deltas:
+            yield SimpleNamespace(type="response.output_text.delta", delta=delta)
+        if self._stream_error is not None:
+            raise self._stream_error
+
+    async def get_final_response(self) -> object:
+        return self._final_response
+
+
+class FakeResponseStreamManager:
+    def __init__(self, stream: FakeResponseStream) -> None:
+        self._stream = stream
+
+    async def __aenter__(self) -> FakeResponseStream:
+        return self._stream
+
+    async def __aexit__(self, *args: object) -> None:
+        del args
+
+
+class FakeStreamingResponsesApi:
+    def __init__(
+        self,
+        reply: SupportReply,
+        deltas: list[str],
+        stream_error: Exception | None = None,
+    ) -> None:
+        self.kwargs: dict[str, object] = {}
+        response = SimpleNamespace(
+            id="resp-stream-1",
+            output_parsed=reply,
+            usage=SimpleNamespace(input_tokens=22, output_tokens=11),
+        )
+        self._manager = FakeResponseStreamManager(
+            FakeResponseStream(deltas, response, stream_error)
+        )
+
+    def stream(self, **kwargs: object) -> FakeResponseStreamManager:
+        self.kwargs = kwargs
+        return self._manager
 
 
 class FakeToolResponsesApi:
@@ -79,6 +134,18 @@ def test_fake_provider_obeys_same_structured_contract() -> None:
         assert no_answer.reply.outcome == "no_answer"
         assert no_answer.reply.answer.startswith("I couldn't find sufficient")
         assert no_answer.reply.citations == []
+        deltas: list[str] = []
+
+        async def collect_delta(delta: str) -> None:
+            deltas.append(delta)
+
+        streamed = await provider.generate_support_reply(
+            "How?",
+            evidence=evidence(),
+            on_text_delta=collect_delta,
+        )
+        assert len(deltas) > 1
+        assert "".join(deltas) == streamed.reply.answer
 
     asyncio.run(scenario())
 
@@ -201,7 +268,7 @@ def test_openai_adapter_rejects_citation_outside_evidence() -> None:
         with pytest.raises(ProviderContractError):
             await provider.generate_support_reply("How?", evidence=evidence())
         assert api.kwargs["store"] is False
-        assert api.kwargs["max_output_tokens"] == 400
+        assert api.kwargs["max_output_tokens"] == 800
         assert api.kwargs["text_format"] is SupportReply
         assert api.kwargs["instructions"] == SUPPORT_INSTRUCTIONS
 
@@ -222,6 +289,78 @@ def test_openai_adapter_returns_normalized_usage() -> None:
         assert response.provider_request_id == "resp-1"
         assert response.input_tokens == 20
         assert response.output_tokens == 8
+
+    asyncio.run(scenario())
+
+
+def test_openai_adapter_streams_only_decoded_answer_text() -> None:
+    async def scenario() -> None:
+        expected = 'Use SSO.\nThen say "done".'
+        api = FakeStreamingResponsesApi(
+            SupportReply(
+                outcome="answered",
+                answer=expected,
+                citations=["src_allowed"],
+            ),
+            [
+                '{"outcome":"answered","ans',
+                'wer":"Use ',
+                'SSO.\\nThen say \\"done\\".",',
+                '"citations":["src_allowed"]}',
+            ],
+        )
+        provider = OpenAITextProvider(client=SimpleNamespace(responses=api), model="gpt-test")
+        deltas: list[str] = []
+
+        async def collect_delta(delta: str) -> None:
+            deltas.append(delta)
+
+        response = await provider.generate_support_reply(
+            "How?",
+            evidence=evidence(),
+            on_text_delta=collect_delta,
+        )
+
+        assert "".join(deltas) == expected
+        assert response.reply.answer == expected
+        assert response.provider_request_id == "resp-stream-1"
+        assert api.kwargs["text_format"] is SupportReply
+        assert api.kwargs["store"] is False
+
+    asyncio.run(scenario())
+
+
+def test_openai_adapter_classifies_truncated_structured_stream() -> None:
+    async def scenario() -> None:
+        validation_error: ValidationError | None = None
+        try:
+            SupportReply.model_validate_json('{"outcome":"answered","answer":"cut off')
+        except ValidationError as error:
+            validation_error = error
+        assert validation_error is not None
+        api = FakeStreamingResponsesApi(
+            SupportReply(
+                outcome="answered",
+                answer="Unused final response",
+                citations=["src_allowed"],
+            ),
+            ['{"outcome":"answered","answer":"cut off'],
+            stream_error=validation_error,
+        )
+        provider = OpenAITextProvider(client=SimpleNamespace(responses=api), model="gpt-test")
+
+        with pytest.raises(
+            IncompleteStructuredResponseError,
+            match="stopped before completing",
+        ):
+            await provider.generate_support_reply(
+                "How?",
+                evidence=evidence(),
+                on_text_delta=async_noop,
+            )
+
+    async def async_noop(delta: str) -> None:
+        del delta
 
     asyncio.run(scenario())
 

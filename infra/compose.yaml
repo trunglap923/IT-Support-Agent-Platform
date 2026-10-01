@@ -33,7 +33,7 @@ x-backend-environment: &backend-environment
   LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
   LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
   LANGFUSE_BASE_URL: ${LANGFUSE_BASE_URL:-}
-  LOG_PROMPTS: "false"
+  LOG_PROMPTS: ${LOG_PROMPTS:-false}
   CELERY_TASK_SOFT_TIME_LIMIT_SECONDS: ${CELERY_TASK_SOFT_TIME_LIMIT_SECONDS:-300}
   CELERY_TASK_TIME_LIMIT_SECONDS: ${CELERY_TASK_TIME_LIMIT_SECONDS:-330}
   RUN_LEASE_SECONDS: ${RUN_LEASE_SECONDS:-90}
@@ -86,7 +86,7 @@ services:
       CSRF_COOKIE_NAME: ${CSRF_COOKIE_NAME:-it_support_csrf}
       COOKIE_SECURE: "false"
       ALLOWED_WEB_ORIGIN: http://127.0.0.1:${FRONTEND_PORT:-5173}
-      SSE_POLL_INTERVAL_SECONDS: ${SSE_POLL_INTERVAL_SECONDS:-1}
+      SSE_POLL_INTERVAL_SECONDS: ${SSE_POLL_INTERVAL_SECONDS:-0.1}
       SSE_HEARTBEAT_SECONDS: ${SSE_HEARTBEAT_SECONDS:-15}
     ports:
       - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
@@ -130,6 +130,7 @@ services:
       api:
         condition: service_healthy
     networks:
+      - edge
       - backend
     healthcheck:
       test:
@@ -171,6 +172,7 @@ services:
       api:
         condition: service_healthy
     networks:
+      - edge
       - backend
     healthcheck:
       test:

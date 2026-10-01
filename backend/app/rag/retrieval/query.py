@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import logging
 import re
+import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -13,10 +15,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.principal import Principal
 from app.db.models import Document, DocumentChunk, DocumentVersion
+from app.diagnostics import content_log_fields, log_event
 from app.providers.embeddings import EmbeddingProvider
 from app.rag.retrieval.filters import readable_current_document
 
 _TERM_PATTERN = re.compile(r"[^\W_]+", re.UNICODE)
+logger = logging.getLogger(__name__)
 _QUERY_STOP_WORDS = frozenset(
     {
         "a",
@@ -83,7 +87,9 @@ _QUERY_STOP_WORDS = frozenset(
 _SUPPORTED_DOMAIN_PATTERN = re.compile(r"\b(?:vpn|docker|registry|gitlab)\b")
 _VIETNAMESE_QUERY_EXPANSIONS: tuple[tuple[re.Pattern[str], tuple[str, ...]], ...] = (
     (
-        re.compile(r"\b(?:cấu\s+hình|cau\s+hinh|thiết\s+lập|thiet\s+lap|cài(?:\s+đặt)?|cai(?:\s+dat)?)\b"),
+        re.compile(
+            r"\b(?:cấu\s+hình|cau\s+hinh|thiết\s+lập|thiet\s+lap|cài(?:\s+đặt)?|cai(?:\s+dat)?)\b"
+        ),
         ("thiết lập", "cài", "setup", "configure", "install"),
     ),
     (
@@ -234,11 +240,13 @@ class HybridRetriever:
         branch_limit: int = 20,
         result_limit: int = 5,
         rrf_k: int = 60,
+        log_prompts: bool = False,
     ) -> None:
         self._embedding_provider = embedding_provider
         self._branch_limit = branch_limit
         self._result_limit = result_limit
         self._rrf_k = rrf_k
+        self._log_prompts = log_prompts
 
     async def search(
         self,
@@ -251,7 +259,31 @@ class HybridRetriever:
     ) -> list[RetrievalHit]:
         if not query.strip():
             raise ValueError("Retrieval query cannot be empty")
+        started_at = time.monotonic()
         expanded_query = expand_query_for_retrieval(query)
+        run_id = (
+            operation_id.removeprefix("rag:").removesuffix(":retrieve")
+            if operation_id.startswith("rag:")
+            else None
+        )
+        log_event(
+            logger,
+            "retrieval.embedding.started",
+            run_id=run_id,
+            operation_id=operation_id,
+            actor_id=str(principal.user_id),
+            query_expanded=expanded_query != query.strip(),
+            **content_log_fields(
+                "query",
+                query,
+                include_content=self._log_prompts,
+            ),
+            **content_log_fields(
+                "expanded_query",
+                expanded_query,
+                include_content=self._log_prompts,
+            ),
+        )
         query_batch = await self._embedding_provider.embed(
             [expanded_query],
             operation_id=operation_id,
@@ -356,7 +388,46 @@ class HybridRetriever:
             )
             for candidate in candidates.values()
         }
-        return sorted(
+        results = sorted(
             scored,
             key=lambda hit: (-hit.score, -hit.rrf_score, stable_order[hit.chunk_id]),
         )[: self._result_limit]
+        log_event(
+            logger,
+            "retrieval.search.completed",
+            run_id=run_id,
+            operation_id=operation_id,
+            embedding_model=query_batch.model,
+            embedding_request_id=query_batch.provider_request_id,
+            vector_candidates=len(vector_rows),
+            lexical_candidates=len(lexical_rows),
+            result_count=len(results),
+            duration_ms=round((time.monotonic() - started_at) * 1_000, 2),
+            results=[
+                {
+                    "chunk_id": str(hit.chunk_id),
+                    "document_key": hit.document_key,
+                    "version_label": hit.version_label,
+                    "title": hit.title,
+                    "page_number": hit.page_number,
+                    "section": hit.section,
+                    "score": round(hit.score, 6),
+                    "vector_rank": hit.vector_rank,
+                    "lexical_rank": hit.lexical_rank,
+                    "vector_similarity": (
+                        round(hit.vector_similarity, 6)
+                        if hit.vector_similarity is not None
+                        else None
+                    ),
+                    "lexical_coverage": round(hit.lexical_coverage, 6),
+                    "rrf_score": round(hit.rrf_score, 6),
+                    **content_log_fields(
+                        "content",
+                        hit.content,
+                        include_content=self._log_prompts,
+                    ),
+                }
+                for hit in results
+            ],
+        )
+        return results

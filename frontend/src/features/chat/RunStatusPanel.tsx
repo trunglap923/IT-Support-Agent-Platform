@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 import { useRunEvents } from "./useRunEvents";
 
@@ -16,19 +16,32 @@ export function RunStatusPanel({
   runId,
   onTerminal,
   onStatus,
+  onStreamText,
 }: {
   runId: string;
-  onTerminal?: () => void;
+  onTerminal?: (status: string) => void;
   onStatus?: (status: string) => void;
+  onStreamText?: (text: string) => void;
 }) {
-  const { snapshot, events, connectionState, error, retry } = useRunEvents(runId);
+  const { snapshot, events, streamedText, connectionState, error, retry } = useRunEvents(runId);
+  const notifiedStatus = useRef<string | null>(null);
 
   useEffect(() => {
-    if (snapshot) onStatus?.(snapshot.status);
-    if (snapshot && ["completed", "failed", "cancelled"].includes(snapshot.status)) {
-      onTerminal?.();
+    if (!snapshot) return;
+    const notificationKey = `${runId}:${snapshot.status}`;
+    if (notifiedStatus.current === notificationKey) return;
+    notifiedStatus.current = notificationKey;
+    onStatus?.(snapshot.status);
+    if (["completed", "failed", "cancelled"].includes(snapshot.status)) {
+      onTerminal?.(snapshot.status);
     }
-  }, [snapshot, onStatus, onTerminal]);
+  }, [runId, snapshot, onStatus, onTerminal]);
+
+  useEffect(() => {
+    onStreamText?.(streamedText ?? "");
+  }, [onStreamText, streamedText]);
+
+  const visibleEvents = events.filter((event) => !event.type.startsWith("assistant.stream."));
 
   return (
     <section className="run-monitor" aria-live="polite">
@@ -48,9 +61,9 @@ export function RunStatusPanel({
           </button>
         </div>
       ) : null}
-      {events.length ? (
+      {visibleEvents.length ? (
         <ol className="run-events">
-          {events.map((event) => (
+          {visibleEvents.map((event) => (
             <li key={event.sequence}>
               <span>#{event.sequence}</span>
               <strong>{event.type}</strong>

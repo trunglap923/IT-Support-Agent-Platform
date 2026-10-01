@@ -69,4 +69,10 @@ describe("recoverActiveRun", () => {
 
     expect(recoverActiveRun(messages, [])).toBeNull();
   });
+
+  it("does not recover a run already observed as terminal", () => {
+    const messages = [message({ run_id: runId })];
+
+    expect(recoverActiveRun(messages, [], new Set([runId]))).toBeNull();
+  });
 });

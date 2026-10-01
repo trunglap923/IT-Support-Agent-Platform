@@ -3,15 +3,18 @@
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Sequence
 from typing import Any
 
 from openai import AsyncOpenAI
+from pydantic import ValidationError
 
 from app.prompts import SUPPORT_INSTRUCTIONS
-from app.providers.base import GeneratedText
+from app.providers.base import GeneratedText, TextDeltaCallback
 from app.providers.structured import (
     EvidenceInput,
+    IncompleteStructuredResponseError,
     ProviderContractError,
     StructuredModelResponse,
     SupportReply,
@@ -21,6 +24,89 @@ from app.providers.structured import (
 )
 from app.services.budget.service import DatabaseUsageLedger
 from app.tools.registry import support_tool_definitions
+
+_ANSWER_FIELD = re.compile(r'"answer"\s*:\s*"')
+_SIMPLE_JSON_ESCAPES = {
+    '"': '"',
+    "\\": "\\",
+    "/": "/",
+    "b": "\b",
+    "f": "\f",
+    "n": "\n",
+    "r": "\r",
+    "t": "\t",
+}
+
+
+class _AnswerDeltaDecoder:
+    """Extract decoded answer text from an incrementally streamed JSON object."""
+
+    def __init__(self) -> None:
+        self._raw = ""
+        self._emitted_characters = 0
+
+    def feed(self, raw_delta: str) -> str:
+        self._raw += raw_delta
+        decoded = self._decode_available_answer()
+        delta = decoded[self._emitted_characters :]
+        self._emitted_characters = len(decoded)
+        return delta
+
+    def _decode_available_answer(self) -> str:
+        match = _ANSWER_FIELD.search(self._raw)
+        if match is None:
+            return ""
+        index = match.end()
+        decoded: list[str] = []
+        while index < len(self._raw):
+            character = self._raw[index]
+            if character == '"':
+                break
+            if character != "\\":
+                decoded.append(character)
+                index += 1
+                continue
+            if index + 1 >= len(self._raw):
+                break
+            escape = self._raw[index + 1]
+            if escape in _SIMPLE_JSON_ESCAPES:
+                decoded.append(_SIMPLE_JSON_ESCAPES[escape])
+                index += 2
+                continue
+            if escape != "u" or index + 6 > len(self._raw):
+                break
+            try:
+                code_unit = int(self._raw[index + 2 : index + 6], 16)
+            except ValueError:
+                break
+            if 0xD800 <= code_unit <= 0xDBFF:
+                if index + 12 > len(self._raw) or self._raw[index + 6 : index + 8] != "\\u":
+                    break
+                try:
+                    low_surrogate = int(self._raw[index + 8 : index + 12], 16)
+                except ValueError:
+                    break
+                if not 0xDC00 <= low_surrogate <= 0xDFFF:
+                    break
+                code_point = 0x10000 + ((code_unit - 0xD800) << 10) + (low_surrogate - 0xDC00)
+                decoded.append(chr(code_point))
+                index += 12
+                continue
+            decoded.append(chr(code_unit))
+            index += 6
+        return "".join(decoded)
+
+
+def _is_incomplete_json_validation(error: ValidationError) -> bool:
+    for detail in error.errors(include_input=False):
+        if detail.get("type") != "json_invalid":
+            continue
+        context = detail.get("ctx")
+        if isinstance(context, dict) and str(context.get("error", "")).startswith(
+            "EOF while parsing"
+        ):
+            return True
+    return False
 
 
 class OpenAITextProvider:
@@ -146,8 +232,9 @@ class OpenAITextProvider:
         *,
         evidence: list[EvidenceInput],
         history: Sequence[tuple[str, str]] = (),
-        max_output_tokens: int = 400,
+        max_output_tokens: int = 800,
         operation_id: str | None = None,
+        on_text_delta: TextDeltaCallback | None = None,
     ) -> StructuredModelResponse:
         payload = {
             "query": query.strip(),
@@ -167,19 +254,41 @@ class OpenAITextProvider:
                 estimated_output_tokens=max_output_tokens,
                 kind="chat",
             )
+        request = {
+            "model": self._model,
+            "instructions": SUPPORT_INSTRUCTIONS,
+            "input": serialized,
+            "text_format": SupportReply,
+            "max_output_tokens": max_output_tokens,
+            "store": False,
+        }
         try:
-            response = await self._client.responses.parse(
-                model=self._model,
-                instructions=SUPPORT_INSTRUCTIONS,
-                input=serialized,
-                text_format=SupportReply,
-                max_output_tokens=max_output_tokens,
-                store=False,
-            )
-        except Exception:
+            if on_text_delta is None:
+                response = await self._client.responses.parse(**request)
+            else:
+                decoder = _AnswerDeltaDecoder()
+                async with self._client.responses.stream(**request) as stream:
+                    async for event in stream:
+                        if event.type != "response.output_text.delta":
+                            continue
+                        answer_delta = decoder.feed(event.delta)
+                        if answer_delta:
+                            await on_text_delta(answer_delta)
+                    response = await stream.get_final_response()
+        except Exception as error:
             if self._usage_ledger is not None and operation_id:
                 await self._usage_ledger.mark_unknown(operation_id=operation_id)
+            if isinstance(error, ValidationError) and _is_incomplete_json_validation(error):
+                raise IncompleteStructuredResponseError(
+                    "OpenAI stopped before completing the structured support reply"
+                ) from None
             raise
+        if getattr(response, "status", None) == "incomplete":
+            if self._usage_ledger is not None and operation_id:
+                await self._usage_ledger.mark_unknown(operation_id=operation_id)
+            raise IncompleteStructuredResponseError(
+                "OpenAI stopped before completing the structured support reply"
+            )
         parsed = response.output_parsed
         if parsed is None:
             raise ProviderContractError("OpenAI returned no parsed support reply")

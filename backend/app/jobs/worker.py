@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import logging
+import time
 from contextlib import suppress
 from dataclasses import dataclass
 from uuid import UUID, uuid4
@@ -15,6 +17,7 @@ from app.agent.rag import RAGGraphNodes
 from app.auth.principal import Principal
 from app.db import Database
 from app.db.models import Conversation, Message, RunStatus
+from app.diagnostics import content_log_fields, log_event
 from app.jobs.dispatch import (
     BrokerUnavailableError,
     MemoryExtractionDispatcher,
@@ -25,6 +28,7 @@ from app.observability import AIObserver, NoopAIObserver
 from app.providers.base import StructuredResponseProvider
 from app.providers.embeddings import EmbeddingProvider, FakeEmbeddingProvider
 from app.providers.fake import FakeTextProvider
+from app.providers.structured import IncompleteStructuredResponseError
 from app.rag.retrieval.query import HybridRetriever
 from app.repositories.runs import RunRepository
 from app.repositories.users import UserRepository
@@ -35,6 +39,8 @@ from app.services.conversations.run_state import RunStateService
 from app.services.documents.access import authorized_history_context
 from app.tools import ToolExecutionContext, ToolExecutor
 from app.tools.schemas import CreateTicketArguments
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,7 +72,16 @@ async def execute_support_run(
     lease_seconds: int = 90,
     max_attempts: int = 3,
     memory_dispatcher: MemoryExtractionDispatcher | None = None,
+    log_prompts: bool = False,
 ) -> WorkerResult:
+    started_at = time.monotonic()
+    log_event(
+        logger,
+        "worker.run.started",
+        run_id=str(run_id),
+        model=model,
+        worker_id=worker_id,
+    )
     repository = RunRepository()
     lease = RunLeaseService(repository)
     state = RunStateService(repository)
@@ -82,6 +97,13 @@ async def execute_support_run(
             max_attempts=max_attempts,
         )
         if not claim.acquired:
+            log_event(
+                logger,
+                "worker.run.not_claimed",
+                run_id=str(run_id),
+                outcome=claim.outcome,
+                duration_ms=round((time.monotonic() - started_at) * 1_000, 2),
+            )
             return WorkerResult(
                 run_id=run_id,
                 status="duplicate" if claim.outcome == "busy" else claim.outcome,
@@ -89,6 +111,16 @@ async def execute_support_run(
         assert claim.run is not None and claim.previous_status is not None
         actor_id = claim.run.actor_id
         conversation_id = claim.run.conversation_id
+        execution_version = claim.run.execution_version
+        log_event(
+            logger,
+            "worker.run.claimed",
+            run_id=str(run_id),
+            worker_id=execution_worker_id,
+            previous_status=claim.previous_status.value,
+            execution_version=execution_version,
+            attempt=claim.run.attempts,
+        )
         if claim.previous_status is RunStatus.QUEUED:
             await state.transition(
                 session,
@@ -106,6 +138,63 @@ async def execute_support_run(
         )
         if resumed != "not_approval":
             return WorkerResult(run_id=run_id, status=resumed)
+
+    stream_generation = 0
+    stream_delta_index = 0
+
+    async def append_stream_event(event_type: str, payload: dict[str, object]) -> None:
+        nonlocal stream_delta_index
+        async with database.session() as event_session, event_session.begin():
+            streaming_run = await repository.get_for_update(event_session, run_id=run_id)
+            if (
+                streaming_run is None
+                or streaming_run.status is not RunStatus.RUNNING
+                or streaming_run.lease_owner != execution_worker_id
+            ):
+                raise RuntimeError("Run lease was lost while streaming the response")
+            suffix = (
+                f"{stream_generation}:start"
+                if event_type == "assistant.stream.started"
+                else f"{stream_generation}:{stream_delta_index}"
+            )
+            await repository.append_event(
+                event_session,
+                run_id=run_id,
+                event_type=event_type,
+                dedupe_key=f"stream:{execution_version}:{suffix}",
+                safe_payload=payload,
+            )
+            if event_type == "assistant.stream.delta":
+                stream_delta_index += 1
+
+    async def start_response_stream() -> None:
+        nonlocal stream_generation, stream_delta_index
+        stream_generation += 1
+        stream_delta_index = 0
+        await append_stream_event("assistant.stream.started", {"generation": stream_generation})
+        log_event(
+            logger,
+            "worker.stream.started",
+            run_id=str(run_id),
+            generation=stream_generation,
+        )
+
+    async def stream_text_delta(delta: str) -> None:
+        if delta:
+            await append_stream_event("assistant.stream.delta", {"delta": delta})
+            log_event(
+                logger,
+                "worker.stream.delta.persisted",
+                run_id=str(run_id),
+                generation=stream_generation,
+                delta_index=stream_delta_index - 1,
+                **content_log_fields(
+                    "delta",
+                    delta,
+                    include_content=log_prompts,
+                    max_chars=1_000,
+                ),
+            )
 
     try:
         async with database.session() as session:
@@ -156,6 +245,20 @@ async def execute_support_run(
                 principal=principal,
                 messages=list(reversed(recent_messages)),
             )
+            log_event(
+                logger,
+                "worker.context.prepared",
+                run_id=str(run_id),
+                actor_id=str(actor_id),
+                conversation_id=str(conversation_id),
+                conversation_messages=len(conversation_context),
+                memory_messages=len(memory_context),
+                **content_log_fields(
+                    "user_message",
+                    query,
+                    include_content=log_prompts,
+                ),
+            )
 
             async def unsupported_local_search(query: str, limit: int) -> dict[str, object]:
                 del query, limit
@@ -172,13 +275,20 @@ async def execute_support_run(
             nodes = RAGGraphNodes(
                 session=session,
                 principal=principal,
-                retriever=HybridRetriever(embedding_provider=embedding_provider),
+                retriever=HybridRetriever(
+                    embedding_provider=embedding_provider,
+                    log_prompts=log_prompts,
+                ),
                 provider=provider,
                 history=[*conversation_context, *memory_context],
                 observer=observer,
                 model=model,
                 tool_runner=tool_executor,
+                on_stream_started=start_response_stream,
+                on_text_delta=stream_text_delta,
+                log_prompts=log_prompts,
             )
+            log_event(logger, "worker.graph.started", run_id=str(run_id))
             result = await run_support_graph(
                 build_support_graph(nodes.graph_nodes()),
                 {
@@ -187,6 +297,26 @@ async def execute_support_run(
                     "actor_id": str(actor_id),
                     "query": query,
                 },
+            )
+            log_event(
+                logger,
+                "worker.graph.completed",
+                run_id=str(run_id),
+                outcome=result.get("outcome"),
+                route=result.get("route"),
+                stop_reason=result.get("stop_reason"),
+                model_calls=result.get("model_calls", 0),
+                retrieval_calls=result.get("retrieval_calls", 0),
+                tool_calls=result.get("tool_calls", 0),
+                step_count=result.get("step_count", 0),
+                citation_count=len(result.get("citations", [])),
+                input_tokens=result.get("input_tokens", 0),
+                output_tokens=result.get("output_tokens", 0),
+                **content_log_fields(
+                    "answer",
+                    str(result.get("answer", "")),
+                    include_content=log_prompts,
+                ),
             )
 
         async with database.session() as session, session.begin():
@@ -258,7 +388,14 @@ async def execute_support_run(
                 "input_tokens": result.get("input_tokens", 0),
                 "output_tokens": result.get("output_tokens", 0),
             }
-    except Exception:
+            final_status = transition.run.status.value
+            assistant_message_id = str(assistant_message.id)
+    except Exception as error:
+        error_code = (
+            "provider_output_incomplete"
+            if isinstance(error, IncompleteStructuredResponseError)
+            else "agent_execution_failed"
+        )
         async with database.session() as session, session.begin():
             failed_run = await repository.get_for_update(session, run_id=run_id)
             if (
@@ -272,10 +409,30 @@ async def execute_support_run(
                     actor_id=actor_id,
                     target=RunStatus.FAILED,
                     operation_id=f"worker-failed:{run_id}",
-                    error_code="agent_execution_failed",
-                    safe_payload={"error_code": "agent_execution_failed"},
+                    error_code=error_code,
+                    safe_payload={"error_code": error_code},
                 )
+        log_event(
+            logger,
+            "worker.run.failed",
+            level=logging.ERROR,
+            exc_info=True,
+            run_id=str(run_id),
+            worker_id=execution_worker_id,
+            error_code=error_code,
+            error_type=type(error).__name__,
+            error=str(error),
+            duration_ms=round((time.monotonic() - started_at) * 1_000, 2),
+        )
         raise
+    log_event(
+        logger,
+        "worker.result.committed",
+        run_id=str(run_id),
+        status=final_status,
+        assistant_message_id=assistant_message_id,
+        duration_ms=round((time.monotonic() - started_at) * 1_000, 2),
+    )
     if approval_pause is not None:
         approval_id, arguments_hash, checkpoint_thread_id = approval_pause
         await asyncio.to_thread(

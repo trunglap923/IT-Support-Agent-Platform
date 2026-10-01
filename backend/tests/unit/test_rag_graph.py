@@ -1,5 +1,6 @@
 import asyncio
 from types import SimpleNamespace
+from typing import Any
 from uuid import uuid4
 
 from app.agent.graph import build_support_graph, run_support_graph
@@ -7,6 +8,7 @@ from app.agent.rag import RAGGraphNodes
 from app.auth.principal import Principal
 from app.db.models import UserRole
 from app.providers.fake import FakeTextProvider
+from app.providers.structured import IncompleteStructuredResponseError
 from app.rag.retrieval.query import RetrievalHit
 from app.tools.results import ToolResult
 
@@ -32,6 +34,23 @@ class StubRetriever:
         del session
         self.queries.append(str(kwargs["query"]))
         return self.hits
+
+
+class TruncatedOnceProvider(FakeTextProvider):
+    def __init__(self) -> None:
+        super().__init__()
+        self.output_token_limits: list[int] = []
+        self.operation_ids: list[str] = []
+
+    async def generate_support_reply(self, query: str, **kwargs: Any):  # type: ignore[no-untyped-def]
+        self.output_token_limits.append(int(kwargs["max_output_tokens"]))
+        self.operation_ids.append(str(kwargs["operation_id"]))
+        if len(self.output_token_limits) == 1:
+            callback = kwargs.get("on_text_delta")
+            if callback is not None:
+                await callback("partial answer")
+            raise IncompleteStructuredResponseError("truncated")
+        return await super().generate_support_reply(query, **kwargs)
 
 
 class StubToolRunner:
@@ -89,6 +108,44 @@ def test_rag_graph_returns_server_owned_citation() -> None:
         assert result["citation_ids"] == [result["citations"][0]["source_id"]]
         assert result["citations"][0]["title"] == "VPN guide"
         assert retriever.queries == ["How do I use VPN?"]
+
+    asyncio.run(scenario())
+
+
+def test_rag_graph_retries_incomplete_output_and_resets_stream() -> None:
+    async def scenario() -> None:
+        provider = TruncatedOnceProvider()
+        stream_starts = 0
+        streamed_answer = ""
+
+        async def start_stream() -> None:
+            nonlocal stream_starts, streamed_answer
+            stream_starts += 1
+            streamed_answer = ""
+
+        async def collect_delta(delta: str) -> None:
+            nonlocal streamed_answer
+            streamed_answer += delta
+
+        nodes = RAGGraphNodes(
+            session=SimpleNamespace(),  # type: ignore[arg-type]
+            principal=principal(),
+            retriever=StubRetriever([hit()]),  # type: ignore[arg-type]
+            provider=provider,
+            on_stream_started=start_stream,
+            on_text_delta=collect_delta,
+        )
+        result = await run_support_graph(
+            build_support_graph(nodes.graph_nodes()),
+            {"query": "How do I use VPN?", "run_id": "run-retry"},
+        )
+
+        assert provider.output_token_limits == [800, 1_200]
+        assert provider.operation_ids[1].endswith(":incomplete-retry")
+        assert stream_starts == 2
+        assert "partial answer" not in streamed_answer
+        assert streamed_answer == result["answer"]
+        assert result["outcome"] == "answered"
 
     asyncio.run(scenario())
 

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+import logging
+import time
+from collections.abc import Awaitable, Callable, Sequence
 from typing import Any, Protocol, cast
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,12 +13,15 @@ from app.agent.context.builder import ContextMessage, build_agent_context
 from app.agent.graph import SupportGraphNodes
 from app.agent.state import EvidenceState, SupportAgentState
 from app.auth.principal import Principal
+from app.diagnostics import content_log_fields, log_event
 from app.observability import AIObserver, NoopAIObserver
-from app.providers.base import StructuredResponseProvider
-from app.providers.structured import EvidenceInput
+from app.providers.base import StructuredResponseProvider, TextDeltaCallback
+from app.providers.structured import EvidenceInput, IncompleteStructuredResponseError
 from app.rag.citations.sources import InvalidCitationError, build_evidence_output
 from app.rag.retrieval.query import RetrievalHit
 from app.tools.results import ToolResult
+
+logger = logging.getLogger(__name__)
 
 
 class Retriever(Protocol):
@@ -67,6 +72,9 @@ class RAGGraphNodes:
         observer: AIObserver | None = None,
         model: str = "fake",
         tool_runner: ToolRunner | None = None,
+        on_stream_started: Callable[[], Awaitable[None]] | None = None,
+        on_text_delta: TextDeltaCallback | None = None,
+        log_prompts: bool = False,
     ) -> None:
         self._session = session
         self._principal = principal
@@ -78,8 +86,20 @@ class RAGGraphNodes:
         self._observer = observer or NoopAIObserver()
         self._model = model
         self._tool_runner = tool_runner
+        self._on_stream_started = on_stream_started
+        self._on_text_delta = on_text_delta
+        self._log_prompts = log_prompts
         self._hits: list[RetrievalHit] = []
         self._sources_by_id: dict[str, EvidenceInput] = {}
+
+    def _log(self, event: str, state: SupportAgentState, **fields: Any) -> None:
+        log_event(
+            logger,
+            event,
+            run_id=state.get("run_id", "preview"),
+            step_count=state.get("step_count", 0),
+            **fields,
+        )
 
     async def load_context(self, state: SupportAgentState) -> dict[str, Any]:
         context = build_agent_context(current_query=state["query"], history=self._history)
@@ -101,7 +121,7 @@ class RAGGraphNodes:
                     "content": "\n".join(summary_parts),
                 }
             )
-        return {
+        update = {
             "query": context.current_query,
             "history": history,
             "context_estimated_tokens": context.estimated_tokens,
@@ -111,26 +131,71 @@ class RAGGraphNodes:
             "suggested_steps": list(context.suggested_steps),
             "confirmed_attempted_steps": list(context.confirmed_attempted_steps),
         }
+        self._log(
+            "agent.context.loaded",
+            state,
+            history_messages=len(history),
+            estimated_tokens=context.estimated_tokens,
+            truncated=context.truncated,
+            summarized_messages=context.summarized_messages,
+            suggested_steps=len(context.suggested_steps),
+            confirmed_attempted_steps=len(context.confirmed_attempted_steps),
+        )
+        return update
 
     async def rewrite_query(self, state: SupportAgentState) -> dict[str, Any]:
-        return {"normalized_query": " ".join(state["query"].strip().split())}
+        normalized_query = " ".join(state["query"].strip().split())
+        self._log(
+            "agent.query.rewritten",
+            state,
+            changed=normalized_query != state["query"],
+            **content_log_fields(
+                "normalized_query",
+                normalized_query,
+                include_content=self._log_prompts,
+            ),
+        )
+        return {"normalized_query": normalized_query}
 
     async def decide_action(self, state: SupportAgentState) -> dict[str, Any]:
         if self._tool_runner is None:
+            self._log("agent.action.decided", state, route="rag", reason="tools_disabled")
             return {"action_route": "rag"}
         run_id = state.get("run_id", "preview")
+        started_at = time.monotonic()
+        self._log("agent.action.decision.started", state)
         decision = await self._provider.choose_support_tool(
             state["query"],
             history=[(item["role"], item["content"]) for item in state.get("history", [])],
             operation_id=f"agent:{run_id}:tool-decision",
         )
         if decision.call is None:
+            self._log(
+                "agent.action.decided",
+                state,
+                route="rag",
+                provider_request_id=decision.provider_request_id,
+                input_tokens=decision.input_tokens,
+                output_tokens=decision.output_tokens,
+                duration_ms=round((time.monotonic() - started_at) * 1_000, 2),
+            )
             return {
                 "action_route": "rag",
                 "provider_request_id": decision.provider_request_id,
                 "input_tokens": decision.input_tokens,
                 "output_tokens": decision.output_tokens,
             }
+        self._log(
+            "agent.action.decided",
+            state,
+            route="tool",
+            tool_name=decision.call.name,
+            tool_call_id=decision.call.call_id,
+            provider_request_id=decision.provider_request_id,
+            input_tokens=decision.input_tokens,
+            output_tokens=decision.output_tokens,
+            duration_ms=round((time.monotonic() - started_at) * 1_000, 2),
+        )
         return {
             "action_route": "tool",
             "tool_call": decision.call.model_dump(mode="json"),
@@ -151,6 +216,14 @@ class RAGGraphNodes:
             name=str(call["name"]),
             arguments=cast(dict[str, Any], raw_arguments),
         )
+        self._log(
+            "agent.tool.executed",
+            state,
+            tool_name=str(call["name"]),
+            tool_call_id=str(call["call_id"]),
+            status=result.status,
+            error_code=result.error.code if result.error is not None else None,
+        )
         return {
             "tool_result": result.model_dump(mode="json"),
             "tool_calls": state.get("tool_calls", 0) + 1,
@@ -160,6 +233,13 @@ class RAGGraphNodes:
         result = state.get("tool_result", {})
         error = result.get("error")
         call = state.get("tool_call", {})
+        self._log(
+            "agent.tool.response.prepared",
+            state,
+            tool_name=call.get("name"),
+            status=result.get("status"),
+            error_code=error.get("code") if isinstance(error, dict) else None,
+        )
         if (
             result.get("status") == "failed"
             and isinstance(error, dict)
@@ -251,25 +331,92 @@ class RAGGraphNodes:
             )
             for item in evidence
         }
+        self._log(
+            "agent.evidence.selected",
+            state,
+            retrieval_hits=len(self._hits),
+            accepted_evidence=len(evidence),
+            minimum_lexical_coverage=self._minimum_lexical_coverage,
+            minimum_vector_similarity=self._minimum_vector_similarity,
+            sources=[
+                {
+                    "source_id": item["source_id"],
+                    "document_key": item["document_key"],
+                    "title": item["title"],
+                    "page_number": item["page_number"],
+                    "score": round(float(item["score"]), 6),
+                    **content_log_fields(
+                        "excerpt",
+                        str(item["excerpt"]),
+                        include_content=self._log_prompts,
+                    ),
+                }
+                for item in evidence
+            ],
+        )
         return {"evidence": evidence}
 
     async def decide_evidence(self, state: SupportAgentState) -> dict[str, Any]:
-        return {"route": "generate" if state.get("evidence") else "no_answer"}
+        route = "generate" if state.get("evidence") else "no_answer"
+        self._log(
+            "agent.evidence.decided",
+            state,
+            route=route,
+            evidence_count=len(state.get("evidence", [])),
+        )
+        return {"route": route}
 
     async def generate_answer(self, state: SupportAgentState) -> dict[str, Any]:
         run_id = state.get("run_id", "preview")
+        generation = state.get("model_calls", 0) + 1
+        operation_id = f"rag:{run_id}:generation:{generation}"
+        output_token_limits = (800, 1_200)
         with self._observer.generation(
             run_id=run_id,
             actor_id=state.get("actor_id", str(self._principal.user_id)),
             model=self._model,
             evidence_count=len(self._sources_by_id),
         ) as observation:
-            response = await self._provider.generate_support_reply(
-                state["query"],
-                evidence=list(self._sources_by_id.values()),
-                history=[(item["role"], item["content"]) for item in state.get("history", [])],
-                operation_id=(f"rag:{run_id}:generation:{state.get('model_calls', 0) + 1}"),
-            )
+            for attempt, output_token_limit in enumerate(output_token_limits):
+                attempt_started_at = time.monotonic()
+                self._log(
+                    "agent.generation.started",
+                    state,
+                    attempt=attempt + 1,
+                    operation_id=(
+                        operation_id if attempt == 0 else f"{operation_id}:incomplete-retry"
+                    ),
+                    model=self._model,
+                    evidence_count=len(self._sources_by_id),
+                    max_output_tokens=output_token_limit,
+                )
+                if self._on_stream_started is not None:
+                    await self._on_stream_started()
+                try:
+                    response = await self._provider.generate_support_reply(
+                        state["query"],
+                        evidence=list(self._sources_by_id.values()),
+                        history=[
+                            (item["role"], item["content"]) for item in state.get("history", [])
+                        ],
+                        max_output_tokens=output_token_limit,
+                        operation_id=(
+                            operation_id if attempt == 0 else f"{operation_id}:incomplete-retry"
+                        ),
+                        on_text_delta=self._on_text_delta,
+                    )
+                    break
+                except IncompleteStructuredResponseError as error:
+                    self._log(
+                        "agent.generation.incomplete",
+                        state,
+                        attempt=attempt + 1,
+                        duration_ms=round((time.monotonic() - attempt_started_at) * 1_000, 2),
+                        retrying=attempt < len(output_token_limits) - 1,
+                        error=str(error),
+                    )
+                    if attempt == len(output_token_limits) - 1:
+                        raise
             if observation is not None:
                 observation.update(
                     output={
@@ -281,6 +428,21 @@ class RAGGraphNodes:
                         "output_tokens": response.output_tokens,
                     },
                 )
+        self._log(
+            "agent.generation.completed",
+            state,
+            provider_request_id=response.provider_request_id,
+            outcome=response.reply.outcome,
+            citation_ids=response.reply.citations,
+            input_tokens=response.input_tokens,
+            output_tokens=response.output_tokens,
+            duration_ms=round((time.monotonic() - attempt_started_at) * 1_000, 2),
+            **content_log_fields(
+                "answer",
+                response.reply.answer,
+                include_content=self._log_prompts,
+            ),
+        )
         return {
             "answer": response.reply.answer,
             "citation_ids": response.reply.citations,
@@ -292,6 +454,7 @@ class RAGGraphNodes:
 
     async def validate_answer(self, state: SupportAgentState) -> dict[str, Any]:
         if state.get("outcome") == "no_answer":
+            self._log("agent.answer.validated", state, route="no_answer", errors=[])
             return {"route": "no_answer", "validation_errors": []}
         try:
             selected = build_evidence_output(
@@ -301,8 +464,16 @@ class RAGGraphNodes:
                 minimum_vector_similarity=self._minimum_vector_similarity,
             )
         except InvalidCitationError as exc:
+            self._log("agent.answer.validated", state, route="retry", errors=[str(exc)])
             return {"route": "retry", "validation_errors": [str(exc)]}
         scores = {str(hit.chunk_id): hit.score for hit in self._hits}
+        self._log(
+            "agent.answer.validated",
+            state,
+            route="done",
+            errors=[],
+            selected_sources=len(selected.sources),
+        )
         return {
             "route": "done",
             "outcome": "answered",
@@ -313,7 +484,12 @@ class RAGGraphNodes:
         }
 
     async def no_answer(self, state: SupportAgentState) -> dict[str, Any]:
-        del state
+        self._log(
+            "agent.no_answer",
+            state,
+            stop_reason=state.get("stop_reason"),
+            validation_errors=state.get("validation_errors", []),
+        )
         return {
             "answer": "Không tìm thấy tài liệu hiện hành đủ căn cứ để trả lời.",
             "citation_ids": [],

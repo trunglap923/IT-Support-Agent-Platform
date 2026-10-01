@@ -60,7 +60,7 @@ class Settings(BaseSettings):
     celery_task_time_limit_seconds: int = Field(default=330, gt=0)
     run_lease_seconds: int = Field(default=90, ge=15, le=600)
     run_max_attempts: int = Field(default=3, ge=1, le=10)
-    sse_poll_interval_seconds: float = Field(default=1.0, gt=0, le=10)
+    sse_poll_interval_seconds: float = Field(default=0.1, gt=0, le=10)
     sse_heartbeat_seconds: float = Field(default=15.0, gt=0, le=60)
     document_storage_path: str = ".storage/documents"
     demo_corpus_path: str = "../data"

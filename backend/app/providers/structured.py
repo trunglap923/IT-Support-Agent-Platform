@@ -12,6 +12,10 @@ class ProviderContractError(ValueError):
     """Raised when a provider returns data outside the application contract."""
 
 
+class IncompleteStructuredResponseError(ProviderContractError):
+    """Raised when a provider stops before completing structured output."""
+
+
 class SupportToolCall(BaseModel):
     """A side-effect-free tool proposal; trusted actor context is never model supplied."""
 

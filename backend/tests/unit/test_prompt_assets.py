@@ -17,10 +17,12 @@ def test_prompt_assets_are_checksum_verified_and_versioned() -> None:
     assert "check_service_status" in SUPPORT_INSTRUCTIONS
     assert "Never invent corporate policy" in SUPPORT_INSTRUCTIONS
     assert "same language as the user's newest query" in SUPPORT_INSTRUCTIONS
+    assert "no more than 180 words" in SUPPORT_INSTRUCTIONS
+    assert "Never print source IDs" in SUPPORT_INSTRUCTIONS
     assert "proposed troubleshooting steps" in MEMORY_EXTRACTION_PROMPT.read_text()
-    assert SUPPORT_PROMPT_VERSION == "support-agent-v4"
+    assert SUPPORT_PROMPT_VERSION == "support-agent-v5"
     assert prompt_versions() == {
-        "support_agent": "support-agent-v4",
+        "support_agent": "support-agent-v5",
         "memory_extraction": "memory-extraction-v1",
         "support_reply_schema": "support-reply-v1",
     }

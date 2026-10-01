@@ -1,10 +1,12 @@
 """Provider-neutral contracts used by orchestration code."""
 
-from collections.abc import Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
 from app.providers.structured import EvidenceInput, StructuredModelResponse, ToolDecisionResponse
+
+TextDeltaCallback = Callable[[str], Awaitable[None]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,7 +47,8 @@ class StructuredResponseProvider(TextGenerationProvider, Protocol):
         *,
         evidence: list[EvidenceInput],
         history: Sequence[tuple[str, str]] = (),
-        max_output_tokens: int = 400,
+        max_output_tokens: int = 800,
         operation_id: str | None = None,
+        on_text_delta: TextDeltaCallback | None = None,
     ) -> StructuredModelResponse:
         """Generate a validated support reply from server-controlled evidence."""

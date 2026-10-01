@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Annotated, Literal, cast
 from uuid import UUID
 
@@ -13,6 +14,7 @@ from app.api.pagination import CursorPage, PageLimit, build_page, decode_cursor
 from app.auth.csrf import require_csrf
 from app.db.models import Conversation, Message, MessageFeedback, RunStatus
 from app.dependencies import CurrentPrincipal, get_db_session
+from app.diagnostics import content_log_fields, log_event
 from app.jobs.dispatch import BrokerUnavailableError, RunDispatcher
 from app.memory.lifecycle import MemoryLifecycleService, MemoryNotFoundError
 from app.prompts import SUPPORT_PROMPT_VERSION
@@ -27,6 +29,7 @@ from app.services.documents.access import redact_revoked_message_citations
 from app.services.feedback import FeedbackService, FeedbackTargetNotFoundError
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
+logger = logging.getLogger(__name__)
 
 
 class CreateConversationRequest(BaseModel):
@@ -294,6 +297,25 @@ async def submit_message(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Background worker is unavailable",
         ) from error
+    settings = request.app.state.settings
+    log_event(
+        logger,
+        "chat.submission.accepted",
+        request_id=request.state.request_id,
+        run_id=str(result.run_id),
+        conversation_id=str(conversation_id),
+        actor_id=str(principal.user_id),
+        client_request_id=payload.client_request_id,
+        status=result.status.value,
+        created=result.created,
+        enqueued=result.enqueued,
+        enqueue_error=result.enqueue_error,
+        **content_log_fields(
+            "user_message",
+            payload.content.strip(),
+            include_content=settings.log_prompts,
+        ),
+    )
     return SubmitMessageResponse(
         run_id=result.run_id,
         status=result.status,

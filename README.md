@@ -129,7 +129,10 @@ RUN_OPENAI_LIVE_SPIKE=1 make spike-openai-live
 TEXT_PROVIDER=openai RUN_LIVE_EVAL=1 make eval-agent-live
 ```
 
-Không commit hoặc gửi API key vào chat. Budget guard/token cap vẫn không thay thế việc giám sát billing của nhà cung cấp.
+`eval-agent-live` tự tạo PostgreSQL/pgvector cô lập trên một cổng host ngẫu nhiên, chạy
+migration và luôn xóa container sau khi hoàn tất. Nó không ghi usage/cost ledger vào database
+development. Không commit hoặc gửi API key vào chat. Budget guard/token cap vẫn không thay thế
+việc giám sát billing của nhà cung cấp.
 
 ## Backup và restore drill
 

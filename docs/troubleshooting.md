@@ -83,7 +83,33 @@ secret trong bước cài dependency; certificate không được copy vào imag
 
 ## Xem log mà không lộ secret
 
-Ưu tiên log theo service và không in `.env`:
+Theo dõi toàn bộ luồng chat ở API và agent worker:
+
+```bash
+make logs-agent
+```
+
+Mỗi dòng chẩn đoán là JSON và có `run_id`. Có thể lọc một lần chạy cụ thể:
+
+```bash
+make logs-agent | rg --line-buffered 'RUN_ID_CAN_XEM'
+```
+
+Các mốc chính gồm `chat.submission.accepted`, `worker.run.claimed`,
+`agent.action.decided`, `retrieval.search.completed`, `agent.evidence.selected`,
+`agent.generation.*`, `worker.stream.delta.persisted`, `worker.result.committed`,
+`sse.event.delivered` và `worker.run.failed`.
+
+Mặc định `LOG_PROMPTS=false`: log có độ dài, hash, điểm retrieval, nguồn, token usage và
+traceback nhưng không có nội dung chat/tài liệu/câu trả lời. Chỉ bật tạm thời trên môi trường
+development khi cần xem nội dung từng delta:
+
+```ini
+LOG_PROMPTS=true
+```
+
+Sau khi đổi, chạy `make up`; điều tra xong nên trả lại `false`. Ưu tiên log theo service và
+không in `.env`:
 
 ```bash
 docker compose --file infra/compose.yaml --env-file .env logs --tail=200 api worker-agent

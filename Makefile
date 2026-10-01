@@ -18,7 +18,7 @@ PROJECT_UID := $(shell id -u)
 PROJECT_GID := $(shell id -g)
 FRONTEND_DOCKER = docker run --rm --user $(PROJECT_UID):$(PROJECT_GID) -e npm_config_cache=/tmp/npm-cache -v $(CURDIR)/frontend:/app -w /app $(NODE_IMAGE)
 
-.PHONY: help bootstrap bootstrap-host env-init stack-build up down status test test-fast \
+.PHONY: help bootstrap bootstrap-host env-init stack-build up down status logs-agent test test-fast \
 	test-e2e eval demo clean-verify backup restore-test docs-check check backend-sync backend-format backend-check \
 	frontend-install frontend-check frontend-install-docker frontend-check-docker \
 	frontend-e2e-docker \
@@ -36,6 +36,7 @@ help:
 	@echo "Primary reproducible commands:"
 	@echo "  make bootstrap              Create local env if needed and build locked images"
 	@echo "  make up                     Build/start the complete seven-service stack"
+	@echo "  make logs-agent             Follow API and agent-worker diagnostics"
 	@echo "  make migrate                Run Alembic as an explicit one-shot container"
 	@echo "  make seed                   Seed business scenarios and published IT knowledge"
 	@echo "  make seed-dry-run           Validate and preview seed changes without persisting"
@@ -117,6 +118,9 @@ down:
 
 status:
 	$(STACK_COMPOSE) ps
+
+logs-agent: env-init
+	$(STACK_COMPOSE) logs --follow --tail=200 api worker-agent
 
 test: env-init
 	bash $(CURDIR)/infra/scripts/run-tests.sh
@@ -258,7 +262,7 @@ eval-agent-repro: eval-validate
 
 eval-agent-live: eval-validate
 	@test "$${RUN_LIVE_EVAL:-0}" = "1" || (echo "Set RUN_LIVE_EVAL=1 to authorize paid evaluation."; exit 1)
-	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --project backend --frozen --env-file $(COMPOSE_ENV_FILE) python -m evals.runner.cli --mode live --split development --category rag --max-cases 1 --repetitions 3 --output reports/raw/agent-evaluation-live.json
+	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --project backend --frozen --env-file $(COMPOSE_ENV_FILE) python -m evals.runner.live_eval
 
 knowledge-validate:
 	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --directory backend --frozen python ../data/manifests/validate_corpus.py

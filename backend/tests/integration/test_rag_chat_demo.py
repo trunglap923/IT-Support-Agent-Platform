@@ -17,6 +17,7 @@ from app.db.models import (
     DocumentVersionStatus,
     DocumentVisibility,
     Message,
+    RunEvent,
     ServiceState,
     User,
     UserRole,
@@ -186,10 +187,26 @@ def test_fake_rag_chat_citation_and_no_answer_end_to_end(
                         Message.role == "assistant",
                     )
                 )
+                stream_events = list(
+                    (
+                        await session.scalars(
+                            select(RunEvent)
+                            .where(RunEvent.run_id == answered.run_id)
+                            .order_by(RunEvent.sequence)
+                        )
+                    ).all()
+                )
             assert answered_message is not None
             assert answered_message.outcome == "answered"
             assert len(answered_message.citations) == 1
             assert answered_message.citations[0]["title"] == "VPN on Ubuntu"
+            assert any(event.type == "assistant.stream.started" for event in stream_events)
+            streamed_answer = "".join(
+                str(event.safe_payload["delta"])
+                for event in stream_events
+                if event.type == "assistant.stream.delta"
+            )
+            assert streamed_answer == answered_message.content
             assert unknown_message is not None
             assert unknown_message.outcome == "no_answer"
             assert unknown_message.citations == []

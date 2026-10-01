@@ -10,12 +10,14 @@ from app.services.budget.service import BudgetExceededError
 class RecordingLedger:
     def __init__(self) -> None:
         self.events: list[str] = []
+        self.provider_request_ids: list[str] = []
 
     async def reserve(self, **kwargs: object) -> None:
         self.events.append(f"reserve:{kwargs['operation_id']}")
 
     async def complete(self, **kwargs: object) -> None:
         self.events.append(f"complete:{kwargs['operation_id']}")
+        self.provider_request_ids.append(str(kwargs["provider_request_id"]))
 
     async def mark_unknown(self, **kwargs: object) -> None:
         self.events.append(f"unknown:{kwargs['operation_id']}")
@@ -31,8 +33,10 @@ class FakeEmbeddingsApi:
         if self._fails:
             raise TimeoutError("unknown provider outcome")
         dimensions = int(kwargs["dimensions"])
+        client_request_id = str(kwargs["extra_headers"]["X-Client-Request-Id"])  # type: ignore[index]
+        assert client_request_id.startswith("emb-")
         return SimpleNamespace(
-            id="embedding-response-1",
+            _request_id="req-embedding-response-1",
             data=[SimpleNamespace(embedding=[0.25] * dimensions)],
             usage=SimpleNamespace(prompt_tokens=4),
         )
@@ -71,6 +75,8 @@ def test_openai_reserves_before_call_and_finalizes_usage() -> None:
         )
         result = await provider.embed(["safe test"], operation_id="op-1")
         assert ledger.events == ["reserve:op-1", "complete:op-1"]
+        assert ledger.provider_request_ids == ["req-embedding-response-1"]
+        assert result.provider_request_id == "req-embedding-response-1"
         assert result.input_tokens == 4
 
     asyncio.run(scenario())

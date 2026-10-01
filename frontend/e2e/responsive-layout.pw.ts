@@ -89,6 +89,56 @@ async function mockChat(page: Page) {
   ])));
 }
 
+async function mockStreamingChat(page: Page) {
+  await mockWorkspace(page);
+  const conversationId = "55555555-5555-5555-5555-555555555555";
+  const runId = "99999999-9999-9999-9999-999999999999";
+  await page.route("**/api/v1/conversations**", (route) => json(route, cursorPage([
+    { id: conversationId, title: "VPN trên Ubuntu" },
+  ])));
+  await page.route("**/api/v1/conversations/*/messages**", (route) => json(route, cursorPage([
+    {
+      id: "77777777-7777-7777-7777-777777777777",
+      run_id: runId,
+      role: "user",
+      content: "Tôi đăng nhập VPN như thế nào?",
+      outcome: null,
+    },
+  ])));
+  await page.route(`**/api/v1/runs/${runId}`, (route) => json(route, {
+    id: runId,
+    conversation_id: conversationId,
+    status: "running",
+    outcome: null,
+    version: 2,
+    error_code: null,
+  }));
+  let eventRequestCount = 0;
+  await page.route(`**/api/v1/runs/${runId}/events**`, (route) => {
+    eventRequestCount += 1;
+    const events = eventRequestCount === 1
+      ? [
+        { sequence: 2, type: "run.running", payload: {} },
+        { sequence: 3, type: "assistant.stream.started", payload: { generation: 1 } },
+        { sequence: 4, type: "assistant.stream.delta", payload: { delta: "Hãy đăng nhập " } },
+        { sequence: 5, type: "assistant.stream.delta", payload: { delta: "bằng SSO công ty." } },
+      ]
+      : [];
+    const body = events.map((item) => [
+      `id: ${item.sequence}`,
+      `event: ${item.type}`,
+      `data: ${JSON.stringify({
+        ...item,
+        run_id: runId,
+        timestamp: "2026-10-01T00:00:00Z",
+      })}`,
+      "",
+      "",
+    ].join("\n")).join("");
+    return route.fulfill({ status: 200, contentType: "text/event-stream", body });
+  });
+}
+
 async function expectNoHorizontalOverflow(page: Page) {
   const dimensions = await page.evaluate(() => ({
     clientWidth: document.documentElement.clientWidth,
@@ -151,6 +201,30 @@ test("chat stays readable on desktop and mobile", async ({ page }, testInfo) => 
   }));
   expect(messageListWidth.scrollWidth).toBeLessThanOrEqual(messageListWidth.clientWidth + 1);
   await page.screenshot({ path: testInfo.outputPath("chat-mobile.png"), fullPage: true });
+  expect(consoleErrors).toEqual([]);
+});
+
+test("streaming answer stays readable on desktop and mobile", async ({ page }, testInfo) => {
+  await mockStreamingChat(page);
+  const consoleErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await page.goto("/chat");
+  await expect(page.getByLabel("Câu trả lời đang được tạo")).toContainText(
+    "Hãy đăng nhập bằng SSO công ty.",
+  );
+  await expect(page.getByText("assistant.stream.delta")).toHaveCount(0);
+  await expectNoHorizontalOverflow(page);
+  await page.screenshot({ path: testInfo.outputPath("chat-streaming-desktop.png"), fullPage: true });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(250);
+  await expect(page.getByLabel("Câu trả lời đang được tạo")).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+  await page.screenshot({ path: testInfo.outputPath("chat-streaming-mobile.png"), fullPage: true });
   expect(consoleErrors).toEqual([]);
 });
 
