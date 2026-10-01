@@ -8,7 +8,10 @@ from app.agent.rag import RAGGraphNodes
 from app.auth.principal import Principal
 from app.db.models import UserRole
 from app.providers.fake import FakeTextProvider
-from app.providers.structured import IncompleteStructuredResponseError
+from app.providers.structured import (
+    IncompleteStructuredResponseError,
+    InvalidStructuredResponseError,
+)
 from app.rag.retrieval.query import RetrievalHit
 from app.tools.results import ToolResult
 
@@ -50,6 +53,26 @@ class TruncatedOnceProvider(FakeTextProvider):
             if callback is not None:
                 await callback("partial answer")
             raise IncompleteStructuredResponseError("truncated")
+        return await super().generate_support_reply(query, **kwargs)
+
+
+class InvalidStructuredProvider(FakeTextProvider):
+    def __init__(self, *, fail_once: bool) -> None:
+        super().__init__()
+        self.fail_once = fail_once
+        self.calls = 0
+        self.operation_ids: list[str] = []
+        self.retry_instructions: list[str | None] = []
+
+    async def generate_support_reply(self, query: str, **kwargs: Any):  # type: ignore[no-untyped-def]
+        self.calls += 1
+        self.operation_ids.append(str(kwargs["operation_id"]))
+        self.retry_instructions.append(kwargs.get("retry_instruction"))
+        if not self.fail_once or self.calls == 1:
+            callback = kwargs.get("on_text_delta")
+            if callback is not None:
+                await callback("invalid partial answer")
+            raise InvalidStructuredResponseError("outcome and citations disagree")
         return await super().generate_support_reply(query, **kwargs)
 
 
@@ -150,7 +173,85 @@ def test_rag_graph_retries_incomplete_output_and_resets_stream() -> None:
     asyncio.run(scenario())
 
 
-def test_rag_graph_uses_no_answer_without_answer_generation() -> None:
+def test_rag_graph_retries_invalid_output_with_contract_instruction() -> None:
+    async def scenario() -> None:
+        provider = InvalidStructuredProvider(fail_once=True)
+        stream_starts = 0
+        streamed_answer = ""
+
+        async def start_stream() -> None:
+            nonlocal stream_starts, streamed_answer
+            stream_starts += 1
+            streamed_answer = ""
+
+        async def collect_delta(delta: str) -> None:
+            nonlocal streamed_answer
+            streamed_answer += delta
+
+        nodes = RAGGraphNodes(
+            session=SimpleNamespace(),  # type: ignore[arg-type]
+            principal=principal(),
+            retriever=StubRetriever([hit()]),  # type: ignore[arg-type]
+            provider=provider,
+            on_stream_started=start_stream,
+            on_text_delta=collect_delta,
+        )
+        result = await run_support_graph(
+            build_support_graph(nodes.graph_nodes()),
+            {"query": "How do I use VPN?", "run_id": "run-contract-retry"},
+        )
+
+        assert provider.calls == 2
+        assert provider.operation_ids[1].endswith(":contract-retry")
+        assert provider.retry_instructions[0] is None
+        assert "outcome='no_answer' only with citations=[]" in str(provider.retry_instructions[1])
+        assert stream_starts == 2
+        assert "invalid partial answer" not in streamed_answer
+        assert streamed_answer == result["answer"]
+        assert result["outcome"] == "answered"
+
+    asyncio.run(scenario())
+
+
+def test_rag_graph_falls_back_safely_after_repeated_invalid_output() -> None:
+    async def scenario() -> None:
+        provider = InvalidStructuredProvider(fail_once=False)
+        stream_starts = 0
+        streamed_answer = ""
+
+        async def start_stream() -> None:
+            nonlocal stream_starts, streamed_answer
+            stream_starts += 1
+            streamed_answer = ""
+
+        async def collect_delta(delta: str) -> None:
+            nonlocal streamed_answer
+            streamed_answer += delta
+
+        nodes = RAGGraphNodes(
+            session=SimpleNamespace(),  # type: ignore[arg-type]
+            principal=principal(),
+            retriever=StubRetriever([hit()]),  # type: ignore[arg-type]
+            provider=provider,
+            on_stream_started=start_stream,
+            on_text_delta=collect_delta,
+        )
+        result = await run_support_graph(
+            build_support_graph(nodes.graph_nodes()),
+            {"query": "How do I use VPN?", "run_id": "run-contract-fallback"},
+        )
+
+        assert provider.calls == 2
+        assert stream_starts == 3
+        assert streamed_answer == ""
+        assert result["outcome"] == "no_answer"
+        assert result["citations"] == []
+        assert "Vui lòng liên hệ IT" in result["answer"]
+
+    asyncio.run(scenario())
+
+
+def test_rag_graph_generates_natural_no_answer_without_evidence() -> None:
     async def scenario() -> None:
         nodes = RAGGraphNodes(
             session=SimpleNamespace(),  # type: ignore[arg-type]
@@ -164,7 +265,8 @@ def test_rag_graph_uses_no_answer_without_answer_generation() -> None:
         )
         assert result["outcome"] == "no_answer"
         assert result["citations"] == []
-        assert result["model_calls"] == 1
+        assert result["answer"].startswith("I couldn't find sufficient internal documentation")
+        assert result["model_calls"] == 2
 
     asyncio.run(scenario())
 
@@ -183,7 +285,8 @@ def test_rag_graph_uses_no_answer_for_weak_evidence() -> None:
         )
         assert result["outcome"] == "no_answer"
         assert result["citations"] == []
-        assert result["model_calls"] == 1
+        assert result["answer"].startswith("I couldn't find sufficient internal documentation")
+        assert result["model_calls"] == 2
 
     asyncio.run(scenario())
 

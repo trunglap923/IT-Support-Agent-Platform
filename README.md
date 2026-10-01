@@ -196,3 +196,80 @@ docs/              architecture, ADR, roadmap, demo và troubleshooting
 ```
 
 Đọc [roadmap](docs/implementation-roadmap.md) để xem checklist và bằng chứng theo work package. Tên portfolio đề xuất: **Stateful IT Support Agent with Evaluated RAG and Approval Workflows**.
+
+
+### Mỗi lần sửa code
+
+Tại thư mục dự án, chạy:
+
+```bash
+cd ~/LapVT2/IT-Support-Agent-Platform
+make up
+```
+
+`make up` sẽ tự:
+
+- Build lại backend và frontend.
+- Recreate các container cần thiết.
+- Khởi động toàn bộ stack.
+- Chờ các service healthy.
+
+Sau đó kiểm tra:
+
+```bash
+make status
+```
+
+Mở ứng dụng:
+
+```text
+http://127.0.0.1:5173
+```
+
+Theo dõi toàn bộ luồng chat:
+
+```bash
+make logs-agent
+```
+
+Nhấn `Ctrl+C` chỉ thoát màn hình log, không dừng ứng dụng.
+
+### Một số trường hợp đặc biệt
+
+Nếu có migration database mới:
+
+```bash
+make migrate
+make up
+```
+
+Nếu thay đổi dữ liệu demo hoặc tài liệu seed:
+
+```bash
+make seed
+make up
+```
+
+Nếu đổi embedding model/provider:
+
+```bash
+RUN_PAID_REINDEX=1 make knowledge-reindex
+make up
+```
+
+Muốn restart sạch container nhưng giữ nguyên dữ liệu:
+
+```bash
+make down
+make up
+```
+
+Hiện tại `.env` đang dùng:
+
+```ini
+TEXT_PROVIDER=openai
+EMBEDDING_PROVIDER=openai
+LOG_PROMPTS=true
+```
+
+`LOG_PROMPTS=true` sẽ ghi nội dung chat và tài liệu vào log. Điều tra xong nên đổi lại `false` rồi chạy `make up`.

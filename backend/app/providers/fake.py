@@ -248,8 +248,9 @@ class FakeTextProvider:
         max_output_tokens: int = 800,
         operation_id: str | None = None,
         on_text_delta: TextDeltaCallback | None = None,
+        retry_instruction: str | None = None,
     ) -> StructuredModelResponse:
-        del history, max_output_tokens, operation_id
+        del history, max_output_tokens, operation_id, retry_instruction
         vietnamese = self._uses_vietnamese(query)
         if not evidence:
             reply = SupportReply(

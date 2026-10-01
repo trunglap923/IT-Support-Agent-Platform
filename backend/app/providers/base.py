@@ -50,5 +50,6 @@ class StructuredResponseProvider(TextGenerationProvider, Protocol):
         max_output_tokens: int = 800,
         operation_id: str | None = None,
         on_text_delta: TextDeltaCallback | None = None,
+        retry_instruction: str | None = None,
     ) -> StructuredModelResponse:
         """Generate a validated support reply from server-controlled evidence."""

@@ -15,6 +15,7 @@ from app.providers.base import GeneratedText, TextDeltaCallback
 from app.providers.structured import (
     EvidenceInput,
     IncompleteStructuredResponseError,
+    InvalidStructuredResponseError,
     ProviderContractError,
     StructuredModelResponse,
     SupportReply,
@@ -107,6 +108,14 @@ def _is_incomplete_json_validation(error: ValidationError) -> bool:
         ):
             return True
     return False
+
+
+def _validation_summary(error: ValidationError) -> str:
+    messages = [
+        str(detail.get("msg", "invalid structured response"))
+        for detail in error.errors(include_input=False)[:3]
+    ]
+    return "; ".join(messages)
 
 
 class OpenAITextProvider:
@@ -235,12 +244,15 @@ class OpenAITextProvider:
         max_output_tokens: int = 800,
         operation_id: str | None = None,
         on_text_delta: TextDeltaCallback | None = None,
+        retry_instruction: str | None = None,
     ) -> StructuredModelResponse:
-        payload = {
+        payload: dict[str, Any] = {
             "query": query.strip(),
             "recent_history": [{"role": role, "content": content} for role, content in history],
             "evidence": [item.model_dump(mode="json") for item in evidence],
         }
+        if retry_instruction is not None:
+            payload["retry_instruction"] = retry_instruction
         serialized = json.dumps(payload, ensure_ascii=False)
         if self._usage_ledger is not None:
             if not operation_id:
@@ -282,6 +294,11 @@ class OpenAITextProvider:
                 raise IncompleteStructuredResponseError(
                     "OpenAI stopped before completing the structured support reply"
                 ) from None
+            if isinstance(error, ValidationError):
+                raise InvalidStructuredResponseError(
+                    "OpenAI returned a support reply that violates the application contract: "
+                    f"{_validation_summary(error)}"
+                ) from error
             raise
         if getattr(response, "status", None) == "incomplete":
             if self._usage_ledger is not None and operation_id:
@@ -291,8 +308,22 @@ class OpenAITextProvider:
             )
         parsed = response.output_parsed
         if parsed is None:
+            if self._usage_ledger is not None and operation_id:
+                await self._usage_ledger.mark_unknown(operation_id=operation_id)
             raise ProviderContractError("OpenAI returned no parsed support reply")
-        reply = validate_reply_sources(SupportReply.model_validate(parsed), evidence)
+        try:
+            reply = validate_reply_sources(SupportReply.model_validate(parsed), evidence)
+        except ValidationError as error:
+            if self._usage_ledger is not None and operation_id:
+                await self._usage_ledger.mark_unknown(operation_id=operation_id)
+            raise InvalidStructuredResponseError(
+                "OpenAI returned a support reply that violates the application contract: "
+                f"{_validation_summary(error)}"
+            ) from error
+        except ProviderContractError:
+            if self._usage_ledger is not None and operation_id:
+                await self._usage_ledger.mark_unknown(operation_id=operation_id)
+            raise
         usage = response.usage
         input_tokens = usage.input_tokens if usage is not None else 0
         output_tokens = usage.output_tokens if usage is not None else 0

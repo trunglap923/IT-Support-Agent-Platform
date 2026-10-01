@@ -10,6 +10,7 @@ from app.providers.openai import OpenAITextProvider
 from app.providers.structured import (
     EvidenceInput,
     IncompleteStructuredResponseError,
+    InvalidStructuredResponseError,
     ProviderContractError,
     SupportReply,
 )
@@ -361,6 +362,69 @@ def test_openai_adapter_classifies_truncated_structured_stream() -> None:
 
     async def async_noop(delta: str) -> None:
         del delta
+
+    asyncio.run(scenario())
+
+
+def test_openai_adapter_classifies_invalid_structured_stream() -> None:
+    async def scenario() -> None:
+        validation_error: ValidationError | None = None
+        try:
+            SupportReply(
+                outcome="no_answer",
+                answer="The evidence is insufficient.",
+                citations=["src_allowed"],
+            )
+        except ValidationError as error:
+            validation_error = error
+        assert validation_error is not None
+        api = FakeStreamingResponsesApi(
+            SupportReply(
+                outcome="answered",
+                answer="Unused final response",
+                citations=["src_allowed"],
+            ),
+            ['{"outcome":"no_answer","answer":"Insufficient","citations":["src_allowed"]}'],
+            stream_error=validation_error,
+        )
+        provider = OpenAITextProvider(client=SimpleNamespace(responses=api), model="gpt-test")
+
+        with pytest.raises(
+            InvalidStructuredResponseError,
+            match="A no-answer reply cannot contain citations",
+        ):
+            await provider.generate_support_reply(
+                "How?",
+                evidence=evidence(),
+                on_text_delta=async_noop,
+            )
+
+    async def async_noop(delta: str) -> None:
+        del delta
+
+    asyncio.run(scenario())
+
+
+def test_openai_adapter_includes_server_owned_retry_instruction() -> None:
+    async def scenario() -> None:
+        api = FakeResponsesApi(
+            SupportReply(
+                outcome="answered",
+                answer="Use SSO.",
+                citations=["src_allowed"],
+            )
+        )
+        provider = OpenAITextProvider(client=SimpleNamespace(responses=api), model="gpt-test")
+
+        await provider.generate_support_reply(
+            "How?",
+            evidence=evidence(),
+            retry_instruction="Return a contract-compliant response.",
+        )
+
+        assert '"retry_instruction": "Return a contract-compliant response."' in str(
+            api.kwargs["input"]
+        )
 
     asyncio.run(scenario())
 

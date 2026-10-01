@@ -16,7 +16,11 @@ from app.auth.principal import Principal
 from app.diagnostics import content_log_fields, log_event
 from app.observability import AIObserver, NoopAIObserver
 from app.providers.base import StructuredResponseProvider, TextDeltaCallback
-from app.providers.structured import EvidenceInput, IncompleteStructuredResponseError
+from app.providers.structured import (
+    EvidenceInput,
+    IncompleteStructuredResponseError,
+    ProviderContractError,
+)
 from app.rag.citations.sources import InvalidCitationError, build_evidence_output
 from app.rag.retrieval.query import RetrievalHit
 from app.tools.results import ToolResult
@@ -357,12 +361,13 @@ class RAGGraphNodes:
         return {"evidence": evidence}
 
     async def decide_evidence(self, state: SupportAgentState) -> dict[str, Any]:
-        route = "generate" if state.get("evidence") else "no_answer"
+        route = "no_answer" if state.get("stop_reason") else "generate"
         self._log(
             "agent.evidence.decided",
             state,
             route=route,
             evidence_count=len(state.get("evidence", [])),
+            grounding_mode="internal" if state.get("evidence") else "general",
         )
         return {"route": route}
 
@@ -371,6 +376,8 @@ class RAGGraphNodes:
         generation = state.get("model_calls", 0) + 1
         operation_id = f"rag:{run_id}:generation:{generation}"
         output_token_limits = (800, 1_200)
+        retry_instruction: str | None = None
+        retry_suffix = "incomplete-retry"
         with self._observer.generation(
             run_id=run_id,
             actor_id=state.get("actor_id", str(self._principal.user_id)),
@@ -384,7 +391,7 @@ class RAGGraphNodes:
                     state,
                     attempt=attempt + 1,
                     operation_id=(
-                        operation_id if attempt == 0 else f"{operation_id}:incomplete-retry"
+                        operation_id if attempt == 0 else f"{operation_id}:{retry_suffix}"
                     ),
                     model=self._model,
                     evidence_count=len(self._sources_by_id),
@@ -401,9 +408,10 @@ class RAGGraphNodes:
                         ],
                         max_output_tokens=output_token_limit,
                         operation_id=(
-                            operation_id if attempt == 0 else f"{operation_id}:incomplete-retry"
+                            operation_id if attempt == 0 else f"{operation_id}:{retry_suffix}"
                         ),
                         on_text_delta=self._on_text_delta,
+                        retry_instruction=retry_instruction,
                     )
                     break
                 except IncompleteStructuredResponseError as error:
@@ -417,6 +425,53 @@ class RAGGraphNodes:
                     )
                     if attempt == len(output_token_limits) - 1:
                         raise
+                    retry_suffix = "incomplete-retry"
+                    retry_instruction = (
+                        "The previous response was truncated. Return one complete response "
+                        "within the output limit and obey the support-reply contract."
+                    )
+                except ProviderContractError as error:
+                    self._log(
+                        "agent.generation.invalid",
+                        state,
+                        attempt=attempt + 1,
+                        duration_ms=round((time.monotonic() - attempt_started_at) * 1_000, 2),
+                        retrying=attempt < len(output_token_limits) - 1,
+                        error=str(error),
+                    )
+                    if attempt == len(output_token_limits) - 1:
+                        if self._on_stream_started is not None:
+                            await self._on_stream_started()
+                        fallback_answer = (
+                            "Không tìm thấy tài liệu hiện hành đủ căn cứ để trả lời. "
+                            "Vui lòng liên hệ IT để được hỗ trợ."
+                        )
+                        self._log(
+                            "agent.generation.fallback",
+                            state,
+                            reason="structured_contract_violation",
+                            outcome="no_answer",
+                        )
+                        if observation is not None:
+                            observation.update(
+                                output={"outcome": "no_answer", "citation_count": 0},
+                                usage_details={"input_tokens": 0, "output_tokens": 0},
+                            )
+                        return {
+                            "answer": fallback_answer,
+                            "citation_ids": [],
+                            "outcome": "no_answer",
+                            "provider_request_id": "",
+                            "input_tokens": 0,
+                            "output_tokens": 0,
+                        }
+                    retry_suffix = "contract-retry"
+                    retry_instruction = (
+                        "The previous response violated the support-reply contract. Use "
+                        "outcome='answered' only with one or more allowed source IDs. Use "
+                        "outcome='no_answer' only with citations=[]. Do not cite adjacent "
+                        "evidence that is insufficient to answer the query."
+                    )
             if observation is not None:
                 observation.update(
                     output={
@@ -484,14 +539,26 @@ class RAGGraphNodes:
         }
 
     async def no_answer(self, state: SupportAgentState) -> dict[str, Any]:
+        generated_answer = state.get("answer")
+        if (
+            state.get("outcome") == "no_answer"
+            and isinstance(generated_answer, str)
+            and generated_answer.strip()
+        ):
+            answer = generated_answer.strip()
+            preserve_generated_answer = True
+        else:
+            answer = "Không tìm thấy tài liệu hiện hành đủ căn cứ để trả lời."
+            preserve_generated_answer = False
         self._log(
             "agent.no_answer",
             state,
             stop_reason=state.get("stop_reason"),
             validation_errors=state.get("validation_errors", []),
+            preserved_generated_answer=preserve_generated_answer,
         )
         return {
-            "answer": "Không tìm thấy tài liệu hiện hành đủ căn cứ để trả lời.",
+            "answer": answer,
             "citation_ids": [],
             "citations": [],
             "outcome": "no_answer",

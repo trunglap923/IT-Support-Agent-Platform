@@ -16,6 +16,10 @@ class IncompleteStructuredResponseError(ProviderContractError):
     """Raised when a provider stops before completing structured output."""
 
 
+class InvalidStructuredResponseError(ProviderContractError):
+    """Raised when a complete response violates the structured reply contract."""
+
+
 class SupportToolCall(BaseModel):
     """A side-effect-free tool proposal; trusted actor context is never model supplied."""
 
