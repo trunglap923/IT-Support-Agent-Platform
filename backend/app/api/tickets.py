@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -23,9 +24,11 @@ from app.db.models import (
     Conversation,
     RunKind,
     RunStatus,
+    Ticket,
     TicketIssueType,
     TicketSeverity,
     TicketStatus,
+    User,
     UserRole,
 )
 from app.dependencies import CurrentPrincipal, get_database, get_db_session
@@ -54,6 +57,9 @@ class TicketResponse(BaseModel):
     status: str
     resolution_note: str | None
     version: int
+    created_at: datetime
+    updated_at: datetime
+    requester_name: str | None = None
 
 
 class TicketTransitionRequest(BaseModel):
@@ -72,6 +78,22 @@ class TicketDraftResponse(BaseModel):
     run_id: UUID
     approval: ApprovalResponse
     created: bool
+
+
+async def _ticket_responses(session: AsyncSession, tickets: list[Ticket]) -> list[TicketResponse]:
+    owner_ids = {ticket.owner_id for ticket in tickets}
+    names: dict[UUID, str] = {}
+    if owner_ids:
+        result = await session.execute(
+            select(User.id, User.display_name).where(User.id.in_(owner_ids))
+        )
+        names = dict(result.tuples().all())
+    return [
+        TicketResponse.model_validate(ticket).model_copy(
+            update={"requester_name": names.get(ticket.owner_id)}
+        )
+        for ticket in tickets
+    ]
 
 
 @router.get("/mine", response_model=CursorPage[TicketResponse])
@@ -96,7 +118,7 @@ async def list_my_tickets(
     )
     items, next_cursor = build_page(tickets, limit=limit, timestamp=lambda value: value.updated_at)
     return CursorPage[TicketResponse](
-        items=[TicketResponse.model_validate(ticket) for ticket in items],
+        items=await _ticket_responses(session, items),
         next_cursor=next_cursor,
     )
 
@@ -127,7 +149,7 @@ async def list_ticket_queue(
     )
     items, next_cursor = build_page(tickets, limit=limit, timestamp=lambda value: value.updated_at)
     return CursorPage[TicketResponse](
-        items=[TicketResponse.model_validate(ticket) for ticket in items],
+        items=await _ticket_responses(session, items),
         next_cursor=next_cursor,
     )
 
@@ -145,7 +167,7 @@ async def get_ticket(
     )
     if ticket is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket was not found")
-    return TicketResponse.model_validate(ticket)
+    return (await _ticket_responses(session, [ticket]))[0]
 
 
 @router.post(
@@ -175,7 +197,8 @@ async def transition_ticket(
     except TicketOperationConflictError as error:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
     await session.commit()
-    return TicketResponse.model_validate(ticket)
+    await session.refresh(ticket)
+    return (await _ticket_responses(session, [ticket]))[0]
 
 
 @router.post(

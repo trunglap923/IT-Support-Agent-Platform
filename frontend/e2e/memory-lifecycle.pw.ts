@@ -30,14 +30,14 @@ test("always-on memory still requires confirmation and supports edit/delete", as
     if (route.request().method() === "POST") devices = [device];
     await json(route, route.request().method() === "POST" ? device : devices, route.request().method() === "POST" ? 201 : 200);
   });
-  await page.route("**/api/v1/memory/candidates", (route) => json(route, candidates));
+  await page.route("**/api/v1/memory/candidates**", (route) => json(route, { items: candidates, next_cursor: null }));
   await page.route("**/api/v1/memory/candidates/*/confirm", async (route) => {
     expect((await route.request().postDataJSON()).device_id).toBe(device.id);
     facts = [{ id: "50000000-0000-0000-0000-000000000001", kind: "device", key: "operating_system", value: "Windows 11", scope: "device", device_id: device.id, version: 1, expires_at: "2026-12-15T00:00:00Z" }];
     candidates = [];
     await json(route, facts[0]);
   });
-  await page.route("**/api/v1/memory/facts", (route) => json(route, facts));
+  await page.route("**/api/v1/memory/facts**", (route) => json(route, { items: facts, next_cursor: null }));
   await page.route("**/api/v1/memory/facts/*", async (route) => {
     if (route.request().method() === "PATCH") {
       facts = [{ ...facts[0], value: "Windows 11 Enterprise", version: 2 }];
@@ -60,5 +60,6 @@ test("always-on memory still requires confirmation and supports edit/delete", as
   await page.getByRole("button", { name: "Lưu sửa đổi" }).click();
   await expect(page.locator('input[name="value"]').last()).toHaveValue("Windows 11 Enterprise");
   await page.getByRole("button", { name: "Xóa" }).click();
+  await page.getByRole("button", { name: "Xóa memory" }).click();
   await expect(page.getByText("Chưa có memory nào được xác nhận.")).toBeVisible();
 });

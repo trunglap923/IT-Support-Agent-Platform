@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { Brain, Clock3, Laptop } from "lucide-react";
 
 import {
   confirmMemoryCandidate,
@@ -13,7 +14,7 @@ import {
   type MemoryDevice,
   type MemoryFact,
 } from "../../api/memory";
-import { ConfirmDialog, EmptyState, LoadingState, PageHeader, StatusBadge } from "../../components/ProductUI";
+import { ConfirmDialog, EmptyState, LoadingState, MetricCard, PageHeader, StatusBadge } from "../../components/ProductUI";
 import { useAuth } from "../auth/useAuth";
 
 export function MemoryPage() {
@@ -152,9 +153,9 @@ export function MemoryPage() {
       {error ? <div className="alert-banner error" role="alert">{error}</div> : null}
 
       <section className="metrics-strip memory-metrics" aria-label="Tổng quan memory">
-        <div className="metric"><span>Thiết bị</span><strong>{devices.length}</strong></div>
-        <div className="metric"><span>Chờ xác nhận</span><strong>{candidates.length}</strong></div>
-        <div className="metric"><span>Fact đã xác nhận</span><strong>{facts.length}</strong></div>
+        <MetricCard icon={Laptop} label="Thiết bị" value={devices.length} detail="Đã đăng ký" />
+        <MetricCard icon={Clock3} label="Chờ xác nhận" value={candidates.length} detail="Cần bạn kiểm tra" tone="amber" />
+        <MetricCard icon={Brain} label="Fact đã xác nhận" value={facts.length} detail="Được phép sử dụng" tone="green" />
       </section>
 
       <section className="memory-section">

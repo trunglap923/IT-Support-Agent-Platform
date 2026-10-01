@@ -1,4 +1,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import {
+  ChevronDown,
+  Check,
+  ClipboardCheck,
+  Copy,
+  FileText,
+  Laptop,
+  Lightbulb,
+  MessageCircle,
+  Plus,
+  PlusCircle,
+  Search,
+  Send,
+  Sparkles,
+  TicketCheck,
+  ThumbsDown,
+  ThumbsUp,
+  TicketPlus,
+} from "lucide-react";
+import { Link } from "react-router-dom";
 
 import {
   createConversation,
@@ -17,38 +37,79 @@ import {
 import { cancelRun, getRunSnapshot } from "../../api/run-events";
 import { getOrCreateClientRequest, type ClientRequestIdentity } from "../../api/idempotency";
 import { useAuth } from "../auth/useAuth";
-import { LoadingState } from "../../components/ProductUI";
+import { LoadingState, StatusBadge } from "../../components/ProductUI";
+import { listMemoryDevices, type MemoryDevice } from "../../api/memory";
+import { listMyTickets, type Ticket } from "../../api/tickets";
+import { formatIssueType, formatRelativeTime, formatStatus } from "../../utils/format";
 import { ApprovalCard } from "../tickets/ApprovalCard";
 import { formatTicketDraftForChat } from "../tickets/approvalEdit";
 import { CitationList } from "./CitationList";
 import { recoverActiveRun } from "./chatRecovery";
-import { RunStatusPanel } from "./RunStatusPanel";
+import { CompletedRunProgress, RunStatusPanel, type RunProgressSummary } from "./RunStatusPanel";
 import { SafeMarkdown } from "./SafeMarkdown";
+import {
+  conversationActivityAt,
+  formatChatTime,
+  formatConversationDate,
+  groupConversationDate,
+} from "./chatPresentation";
+
+const devicePlatformLabels: Record<MemoryDevice["platform"], string> = {
+  windows: "Windows",
+  macos: "macOS",
+  linux: "Linux",
+  other: "Khác",
+};
 
 export function ChatPage() {
-  const { csrfToken } = useAuth();
+  const { csrfToken, user } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [active, setActive] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [approvals, setApprovals] = useState<Approval[]>([]);
   const [draft, setDraft] = useState("");
   const [runId, setRunId] = useState<string | null>(null);
+  const [completedProgress, setCompletedProgress] = useState<RunProgressSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [streamingAnswer, setStreamingAnswer] = useState("");
   const [feedbackPending, setFeedbackPending] = useState<string | null>(null);
+  const [copiedMessage, setCopiedMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [conversationCursor, setConversationCursor] = useState<string | null>(null);
   const [messageCursor, setMessageCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState<"conversations" | "messages" | null>(null);
   const [conversationQuery, setConversationQuery] = useState("");
+  const [devices, setDevices] = useState<MemoryDevice[]>([]);
+  const [recentTickets, setRecentTickets] = useState<Ticket[]>([]);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
   const pendingMessageRequest = useRef<ClientRequestIdentity | null>(null);
   const terminalRunIds = useRef(new Set<string>());
 
-  const visibleConversations = useMemo(() => conversations.filter((conversation) =>
-    conversation.title.toLocaleLowerCase().includes(conversationQuery.trim().toLocaleLowerCase()),
-  ), [conversationQuery, conversations]);
+  const visibleConversations = useMemo(() => conversations
+    .filter((conversation) => `${conversation.title} ${conversation.preview ?? ""}`
+      .toLocaleLowerCase()
+      .includes(conversationQuery.trim().toLocaleLowerCase()))
+    .sort((left, right) => new Date(conversationActivityAt(right)).getTime() - new Date(conversationActivityAt(left)).getTime()),
+  [conversationQuery, conversations]);
+  const conversationGroups = useMemo(() => {
+    const groups = new Map<string, Conversation[]>();
+    for (const conversation of visibleConversations) {
+      const group = groupConversationDate(conversationActivityAt(conversation));
+      groups.set(group, [...(groups.get(group) ?? []), conversation]);
+    }
+    return [...groups.entries()];
+  }, [visibleConversations]);
+  const topicContext = `${active?.title ?? ""} ${messages.map((message) => message.content).join(" ")}`.toLocaleLowerCase();
+  const quickActions = topicContext.includes("vpn")
+    ? ["Kiểm tra trạng thái dịch vụ VPN", "Hướng dẫn khắc phục lỗi VPN", "Tạo ticket hỗ trợ"]
+    : topicContext.includes("docker") || topicContext.includes("registry")
+      ? ["Hướng dẫn kiểm tra Docker/registry", "Kiểm tra lỗi Docker gần nhất", "Tạo ticket hỗ trợ"]
+      : topicContext.includes("gitlab")
+        ? ["Hướng dẫn xử lý truy cập GitLab", "Kiểm tra quyền truy cập GitLab", "Tạo ticket hỗ trợ"]
+        : ["Tóm tắt hướng xử lý", "Hỏi thêm về sự cố này", "Tạo ticket hỗ trợ"];
+  const relatedDevice = devices.find((device) => device.id === active?.device_id) ?? devices[0];
   const contextSources = useMemo(() => {
     const unique = new Map<string, NonNullable<ChatMessage["citations"]>[number]>();
     for (const message of [...messages].reverse()) {
@@ -66,6 +127,16 @@ export function ChatPage() {
       listPendingApprovalsPage(),
     ]);
     setMessages(messagePage.items);
+    const lastMessage = messagePage.items.at(-1);
+    if (lastMessage) {
+      const preview = lastMessage.content.replace(/\s+/g, " ").slice(0, 180);
+      setConversations((current) => current.map((conversation) => conversation.id === conversationId
+        ? { ...conversation, preview, preview_at: lastMessage.created_at, preview_role: lastMessage.role, updated_at: lastMessage.created_at }
+        : conversation));
+      setActive((current) => current?.id === conversationId
+        ? { ...current, preview, preview_at: lastMessage.created_at, preview_role: lastMessage.role, updated_at: lastMessage.created_at }
+        : current);
+    }
     setMessageCursor(messagePage.next_cursor);
     setApprovals(approvalPage.items);
     setRunId(
@@ -102,6 +173,22 @@ export function ChatPage() {
     return () => controller.abort();
   }, []);
 
+  useEffect(() => {
+    const controller = new AbortController();
+    void Promise.all([
+      listMemoryDevices(controller.signal),
+      listMyTickets(controller.signal),
+    ]).then(([nextDevices, tickets]) => {
+      setDevices(nextDevices.filter((device) => device.active).slice(0, 2));
+      setRecentTickets(tickets.slice(0, 3));
+    }).catch((caught: unknown) => {
+      if (!(caught instanceof DOMException && caught.name === "AbortError")) {
+        // Context is supplementary; the main chat should remain available.
+      }
+    });
+    return () => controller.abort();
+  }, []);
+
   async function startConversation() {
     if (!csrfToken) return;
     setError(null);
@@ -114,6 +201,7 @@ export function ChatPage() {
       setMessageCursor(null);
       setApprovals([]);
       setRunId(null);
+      setCompletedProgress(null);
       setStreamingAnswer("");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Không thể tạo hội thoại.");
@@ -155,6 +243,7 @@ export function ChatPage() {
     const content = draft.trim();
     if (!content || !csrfToken || sending) return;
     setSending(true);
+    setCompletedProgress(null);
     setStreamingAnswer("");
     setError(null);
     setNotice(null);
@@ -239,6 +328,10 @@ export function ChatPage() {
     }
   }, [active, refreshConversation, runId]);
 
+  const handleProgressComplete = useCallback((summary: RunProgressSummary) => {
+    setCompletedProgress(summary);
+  }, []);
+
   async function handleFeedback(
     messageId: string,
     rating: "helpful" | "unhelpful",
@@ -260,29 +353,67 @@ export function ChatPage() {
     }
   }
 
+  async function handleCopyAnswer(message: ChatMessage) {
+    try {
+      await navigator.clipboard.writeText(message.content);
+      setCopiedMessage(message.id);
+      window.setTimeout(() => setCopiedMessage((current) => current === message.id ? null : current), 1800);
+    } catch {
+      setError("Không thể sao chép câu trả lời trên trình duyệt này.");
+    }
+  }
+
+  function prepareTicketRequest(message: ChatMessage) {
+    const messageIndex = messages.findIndex((item) => item.id === message.id);
+    const latestUserMessage = messages.slice(0, messageIndex).reverse().find((item) => item.role === "user");
+    const description = latestUserMessage?.content ?? active?.title ?? "Sự cố cần hỗ trợ";
+    setDraft(`Tạo ticket hỗ trợ về sự cố: ${active?.title ?? "IT support"}\n\nMô tả lỗi: ${description}\n\nThông tin đã kiểm tra: ${message.content.slice(0, 900)}`);
+    setNotice("Đã soạn yêu cầu tạo ticket. Kiểm tra nội dung rồi gửi để trợ lý tạo bản nháp chờ bạn xác nhận.");
+    requestAnimationFrame(() => composerRef.current?.focus());
+  }
+
+  function applyQuickAction(action: string) {
+    if (action === "Tạo ticket hỗ trợ") {
+      const latestUserMessage = [...messages].reverse().find((message) => message.role === "user");
+      setDraft(`Tạo ticket hỗ trợ cho vấn đề: ${active?.title ?? "IT support"}${latestUserMessage ? `\nMô tả: ${latestUserMessage.content}` : ""}`);
+      setNotice("Đã soạn yêu cầu tạo ticket. Gửi tin nhắn để tạo bản nháp cần xác nhận.");
+    } else {
+      setDraft(action);
+      setNotice(null);
+    }
+    requestAnimationFrame(() => composerRef.current?.focus());
+  }
+
   if (loading) return <LoadingState label="Đang tải cuộc trò chuyện…" />;
 
   return (
     <div className="chat-layout">
       <aside className="conversation-list">
         <button className="new-chat-button" onClick={startConversation} type="button">
-          + Cuộc trò chuyện mới
+          <Plus aria-hidden="true" size={16} /> Cuộc trò chuyện mới
         </button>
-        <label className="conversation-search"><span aria-hidden="true">⌕</span><span className="sr-only">Tìm cuộc trò chuyện</span><input onChange={(event) => setConversationQuery(event.target.value)} placeholder="Tìm cuộc trò chuyện…" type="search" value={conversationQuery} /></label>
-        <p className="conversation-period">Gần đây</p>
-        {visibleConversations.map((conversation) => (
+        <label className="conversation-search"><Search aria-hidden="true" size={15} /><span className="sr-only">Tìm cuộc trò chuyện</span><input onChange={(event) => setConversationQuery(event.target.value)} placeholder="Tìm cuộc trò chuyện…" type="search" value={conversationQuery} /></label>
+        {conversationGroups.map(([group, groupConversations]) => (
+          <section className="conversation-group" key={group}>
+            <p className="conversation-period">{group}</p>
+            {groupConversations.map((conversation) => (
           <button
             className={conversation.id === active?.id ? "active" : ""}
             key={conversation.id}
             onClick={() => {
               setActive(conversation);
+              setCompletedProgress(null);
               setStreamingAnswer("");
               void refreshConversation(conversation.id);
             }}
             type="button"
           >
-            <span aria-hidden="true">○</span><strong>{conversation.title}</strong>
+            <MessageCircle aria-hidden="true" size={15} />
+            <span className="conversation-copy"><strong>{conversation.title}</strong><small>{conversation.preview_role === "assistant" ? "Trợ lý" : conversation.preview_role === "user" ? user?.display_name ?? "Bạn" : "Cuộc trò chuyện mới"}: {conversation.preview ?? "Bắt đầu cuộc trò chuyện"}</small></span>
+            <time dateTime={conversationActivityAt(conversation)}>{conversation.preview_at ? formatChatTime(conversation.preview_at) : formatConversationDate(conversation.updated_at)}</time>
           </button>
+            ))}
+          </section>
         ))}
         {conversationCursor ? (
           <button
@@ -297,9 +428,9 @@ export function ChatPage() {
       </aside>
       <section className="chat-panel">
         <header>
-          <span className="assistant-mark" aria-hidden="true">✦</span>
-          <div><h1>Trợ lý AI</h1><p>{active?.title ?? "Hỏi đáp hỗ trợ IT dựa trên tài liệu nội bộ"}</p></div>
-          <span className="assistant-scope">IT support⌄</span>
+          <span className="assistant-mark" aria-hidden="true"><Sparkles size={20} /></span>
+          <div><h1>Trợ lý AI</h1><p>Hỏi đáp hỗ trợ IT dựa trên tài liệu nội bộ và ngữ cảnh vận hành</p></div>
+          <span className="assistant-scope">IT support <ChevronDown aria-hidden="true" size={13} /></span>
         </header>
         <div className="message-list" aria-live="polite">
           {messageCursor ? (
@@ -320,21 +451,29 @@ export function ChatPage() {
           ) : null}
           {messages.map((message) => (
             <article className={`chat-message ${message.role}`} key={message.id}>
-              <span>{message.role === "user" ? "Bạn" : "IT Assistant"}</span>
+              <span className="message-meta">{message.role === "user" ? user?.display_name ?? "Bạn" : "Trợ lý AI"}<time dateTime={message.created_at}>{formatChatTime(message.created_at)}</time></span>
               <SafeMarkdown content={message.content} />
               {message.citations?.length ? (
                 <CitationList citations={message.citations} />
               ) : null}
+              {message.role === "assistant" && completedProgress?.runId === message.run_id ? (
+                <CompletedRunProgress summary={completedProgress} />
+              ) : null}
               {message.role === "assistant" ? (
-                <div className="message-feedback" aria-label="Đánh giá câu trả lời">
-                  <span>Câu trả lời này có hữu ích không?</span>
+                <div className="message-actions" aria-label="Thao tác với câu trả lời">
+                  <button onClick={() => void handleCopyAnswer(message)} type="button">
+                    {copiedMessage === message.id ? <Check aria-hidden="true" size={13} /> : <Copy aria-hidden="true" size={13} />}
+                    {copiedMessage === message.id ? "Đã sao chép" : "Sao chép"}
+                  </button>
+                  <button onClick={() => prepareTicketRequest(message)} type="button"><TicketPlus aria-hidden="true" size={13} /> Tạo ticket</button>
+                  <span>Câu trả lời hữu ích?</span>
                   <button
                     aria-pressed={message.feedback?.rating === "helpful"}
                     disabled={feedbackPending === message.id}
                     onClick={() => void handleFeedback(message.id, "helpful")}
                     type="button"
                   >
-                    Hữu ích
+                    <ThumbsUp aria-hidden="true" size={13} /> Hữu ích
                   </button>
                   <button
                     aria-pressed={message.feedback?.rating === "unhelpful"}
@@ -342,7 +481,7 @@ export function ChatPage() {
                     onClick={() => void handleFeedback(message.id, "unhelpful")}
                     type="button"
                   >
-                    Chưa tốt
+                    <ThumbsDown aria-hidden="true" size={13} /> Chưa tốt
                   </button>
                 </div>
               ) : null}
@@ -354,15 +493,16 @@ export function ChatPage() {
               <SafeMarkdown content={streamingAnswer} />
             </article>
           ) : null}
+          {runId ? (
+            <RunStatusPanel
+              runId={runId}
+              onStatus={handleRunStatus}
+              onStreamText={setStreamingAnswer}
+              onTerminal={handleRunTerminal}
+              onProgressComplete={handleProgressComplete}
+            />
+          ) : null}
         </div>
-        {runId ? (
-          <RunStatusPanel
-            runId={runId}
-            onStatus={handleRunStatus}
-            onStreamText={setStreamingAnswer}
-            onTerminal={handleRunTerminal}
-          />
-        ) : null}
         {approvals
           .filter((approval) => approval.run_id === runId)
           .map((approval) => (
@@ -385,28 +525,40 @@ export function ChatPage() {
             maxLength={4000}
             onChange={(event) => setDraft(event.target.value)}
             placeholder="Ví dụ: Tôi không kết nối được VPN trên Ubuntu…"
+            ref={composerRef}
             rows={3}
             value={draft}
           />
           <button disabled={!draft.trim() || sending || Boolean(runId)} type="submit">
-            {sending ? "Đang gửi…" : "Gửi"}
+            <Send aria-hidden="true" size={17} />
+            <span className="sr-only">{sending ? "Đang gửi…" : "Gửi"}</span>
           </button>
         </form>
       </section>
-      <aside className="chat-context-rail">
+      <details className="chat-context-rail" open>
+        <summary className="chat-context-summary">Ngữ cảnh hỗ trợ <ChevronDown aria-hidden="true" size={16} /></summary>
         <section className="context-card">
-          <header><div><span aria-hidden="true">▧</span><h2>Nguồn tham chiếu</h2></div><span>{contextSources.length}</span></header>
-          {contextSources.length ? <ul>{contextSources.map((source) => <li key={source.source_id}><span className="context-item-icon" aria-hidden="true">▤</span><div><strong>{source.title}</strong><small>{source.page_number ? `Trang ${source.page_number}` : "Kho tri thức"}</small></div></li>)}</ul> : <p className="context-empty">Nguồn của câu trả lời gần nhất sẽ xuất hiện tại đây.</p>}
+          <header><div><FileText aria-hidden="true" size={16} /><h2>Nguồn tham chiếu</h2></div><span>{contextSources.length}</span></header>
+          {contextSources.length ? <ul>{contextSources.map((source) => <li key={source.source_id}><span className="context-item-icon" aria-hidden="true"><FileText size={15} /></span><div><strong>{source.title}</strong><small>{source.page_number ? `Trang ${source.page_number}` : "Kho tri thức"}</small></div></li>)}</ul> : <p className="context-empty">Nguồn của câu trả lời gần nhất sẽ xuất hiện tại đây.</p>}
         </section>
         <section className="context-card">
-          <header><div><span aria-hidden="true">▣</span><h2>Thao tác đang chờ</h2></div><span>{approvals.length}</span></header>
-          {approvals.length ? <ul>{approvals.slice(0, 3).map((approval) => <li key={approval.id}><span className="context-item-icon amber" aria-hidden="true">!</span><div><strong>{approval.canonical_args.title}</strong><small>Chờ bạn xác nhận</small></div></li>)}</ul> : <p className="context-empty">Không có bản nháp cần xác nhận.</p>}
+          <header><div><Laptop aria-hidden="true" size={16} /><h2>Thiết bị liên quan</h2></div><span>{devices.length}</span></header>
+          {relatedDevice ? <div className="context-detail"><div className="context-device-heading"><span className="context-item-icon" aria-hidden="true"><Laptop size={16} /></span><strong>{relatedDevice.label}</strong><StatusBadge value={relatedDevice.active ? "active" : "inactive"} /></div><dl><div><dt>Người dùng</dt><dd>{user?.display_name ?? "Tài khoản hiện tại"}</dd></div><div><dt>Nền tảng</dt><dd>{devicePlatformLabels[relatedDevice.platform]}</dd></div><div><dt>Cập nhật</dt><dd>{formatRelativeTime(relatedDevice.updated_at)}</dd></div></dl></div> : <p className="context-empty">Chưa có thiết bị đang hoạt động.</p>}
+        </section>
+        <section className="context-card">
+          <header><div><TicketCheck aria-hidden="true" size={16} /><h2>Ticket gần đây</h2></div><span>{recentTickets.length}</span></header>
+          {recentTickets.length ? <ul>{recentTickets.map((ticket) => <li key={ticket.id}><span className="context-item-icon" aria-hidden="true"><TicketCheck size={15} /></span><div><Link className="context-ticket-link" to={`/tickets/${ticket.id}`}><strong>{ticket.display_key} · {ticket.title}</strong></Link><small>{formatIssueType(ticket.issue_type)} · Mức độ {formatStatus(ticket.severity)} · {formatRelativeTime(ticket.updated_at)}</small><StatusBadge value={ticket.status} /></div></li>)}</ul> : <p className="context-empty">Chưa có ticket gần đây.</p>}
+        </section>
+        <section className="context-card">
+          <header><div><ClipboardCheck aria-hidden="true" size={16} /><h2>Thao tác đang chờ</h2></div><span>{approvals.length}</span></header>
+          {approvals.length ? <ul>{approvals.slice(0, 3).map((approval) => <li key={approval.id}><span className="context-item-icon amber" aria-hidden="true"><ClipboardCheck size={15} /></span><div><strong>{approval.canonical_args.title}</strong><small>Chờ bạn xác nhận</small></div></li>)}</ul> : <p className="context-empty">Không có bản nháp cần xác nhận.</p>}
         </section>
         <section className="context-card context-tip">
-          <header><div><span aria-hidden="true">⚡</span><h2>Gợi ý</h2></div></header>
-          <p>Hãy nêu thiết bị, thông báo lỗi và thao tác bạn đã thử để nhận câu trả lời chính xác hơn.</p>
+          <header><div><Lightbulb aria-hidden="true" size={16} /><h2>Đề xuất hành động</h2></div></header>
+          <div className="quick-actions">{quickActions.map((action) => <button key={action} onClick={() => applyQuickAction(action)} type="button"><PlusCircle aria-hidden="true" size={14} />{action}</button>)}</div>
+          <p className="context-tip-copy">Hãy nêu thiết bị, thông báo lỗi và thao tác bạn đã thử để nhận câu trả lời chính xác hơn.</p>
         </section>
-      </aside>
+      </details>
     </div>
   );
 }

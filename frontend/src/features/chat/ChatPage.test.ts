@@ -13,6 +13,7 @@ function message(values: Partial<ChatMessage>): ChatMessage {
     role: "user",
     content: "hello",
     outcome: null,
+    created_at: "2026-10-01T08:00:00Z",
     ...values,
   };
 }

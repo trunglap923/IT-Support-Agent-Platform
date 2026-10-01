@@ -29,6 +29,9 @@ export interface Ticket {
   status: string;
   resolution_note: string | null;
   version: number;
+  created_at: string;
+  updated_at: string;
+  requester_name: string | null;
 }
 
 export interface TicketDraftResponse {

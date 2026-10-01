@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import Annotated, Literal, cast
 from uuid import UUID
 
@@ -39,6 +40,12 @@ class CreateConversationRequest(BaseModel):
 class ConversationResponse(BaseModel):
     id: UUID
     title: str
+    device_id: UUID | None
+    created_at: datetime
+    updated_at: datetime
+    preview: str | None = None
+    preview_at: datetime | None = None
+    preview_role: str | None = None
 
 
 class FeedbackResponse(BaseModel):
@@ -56,6 +63,7 @@ class MessageResponse(BaseModel):
     content: str
     outcome: str | None
     citations: list[dict[str, object]]
+    created_at: datetime
     feedback: FeedbackResponse | None = None
 
 
@@ -82,8 +90,28 @@ class SelectConversationDeviceRequest(BaseModel):
     device_id: UUID | None
 
 
-def _conversation_response(value: Conversation) -> ConversationResponse:
-    return ConversationResponse(id=value.id, title=value.title)
+def _conversation_response(
+    value: Conversation,
+    latest_message: Message | None = None,
+    preview_override: str | None = None,
+) -> ConversationResponse:
+    preview = None
+    preview_at = None
+    preview_role = None
+    if latest_message is not None:
+        preview = " ".join((preview_override or latest_message.content).split())[:180]
+        preview_at = latest_message.created_at
+        preview_role = latest_message.role
+    return ConversationResponse(
+        id=value.id,
+        title=value.title,
+        device_id=value.device_id,
+        created_at=value.created_at,
+        updated_at=value.updated_at,
+        preview=preview,
+        preview_at=preview_at,
+        preview_role=preview_role,
+    )
 
 
 def _message_response(
@@ -99,6 +127,7 @@ def _message_response(
         content=content,
         outcome=outcome,
         citations=citations,
+        created_at=value.created_at,
         feedback=_feedback_response(feedback) if feedback is not None else None,
     )
 
@@ -120,8 +149,9 @@ async def list_conversations(
     limit: PageLimit = 20,
     cursor: str | None = None,
 ) -> CursorPage[ConversationResponse]:
+    repository = ConversationRepository()
     position = decode_cursor(cursor)
-    values = await ConversationRepository().list_owned(
+    values = await repository.list_owned(
         session,
         owner_id=principal.user_id,
         limit=limit + 1,
@@ -132,8 +162,25 @@ async def list_conversations(
         limit=limit,
         timestamp=lambda value: value.created_at,
     )
+    latest_messages = await repository.latest_messages_for_conversations(
+        session, conversation_ids=[value.id for value in items]
+    )
+    redactions = await redact_revoked_message_citations(
+        session,
+        principal=principal,
+        messages=list(latest_messages.values()),
+    )
     return CursorPage[ConversationResponse](
-        items=[_conversation_response(value) for value in items],
+        items=[
+            _conversation_response(
+                value,
+                latest_messages.get(value.id),
+                redactions.get(latest_messages[value.id].id, (None, None, []))[0]
+                if value.id in latest_messages
+                else None,
+            )
+            for value in items
+        ],
         next_cursor=next_cursor,
     )
 

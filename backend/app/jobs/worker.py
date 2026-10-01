@@ -16,7 +16,7 @@ from app.agent.graph import build_support_graph, run_support_graph
 from app.agent.rag import RAGGraphNodes
 from app.auth.principal import Principal
 from app.db import Database
-from app.db.models import Conversation, Message, RunStatus
+from app.db.models import Conversation, Message, RunStatus, UserDevice
 from app.diagnostics import content_log_fields, log_event
 from app.jobs.dispatch import (
     BrokerUnavailableError,
@@ -30,6 +30,7 @@ from app.providers.embeddings import EmbeddingProvider, FakeEmbeddingProvider
 from app.providers.fake import FakeTextProvider
 from app.providers.structured import IncompleteStructuredResponseError
 from app.rag.retrieval.query import HybridRetriever
+from app.repositories.conversations import ConversationRepository
 from app.repositories.runs import RunRepository
 from app.repositories.users import UserRepository
 from app.services.approvals.resume import execute_approval_resume_run
@@ -141,6 +142,36 @@ async def execute_support_run(
 
     stream_generation = 0
     stream_delta_index = 0
+    progress_event_index = 0
+
+    async def append_progress_event(
+        stage: str,
+        status: str,
+        detail: str | None = None,
+        count: int | None = None,
+    ) -> None:
+        nonlocal progress_event_index
+        payload: dict[str, object] = {"stage": stage, "status": status}
+        if detail is not None:
+            payload["detail"] = detail[:180]
+        if count is not None:
+            payload["count"] = max(0, count)
+        async with database.session() as event_session, event_session.begin():
+            active_run = await repository.get_for_update(event_session, run_id=run_id)
+            if (
+                active_run is None
+                or active_run.status is not RunStatus.RUNNING
+                or active_run.lease_owner != execution_worker_id
+            ):
+                raise RuntimeError("Run lease was lost while reporting progress")
+            await repository.append_event(
+                event_session,
+                run_id=run_id,
+                event_type="agent.progress",
+                dedupe_key=f"progress:{execution_version}:{progress_event_index}",
+                safe_payload=payload,
+            )
+            progress_event_index += 1
 
     async def append_stream_event(event_type: str, payload: dict[str, object]) -> None:
         nonlocal stream_delta_index
@@ -210,9 +241,32 @@ async def execute_support_run(
             if user_message is None:
                 raise LookupError("Run has no user message")
             query = user_message.content
+            await append_progress_event("analyze", "started")
             conversation_device_id = await session.scalar(
                 select(Conversation.device_id).where(Conversation.id == conversation_id)
             )
+            await append_progress_event("device", "started")
+            device = None
+            if conversation_device_id is not None:
+                device = await session.scalar(
+                    select(UserDevice).where(
+                        UserDevice.id == conversation_device_id,
+                        UserDevice.owner_id == actor_id,
+                        UserDevice.active.is_(True),
+                    )
+                )
+            if device is not None:
+                platform_labels = {
+                    "windows": "Windows",
+                    "macos": "macOS",
+                    "linux": "Linux",
+                    "other": "thiết bị",
+                }
+                platform = platform_labels.get(device.platform, "thiết bị")
+                device_detail = f"{device.label} · {platform}"
+            else:
+                device_detail = "Không có thiết bị gắn với hội thoại."
+            await append_progress_event("device", "completed", device_detail)
             memory_context = await MemoryContextService().context_messages(
                 session,
                 owner_id=actor_id,
@@ -286,6 +340,7 @@ async def execute_support_run(
                 tool_runner=tool_executor,
                 on_stream_started=start_response_stream,
                 on_text_delta=stream_text_delta,
+                on_progress=append_progress_event,
                 log_prompts=log_prompts,
             )
             log_event(logger, "worker.graph.started", run_id=str(run_id))
@@ -336,6 +391,7 @@ async def execute_support_run(
                 outcome=result["outcome"],
                 citations=result.get("citations", []),
             )
+            await ConversationRepository().touch(session, conversation_id=conversation_id)
             session.add(assistant_message)
             await session.flush()
             proposal = result.get("approval_proposal")

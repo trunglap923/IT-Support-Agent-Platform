@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
+import { Activity, CheckCircle2, Clock3, ListFilter, Plus, Search, TicketCheck, X } from "lucide-react";
 
 import { cancelRun, getRunSnapshot } from "../../api/run-events";
 import { getOrCreateClientRequest, type ClientRequestIdentity } from "../../api/idempotency";
@@ -15,6 +16,7 @@ import {
 import { useAuth } from "../auth/useAuth";
 import { EmptyState, LoadingState, PageHeader, StatusBadge } from "../../components/ProductUI";
 import { ApprovalCard } from "./ApprovalCard";
+import { formatIssueType, formatRelativeTime } from "../../utils/format";
 
 const initialDraft: TicketDraftArguments = {
   title: "",
@@ -167,23 +169,23 @@ export function TicketsPage() {
         eyebrow="IT SUPPORT"
         title="Ticket của tôi"
         description="Theo dõi yêu cầu và xác nhận rõ nội dung trước khi tạo ticket."
-        actions={<button className="primary-button" onClick={() => { setDraftOpen(true); window.setTimeout(() => titleInput.current?.focus(), 0); }} type="button">+ Tạo ticket</button>}
+        actions={<button className="primary-button" onClick={() => { setDraftOpen(true); window.setTimeout(() => titleInput.current?.focus(), 0); }} type="button"><Plus aria-hidden="true" size={16} /> Tạo ticket</button>}
       />
 
       {notice ? <p className="notice-banner" role="status">{notice}</p> : null}
       {error ? <div className="alert-banner error" role="alert">{error}</div> : null}
 
       <section className="ticket-summary" aria-label="Tổng quan ticket">
-        <button className={statusFilter === "all" ? "active" : ""} onClick={() => setStatusFilter("all")} type="button"><span>Tất cả</span><strong>{tickets.length}</strong></button>
-        <button className={statusFilter === "open" ? "active" : ""} onClick={() => setStatusFilter("open")} type="button"><span>Mới tạo</span><strong>{tickets.filter((ticket) => ticket.status === "open").length}</strong></button>
-        <button className={statusFilter === "in_progress" ? "active" : ""} onClick={() => setStatusFilter("in_progress")} type="button"><span>Đang xử lý</span><strong>{tickets.filter((ticket) => ticket.status === "in_progress").length}</strong></button>
-        <button className="warning" onClick={() => setDraftOpen(true)} type="button"><span>Chờ xác nhận</span><strong>{approvals.length}</strong></button>
-        <button className={statusFilter === "resolved" ? "active" : ""} onClick={() => setStatusFilter("resolved")} type="button"><span>Đã giải quyết</span><strong>{tickets.filter((ticket) => ticket.status === "resolved").length}</strong></button>
+        <button className={statusFilter === "all" ? "active" : ""} onClick={() => setStatusFilter("all")} type="button"><span className="summary-icon"><ListFilter /></span><span>Tất cả</span><strong>{tickets.length}</strong></button>
+        <button className={statusFilter === "open" ? "active" : ""} onClick={() => setStatusFilter("open")} type="button"><span className="summary-icon"><TicketCheck /></span><span>Mới tạo</span><strong>{tickets.filter((ticket) => ticket.status === "open").length}</strong></button>
+        <button className={statusFilter === "in_progress" ? "active" : ""} onClick={() => setStatusFilter("in_progress")} type="button"><span className="summary-icon amber"><Activity /></span><span>Đang xử lý</span><strong>{tickets.filter((ticket) => ticket.status === "in_progress").length}</strong></button>
+        <button className="warning" onClick={() => setDraftOpen(true)} type="button"><span className="summary-icon amber"><Clock3 /></span><span>Chờ xác nhận</span><strong>{approvals.length}</strong></button>
+        <button className={statusFilter === "resolved" ? "active" : ""} onClick={() => setStatusFilter("resolved")} type="button"><span className="summary-icon green"><CheckCircle2 /></span><span>Đã giải quyết</span><strong>{tickets.filter((ticket) => ticket.status === "resolved").length}</strong></button>
       </section>
 
       {draftOpen ? <aside className="ticket-side-panel" aria-label="Tạo ticket và phê duyệt">
       <section className="ticket-draft-panel" ref={draftPanel}>
-        <header className="panel-header"><div><h2>Tạo ticket hỗ trợ</h2><p>Gửi yêu cầu hỗ trợ tới đội ngũ IT.</p></div><button aria-label="Đóng panel tạo ticket" className="drawer-close" onClick={() => setDraftOpen(false)} type="button">×</button></header>
+        <header className="panel-header"><div><h2>Tạo ticket hỗ trợ</h2><p>Gửi yêu cầu hỗ trợ tới đội ngũ IT.</p></div><button aria-label="Đóng panel tạo ticket" className="drawer-close" onClick={() => setDraftOpen(false)} type="button"><X aria-hidden="true" size={20} /></button></header>
         <form onSubmit={submitDraft}>
           <label>Tiêu đề<input minLength={5} ref={titleInput} required value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} /></label>
           <label>Mô tả<textarea minLength={10} required rows={4} value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></label>
@@ -213,7 +215,7 @@ export function TicketsPage() {
       <section className="panel ticket-library">
         <header className="panel-header"><div><h2>Ticket cá nhân</h2><p>{tickets.length} ticket trong phạm vi của bạn</p></div></header>
         <div className="filter-bar">
-          <label className="search-field"><span className="sr-only">Tìm ticket</span><input onChange={(event) => setQuery(event.target.value)} placeholder="Tìm theo mã, tiêu đề…" type="search" value={query} /></label>
+          <label className="search-field"><Search aria-hidden="true" size={16} /><span className="sr-only">Tìm ticket</span><input onChange={(event) => setQuery(event.target.value)} placeholder="Tìm theo mã, tiêu đề…" type="search" value={query} /></label>
           <label><span className="sr-only">Lọc trạng thái</span><select aria-label="Lọc trạng thái" onChange={(event) => setStatusFilter(event.target.value)} value={statusFilter}><option value="all">Mọi trạng thái</option><option value="open">Open</option><option value="in_progress">In progress</option><option value="resolved">Resolved</option></select></label>
           <label><span className="sr-only">Lọc mức độ</span><select aria-label="Lọc mức độ" onChange={(event) => setSeverityFilter(event.target.value)} value={severityFilter}><option value="all">Mọi mức độ</option><option value="high">Cao</option><option value="normal">Bình thường</option><option value="low">Thấp</option></select></label>
           <label><span className="sr-only">Lọc loại sự cố</span><select aria-label="Lọc loại sự cố" onChange={(event) => setIssueTypeFilter(event.target.value)} value={issueTypeFilter}><option value="all">Mọi loại</option><option value="vpn">VPN</option><option value="docker">Docker</option><option value="gitlab">GitLab</option><option value="other">Khác</option></select></label>
@@ -221,14 +223,15 @@ export function TicketsPage() {
         {filteredTickets.length === 0 ? <EmptyState title={tickets.length === 0 ? "Chưa có ticket nào" : "Không tìm thấy ticket"} description={tickets.length === 0 ? "Tạo bản nháp để bắt đầu yêu cầu hỗ trợ." : "Thử thay đổi từ khóa hoặc bộ lọc."} /> : (
           <div className="table-scroll">
             <table className="data-table tickets-table">
-              <thead><tr><th>Mã</th><th>Tiêu đề</th><th>Trạng thái</th><th>Ưu tiên</th><th>Loại</th></tr></thead>
+              <thead><tr><th>Mã</th><th>Tiêu đề</th><th>Loại</th><th>Mức độ</th><th>Trạng thái</th><th>Cập nhật</th></tr></thead>
               <tbody>{filteredTickets.map((ticket) => (
                 <tr key={ticket.id}>
                   <td><strong>{ticket.display_key}</strong></td>
                   <td><Link className="ticket-title-link" to={`/tickets/${ticket.id}`}><strong>{ticket.title}</strong><small>{ticket.description}</small></Link></td>
-                  <td><StatusBadge value={ticket.status} /></td>
+                  <td>{formatIssueType(ticket.issue_type)}</td>
                   <td><StatusBadge value={ticket.severity} /></td>
-                  <td>{ticket.issue_type}</td>
+                  <td><StatusBadge value={ticket.status} /></td>
+                  <td>{formatRelativeTime(ticket.updated_at)}</td>
                 </tr>
               ))}</tbody>
             </table>

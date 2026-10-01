@@ -31,21 +31,34 @@ describe("chat API", () => {
   });
 
   it("creates a conversation through the protected endpoint", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: "c1", title: "IT support" }), { status: 201 })));
-    await expect(createConversation("csrf-token")).resolves.toEqual({ id: "c1", title: "IT support" });
+    const created = {
+      id: "c1", title: "IT support", device_id: null,
+      created_at: "2026-10-01T08:00:00Z", updated_at: "2026-10-01T08:00:00Z",
+      preview: null, preview_at: null, preview_role: null,
+    };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(created), { status: 201 })));
+    await expect(createConversation("csrf-token")).resolves.toEqual(created);
   });
 
   it("unwraps the bounded cursor page used by list endpoints", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       Response.json({
-        items: [{ id: "c1", title: "IT support" }],
+        items: [{
+          id: "c1", title: "IT support", device_id: null,
+          created_at: "2026-10-01T08:00:00Z", updated_at: "2026-10-01T08:00:00Z",
+          preview: null, preview_at: null, preview_role: null,
+        }],
         next_cursor: "opaque-next-page",
       }),
     );
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(listConversations()).resolves.toEqual([
-      { id: "c1", title: "IT support" },
+      {
+        id: "c1", title: "IT support", device_id: null,
+        created_at: "2026-10-01T08:00:00Z", updated_at: "2026-10-01T08:00:00Z",
+        preview: null, preview_at: null, preview_role: null,
+      },
     ]);
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/v1/conversations?limit=20",

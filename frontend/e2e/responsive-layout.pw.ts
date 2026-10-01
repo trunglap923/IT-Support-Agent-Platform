@@ -22,6 +22,9 @@ const tickets = [
     status: "open",
     resolution_note: null,
     version: 1,
+    created_at: "2026-09-29T08:00:00Z",
+    updated_at: "2026-10-01T07:30:00Z",
+    requester_name: "Demo Engineer",
   },
   {
     id: "44444444-4444-4444-4444-444444444444",
@@ -33,6 +36,9 @@ const tickets = [
     status: "in_progress",
     resolution_note: null,
     version: 2,
+    created_at: "2026-09-28T08:00:00Z",
+    updated_at: "2026-10-01T07:00:00Z",
+    requester_name: "Demo Engineer",
   },
 ];
 
@@ -48,6 +54,7 @@ async function mockWorkspace(page: Page, actor = user) {
   await page.route("**/api/v1/auth/me", (route) => json(route, { user: actor, csrf_token: "csrf-visual" }));
   await page.route("**/api/v1/tickets/mine**", (route) => json(route, cursorPage(tickets)));
   await page.route("**/api/v1/approvals?approval_status=pending**", (route) => json(route, cursorPage([])));
+  await page.route("**/api/v1/memory/devices", (route) => json(route, []));
   await page.route("**/api/v1/health/live", (route) => json(route, {
     status: "ok",
     service: "api",
@@ -55,6 +62,31 @@ async function mockWorkspace(page: Page, actor = user) {
     environment: "demo",
     provider: "fake",
     request_id: "visual-check",
+  }));
+  await page.route("**/api/v1/dashboard**", (route) => json(route, {
+    range_days: 7,
+    generated_at: "2026-10-01T08:00:00Z",
+    scope: actor.role === "admin" ? "global" : actor.role === "it" ? "department" : "personal",
+    metrics: { open: 1, in_progress: 1, high_priority_unresolved: 1, resolved_in_range: 3, pending_approvals: 0 },
+    comparison: { resolved_in_range: 1, created_in_range: null },
+    daily_activity: [
+      { date: "2026-09-29", created: 1, started: 0, resolved: 1 },
+      { date: "2026-09-30", created: 2, started: 1, resolved: 0 },
+      { date: "2026-10-01", created: 1, started: 1, resolved: 2 },
+    ],
+    issue_distribution: [
+      { issue_type: "vpn", count: 8 },
+      { issue_type: "docker", count: 5 },
+      { issue_type: "gitlab", count: 4 },
+      { issue_type: "other", count: 2 },
+    ],
+    recent_activity: [{ id: "activity-1", event_type: "ticket.in_progress", occurred_at: "2026-10-01T07:30:00Z", ticket_id: tickets[0].id, display_key: tickets[0].display_key, title: tickets[0].title, actor_name: "Demo Engineer" }],
+    attention_tickets: tickets.map((ticket) => ({ ...ticket, requester_name: ticket.requester_name ?? "Demo Engineer" })),
+    services: [
+      { service_id: "gitlab", status: "healthy", message: "Dịch vụ hoạt động bình thường.", updated_at: "2026-10-01T07:00:00Z" },
+      { service_id: "registry", status: "healthy", message: "Dịch vụ hoạt động bình thường.", updated_at: "2026-10-01T07:00:00Z" },
+      { service_id: "vpn", status: "degraded", message: "Đang có độ trễ kết nối.", updated_at: "2026-10-01T07:00:00Z" },
+    ],
   }));
 }
 
@@ -159,10 +191,15 @@ async function expectNoHorizontalOverflow(page: Page) {
 
 test("dashboard remains compact on desktop", async ({ page }, testInfo) => {
   await mockWorkspace(page);
-  await page.setViewportSize({ width: 1440, height: 960 });
+  await page.setViewportSize({ width: 1680, height: 960 });
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Tổng quan" })).toBeVisible();
-  await expect(page.getByText("IT-2048")).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+  await page.screenshot({ path: testInfo.outputPath("dashboard-reference-1680.png"), fullPage: true });
+
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await expect(page.getByRole("heading", { name: "Tổng quan" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "IT-2048" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
   await page.screenshot({ path: testInfo.outputPath("dashboard-desktop.png"), fullPage: true });
 });
@@ -194,6 +231,9 @@ test("chat stays readable on desktop and mobile", async ({ page }, testInfo) => 
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(250);
+  await expect(page.locator(".chat-layout")).toHaveCSS("grid-template-columns", /\d+px/);
+  const mobileChatColumns = await page.locator(".chat-layout").evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length);
+  expect(mobileChatColumns).toBe(1);
   await expectNoHorizontalOverflow(page);
   const messageListWidth = await page.locator(".message-list").evaluate((element) => ({
     clientWidth: element.clientWidth,
@@ -244,6 +284,24 @@ test("ticket workspace keeps the create drawer usable", async ({ page }, testInf
   await expect(page.getByRole("button", { name: "Đóng panel tạo ticket" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
   await page.screenshot({ path: testInfo.outputPath("tickets-mobile.png"), fullPage: true });
+});
+
+test("ticket detail is readable on desktop and mobile", async ({ page }, testInfo) => {
+  await mockWorkspace(page);
+  await page.route(`**/api/v1/tickets/${tickets[0].id}`, (route) => json(route, tickets[0]));
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await page.goto(`/tickets/${tickets[0].id}`);
+  await expect(page.getByRole("heading", { name: tickets[0].title })).toBeVisible();
+  await expect(page.getByText("Người yêu cầu")).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+  await page.screenshot({ path: testInfo.outputPath("ticket-detail-desktop.png"), fullPage: true });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(250);
+  await expectNoHorizontalOverflow(page);
+  await expect(page.locator(".app-sidebar")).not.toHaveClass(/open/);
+  await expect(page.locator(".app-sidebar")).toHaveCSS("transform", /matrix\(1, 0, 0, 1, -/);
+  await page.screenshot({ path: testInfo.outputPath("ticket-detail-mobile.png"), fullPage: true });
 });
 
 test("operations tables remain usable on desktop and mobile", async ({ page }, testInfo) => {
@@ -306,6 +364,7 @@ test("document library remains usable on desktop and mobile", async ({ page }, t
 
   await page.setViewportSize({ width: 1440, height: 960 });
   await page.goto("/admin/documents");
+  await page.getByRole("button", { name: "VPN administration guide vpn-admin-guide" }).click();
   await expect(page.getByRole("heading", { name: "VPN administration guide" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
   await page.screenshot({ path: testInfo.outputPath("documents-desktop.png"), fullPage: true });
@@ -313,7 +372,7 @@ test("document library remains usable on desktop and mobile", async ({ page }, t
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(250);
   await expectNoHorizontalOverflow(page);
-  await expect(page.getByText("Vuốt ngang để quản lý version →")).toBeVisible();
+  await expect(page.getByText("Vuốt ngang để quản lý phiên bản")).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("documents-mobile.png"), fullPage: true });
 });
 

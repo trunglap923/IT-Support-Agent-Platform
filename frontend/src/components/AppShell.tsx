@@ -1,16 +1,37 @@
-import { useState } from "react";
+import { useEffect, useRef, useState, type ComponentType } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
+import {
+  Bell,
+  BookOpen,
+  Bot,
+  ChevronDown,
+  ClipboardList,
+  Gauge,
+  LogOut,
+  Menu,
+  MonitorCog,
+  Tickets,
+  X,
+  type LucideProps,
+} from "lucide-react";
 
 import { useAuth } from "../features/auth/useAuth";
 
-const primaryNav = [
-  { to: "/", label: "Tổng quan", glyph: "⌂", end: true },
-  { to: "/chat", label: "Trợ lý AI", glyph: "✦" },
-  { to: "/tickets", label: "Ticket của tôi", glyph: "▣" },
+interface NavigationItem {
+  to: string;
+  label: string;
+  icon: ComponentType<LucideProps>;
+  end?: boolean;
+}
+
+const primaryNav: NavigationItem[] = [
+  { to: "/", label: "Tổng quan", icon: Gauge, end: true },
+  { to: "/chat", label: "Trợ lý AI", icon: Bot },
+  { to: "/tickets", label: "Ticket của tôi", icon: Tickets },
 ];
 
-const contextNav = [
-  { to: "/settings/memory", label: "Thiết bị & memory", glyph: "▤" },
+const contextNav: NavigationItem[] = [
+  { to: "/settings/memory", label: "Thiết bị & memory", icon: MonitorCog },
 ];
 
 const pageNames: Record<string, string> = {
@@ -28,9 +49,20 @@ export function AppShell() {
   const [navigationOpen, setNavigationOpen] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const navigationRef = useRef<HTMLElement>(null);
   const currentPageName = location.pathname.startsWith("/tickets/")
     ? "Chi tiết ticket"
     : pageNames[location.pathname] ?? "Workspace";
+
+  useEffect(() => {
+    if (!navigationOpen) return;
+    navigationRef.current?.querySelector<HTMLElement>("a")?.focus();
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setNavigationOpen(false);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [navigationOpen]);
 
   async function handleLogout() {
     setLogoutError(null);
@@ -51,6 +83,7 @@ export function AppShell() {
         onClick={(event) => {
           if ((event.target as HTMLElement).closest("a")) setNavigationOpen(false);
         }}
+        ref={navigationRef}
       >
         <NavLink className="brand" to="/">
           <span className="brand-mark">IT</span>
@@ -61,36 +94,42 @@ export function AppShell() {
         </NavLink>
 
         <nav aria-label="Điều hướng chính" className="sidebar-nav">
-          {primaryNav.map((item) => (
+          {primaryNav.map((item) => {
+            const Icon = item.icon;
+            return (
             <NavLink
               className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
               end={item.end}
               key={item.to}
               to={item.to}
             >
-              <span className="nav-glyph" aria-hidden="true">{item.glyph}</span>
+              <Icon className="nav-icon" aria-hidden="true" size={18} strokeWidth={1.8} />
               <span>{item.label}</span>
             </NavLink>
-          ))}
+            );
+          })}
 
-          {contextNav.map((item) => (
+          {contextNav.map((item) => {
+            const Icon = item.icon;
+            return (
             <NavLink className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")} key={item.to} to={item.to}>
-              <span className="nav-glyph" aria-hidden="true">{item.glyph}</span>
+              <Icon className="nav-icon" aria-hidden="true" size={18} strokeWidth={1.8} />
               <span>{item.label}</span>
             </NavLink>
-          ))}
+            );
+          })}
 
           {user?.role !== "employee" ? (
             <>
               <NavLink className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")} to="/operations">
-                <span className="nav-glyph" aria-hidden="true">▥</span>
+                <ClipboardList className="nav-icon" aria-hidden="true" size={18} strokeWidth={1.8} />
                 <span>Hàng đợi IT</span>
               </NavLink>
             </>
           ) : null}
           {user?.role === "admin" ? (
             <NavLink className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")} to="/admin/documents">
-              <span className="nav-glyph" aria-hidden="true">◇</span>
+              <BookOpen className="nav-icon" aria-hidden="true" size={18} strokeWidth={1.8} />
               <span>Kho tri thức</span>
             </NavLink>
           ) : null}
@@ -110,7 +149,7 @@ export function AppShell() {
             onClick={() => void handleLogout()}
             type="button"
           >
-            <span aria-hidden="true">↪</span> {isLoggingOut ? "Đang đăng xuất…" : "Đăng xuất"}
+            <LogOut aria-hidden="true" size={16} /> {isLoggingOut ? "Đang đăng xuất…" : "Đăng xuất"}
           </button>
           {logoutError ? <small className="logout-error" role="alert">{logoutError}</small> : null}
         </div>
@@ -126,9 +165,7 @@ export function AppShell() {
           onClick={() => setNavigationOpen((current) => !current)}
           type="button"
         >
-          <span />
-          <span />
-          <span />
+          {navigationOpen ? <X aria-hidden="true" size={18} /> : <Menu aria-hidden="true" size={18} />}
         </button>
         <div className="topbar-title">
           <small>IT Support</small>
@@ -137,10 +174,11 @@ export function AppShell() {
         <div className="topbar-context">
           <span className="environment-indicator"><i /> Demo environment</span>
           <span className="topbar-divider" />
-          <span className="notification-mark" aria-label="Thông báo">♧<i /></span>
+          <span className="notification-mark" aria-label="Thông báo"><Bell aria-hidden="true" size={17} /><i /></span>
           <span className="topbar-divider" />
           <span className="topbar-avatar" aria-hidden="true">{user?.display_name?.slice(0, 1).toUpperCase() ?? "U"}</span>
           <strong className="topbar-user-name">{user?.display_name}</strong>
+          <ChevronDown className="topbar-chevron" aria-hidden="true" size={14} />
         </div>
       </header>
 

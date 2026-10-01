@@ -8,7 +8,7 @@ const { useRunEventsMock } = vi.hoisted(() => ({ useRunEventsMock: vi.fn() }));
 vi.mock("./useRunEvents", () => ({ useRunEvents: useRunEventsMock }));
 
 describe("RunStatusPanel", () => {
-  it("forwards streamed text without listing transport delta events", () => {
+  it("shows safe progress labels and expands the activity timeline", () => {
     const onStatus = vi.fn();
     const onStreamText = vi.fn();
     useRunEventsMock.mockReturnValue({
@@ -21,12 +21,19 @@ describe("RunStatusPanel", () => {
         {
           sequence: 2,
           run_id: "run-1",
-          type: "run.running",
+          type: "agent.progress",
           timestamp: "2026-09-16T00:00:00Z",
-          payload: {},
+          payload: { stage: "analyze", status: "completed", detail: "Đã xác định nội dung cần hỗ trợ." },
         },
         {
           sequence: 3,
+          run_id: "run-1",
+          type: "agent.progress",
+          timestamp: "2026-09-16T00:00:01Z",
+          payload: { stage: "device", status: "started" },
+        },
+        {
+          sequence: 4,
           run_id: "run-1",
           type: "assistant.stream.delta",
           timestamp: "2026-09-16T00:00:01Z",
@@ -43,10 +50,13 @@ describe("RunStatusPanel", () => {
       />,
     );
 
-    expect(screen.getByRole("heading", { name: "Đang xử lý" })).toBeInTheDocument();
-    expect(screen.getByText("run.running")).toBeInTheDocument();
-    expect(screen.getByText("open")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Đang xử lý yêu cầu của bạn…" })).toBeInTheDocument();
+    expect(screen.getByText("Kiểm tra thông tin thiết bị")).toBeInTheDocument();
+    expect(screen.queryByText("agent.progress")).not.toBeInTheDocument();
     expect(screen.queryByText("assistant.stream.delta")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Xem chi tiết" }));
+    expect(screen.getByText("Phân tích yêu cầu")).toBeInTheDocument();
+    expect(screen.getByText("Đã xác định nội dung cần hỗ trợ.")).toBeInTheDocument();
     expect(onStatus).toHaveBeenCalledWith("running");
     expect(onStreamText).toHaveBeenCalledWith("Use SSO.");
   });

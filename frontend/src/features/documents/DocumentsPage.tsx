@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { CheckCircle2, Eye, FilePenLine, FileText, MoreHorizontal, Plus, Search, TriangleAlert, X } from "lucide-react";
 
 import {
   listDocumentsPage,
@@ -13,7 +14,8 @@ import {
   type ManagedDocument,
 } from "../../api/documents";
 import { useAuth } from "../auth/useAuth";
-import { AccessDenied, ConfirmDialog, EmptyState, LoadingState, PageHeader, StatusBadge } from "../../components/ProductUI";
+import { AccessDenied, ConfirmDialog, EmptyState, LoadingState, MetricCard, PageHeader, StatusBadge } from "../../components/ProductUI";
+import { formatDateTime } from "../../utils/format";
 
 function isoNow(): string {
   return new Date().toISOString().slice(0, 16);
@@ -39,11 +41,15 @@ export function DocumentsPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [documentToRevoke, setDocumentToRevoke] = useState<ManagedDocument | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState<ManagedDocument | null>(null);
   const uploadPanel = useRef<HTMLElement>(null);
 
   async function refresh(signal?: AbortSignal) {
     const page = await listDocumentsPage(null, signal);
     setDocuments(page.items);
+    setSelectedDocument((current) => current
+      ? page.items.find((document) => document.id === current.id) ?? current
+      : null);
     setDocumentCursor(page.next_cursor);
   }
 
@@ -135,25 +141,25 @@ export function DocumentsPage() {
   }
 
   return (
-    <div className={uploadOpen || preview ? "documents-page drawer-visible" : "documents-page"}>
+    <div className={uploadOpen || preview || selectedDocument ? "documents-page drawer-visible" : "documents-page"}>
       <PageHeader
         eyebrow="KNOWLEDGE GOVERNANCE"
         title="Kho tri thức"
         description="Chỉ version đã xử lý và publish mới được dùng làm nguồn trả lời."
-        actions={<button className="primary-button" onClick={() => { setPreview(null); setUploadOpen(true); }} type="button">+ Tài liệu mới</button>}
+        actions={<button className="primary-button" onClick={() => { setSelectedDocument(null); setPreview(null); setUploadOpen(true); }} type="button"><Plus aria-hidden="true" size={16} /> Tài liệu mới</button>}
       />
       {notice ? <p className="notice-banner" role="status">{notice}</p> : null}
       {error ? <div className="alert-banner error" role="alert">{error}</div> : null}
 
-      <section className="document-summary" aria-label="Tổng quan tài liệu">
-        <div><span className="metric-icon">▤</span><span><small>Tổng tài liệu</small><strong>{documents.length}</strong></span></div>
-        <div><span className="metric-icon green">✓</span><span><small>Published</small><strong>{documents.filter((document) => getDocumentStatus(document) === "published").length}</strong></span></div>
-        <div><span className="metric-icon amber">▧</span><span><small>Draft</small><strong>{documents.filter((document) => getDocumentStatus(document) === "draft").length}</strong></span></div>
-        <div><span className="metric-icon red">△</span><span><small>Cần rà soát</small><strong>{documents.filter((document) => ["failed", "revoked"].includes(getDocumentStatus(document))).length}</strong></span></div>
+      <section className="metric-grid" aria-label="Tổng quan tài liệu">
+        <MetricCard icon={FileText} label="Tổng tài liệu" value={documents.length} detail="Trong kho tri thức" />
+        <MetricCard icon={CheckCircle2} label="Published" value={documents.filter((document) => getDocumentStatus(document) === "published").length} tone="green" detail="Được dùng cho retrieval" />
+        <MetricCard icon={FilePenLine} label="Draft" value={documents.filter((document) => getDocumentStatus(document) === "draft").length} tone="amber" detail="Đang chuẩn bị" />
+        <MetricCard icon={TriangleAlert} label="Cần rà soát" value={documents.filter((document) => ["failed", "revoked"].includes(getDocumentStatus(document))).length} tone="red" detail="Cần hành động" />
       </section>
 
       {uploadOpen ? <section className="document-upload-panel document-drawer" ref={uploadPanel}>
-        <header className="panel-header"><div><h2>Tạo tài liệu mới</h2><p>PDF bắt đầu ở trạng thái draft để kiểm tra trước khi publish.</p></div><button aria-label="Đóng panel tài liệu mới" className="drawer-close" onClick={() => setUploadOpen(false)} type="button">×</button></header>
+        <header className="panel-header"><div><h2>Tạo tài liệu mới</h2><p>PDF bắt đầu ở trạng thái draft để kiểm tra trước khi publish.</p></div><button aria-label="Đóng panel tài liệu mới" className="drawer-close" onClick={() => setUploadOpen(false)} type="button"><X aria-hidden="true" size={20} /></button></header>
         <form onSubmit={(event) => void submitNewDocument(event)}>
           <label>PDF<input accept="application/pdf" name="file" required type="file" /></label>
           <label>Document key<input name="document_key" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" required /></label>
@@ -170,20 +176,21 @@ export function DocumentsPage() {
       <section className="panel document-library">
         <header className="panel-header"><div><h2>Kho tài liệu</h2><p>{documents.length} tài liệu được quản lý</p></div></header>
         <div className="filter-bar">
-          <label className="search-field"><span className="sr-only">Tìm tài liệu</span><input onChange={(event) => setQuery(event.target.value)} placeholder="Tìm theo key hoặc tiêu đề…" type="search" value={query} /></label>
+          <label className="search-field"><Search aria-hidden="true" size={16} /><span className="sr-only">Tìm tài liệu</span><input onChange={(event) => setQuery(event.target.value)} placeholder="Tìm theo key hoặc tiêu đề…" type="search" value={query} /></label>
           <label><span className="sr-only">Lọc trạng thái tài liệu</span><select aria-label="Lọc trạng thái tài liệu" onChange={(event) => setStatusFilter(event.target.value)} value={statusFilter}><option value="all">Mọi trạng thái</option><option value="draft">Draft</option><option value="ready">Ready</option><option value="published">Published</option><option value="revoked">Revoked</option></select></label>
         </div>
         {filteredDocuments.length === 0 ? (
           <EmptyState title={documents.length === 0 ? "Chưa có tài liệu" : "Không tìm thấy tài liệu"} description={documents.length === 0 ? "Tải PDF đầu tiên để bắt đầu xây dựng kho tri thức." : "Thử thay đổi từ khóa hoặc bộ lọc."} />
         ) : (
           <div className="table-scroll">
-            <span className="mobile-scroll-hint">Vuốt ngang để quản lý version →</span>
+            <span className="mobile-scroll-hint">Vuốt ngang để quản lý phiên bản</span>
             <table className="data-table documents-table">
-              <thead><tr><th>Tài liệu</th><th>Trạng thái</th><th>Phạm vi</th><th>Versions</th><th>Quản lý</th></tr></thead>
+              <thead><tr><th>Tài liệu</th><th>Trạng thái</th><th>Phiên bản</th><th>Phạm vi</th><th>Cập nhật gần nhất</th><th><span className="sr-only">Chi tiết</span></th></tr></thead>
               <tbody>{filteredDocuments.map((document) => (
                 <tr key={document.id}>
-                  <td><small>{document.document_key}</small><h3>{document.title}</h3><small>Document v{document.version} · Access v{document.access_version}</small></td>
+                  <td><button className="document-title-button" onClick={() => { setUploadOpen(false); setPreview(null); setSelectedDocument(document); }} type="button"><span className="document-file-icon"><FileText aria-hidden="true" size={16} /></span><span><strong>{document.title}</strong><small>{document.document_key}</small></span></button></td>
                   <td><StatusBadge value={getDocumentStatus(document)} /></td>
+                  <td>{document.versions[0]?.version_label ?? "—"}</td>
                   <td>
                     <label>
                       <span className="sr-only">Phạm vi</span>
@@ -198,35 +205,9 @@ export function DocumentsPage() {
                       ><option value="company">Company</option><option value="it_only">IT only</option></select>
                     </label>
                   </td>
-                  <td>{document.versions.length}</td>
+                  <td>{document.versions[0]?.created_at ? formatDateTime(document.versions[0].created_at) : "—"}</td>
                   <td>
-                    <details className="document-manage">
-                      <summary>Quản lý</summary>
-                      <div className="document-manage-panel">
-                        <div className="document-version-list">
-                          {document.versions.map((version) => (
-                            <div key={version.id}>
-                              <strong>{version.version_label}</strong><StatusBadge value={version.status} />
-                              <button onClick={() => void previewVersion(document.id, version.id).then((nextPreview) => { setUploadOpen(false); setPreview(nextPreview); }).catch((caught: unknown) => setError(caught instanceof Error ? caught.message : "Không thể xem preview."))} type="button">Preview</button>
-                              {version.status === "draft" || version.status === "failed" ? <button disabled={busy} onClick={() => void mutate(() => processVersion(document.id, version.id, csrfToken ?? ""), "Đã process version; version sẵn sàng publish.")} type="button">Process</button> : null}
-                              {version.status === "ready" ? <button disabled={busy} onClick={() => void mutate(() => publishVersion(document, version.id, csrfToken ?? ""), "Đã publish version.")} type="button">Publish</button> : null}
-                              {document.current_version_id === version.id ? <button className="danger-button" disabled={busy} onClick={() => setDocumentToRevoke(document)} type="button">Revoke</button> : null}
-                            </div>
-                          ))}
-                        </div>
-                        <details className="new-version-form">
-                          <summary>+ Thêm version</summary>
-                          <form onSubmit={(event) => void submitNewVersion(event, document.id)}>
-                            <label>PDF<input accept="application/pdf" name="file" required type="file" /></label>
-                            <label>Version<input name="version_label" required /></label>
-                            <label>Authority<input defaultValue="IT Operations" name="authority" required /></label>
-                            <input name="language" type="hidden" value="vi" />
-                            <input name="effective_at" type="hidden" value={isoNow()} />
-                            <button disabled={busy} type="submit">Upload version</button>
-                          </form>
-                        </details>
-                      </div>
-                    </details>
+                    <button aria-label={`Mở chi tiết ${document.title}`} className="icon-button" onClick={() => { setUploadOpen(false); setPreview(null); setSelectedDocument(document); }} type="button"><MoreHorizontal aria-hidden="true" size={17} /></button>
                   </td>
                 </tr>
               ))}</tbody>
@@ -236,9 +217,25 @@ export function DocumentsPage() {
         {documentCursor ? <button className="load-more-button" disabled={loadingMore} onClick={() => void loadMoreDocuments()} type="button">{loadingMore ? "Đang tải…" : "Tải thêm tài liệu"}</button> : null}
       </section>
 
+      {selectedDocument ? (
+        <aside className="document-detail document-drawer" aria-label={`Chi tiết ${selectedDocument.title}`}>
+          <header className="drawer-header"><div><span className="drawer-document-icon"><FileText aria-hidden="true" /></span><h2>{selectedDocument.title}</h2><p>{selectedDocument.document_key}</p></div><button aria-label="Đóng chi tiết tài liệu" className="icon-button" onClick={() => setSelectedDocument(null)} type="button"><X aria-hidden="true" size={19} /></button></header>
+          <div className="document-detail-summary"><StatusBadge value={getDocumentStatus(selectedDocument)} /><span>{selectedDocument.versions.length} phiên bản</span><span>{selectedDocument.visibility}</span></div>
+          <dl className="detail-list">
+            <div><dt>Phạm vi</dt><dd>{selectedDocument.visibility}</dd></div>
+            <div><dt>Document version</dt><dd>{selectedDocument.version}</dd></div>
+            <div><dt>Access version</dt><dd>{selectedDocument.access_version}</dd></div>
+          </dl>
+          <section className="drawer-section"><h3>Lịch sử phiên bản</h3><div className="document-version-list">{selectedDocument.versions.map((version) => (
+            <div key={version.id}><span><strong>{version.version_label}</strong><small>{formatDateTime(version.created_at)}</small></span><StatusBadge value={version.status} /><button onClick={() => void previewVersion(selectedDocument.id, version.id).then((nextPreview) => { setSelectedDocument(null); setPreview(nextPreview); }).catch((caught: unknown) => setError(caught instanceof Error ? caught.message : "Không thể xem preview."))} type="button"><Eye aria-hidden="true" size={14} /> Xem</button>{version.status === "draft" || version.status === "failed" ? <button disabled={busy} onClick={() => void mutate(() => processVersion(selectedDocument.id, version.id, csrfToken ?? ""), "Đã process version; version sẵn sàng publish.")} type="button">Process</button> : null}{version.status === "ready" ? <button disabled={busy} onClick={() => void mutate(() => publishVersion(selectedDocument, version.id, csrfToken ?? ""), "Đã publish version.")} type="button">Publish</button> : null}{selectedDocument.current_version_id === version.id ? <button className="danger-button" disabled={busy} onClick={() => setDocumentToRevoke(selectedDocument)} type="button">Revoke</button> : null}</div>
+          ))}</div></section>
+          <details className="new-version-form drawer-section"><summary><Plus aria-hidden="true" size={15} /> Thêm phiên bản</summary><form onSubmit={(event) => void submitNewVersion(event, selectedDocument.id)}><label>PDF<input accept="application/pdf" name="file" required type="file" /></label><label>Version<input name="version_label" required /></label><label>Authority<input defaultValue="IT Operations" name="authority" required /></label><input name="language" type="hidden" value="vi" /><input name="effective_at" type="hidden" value={isoNow()} /><button className="primary-button" disabled={busy} type="submit">Upload version</button></form></details>
+        </aside>
+      ) : null}
+
       {preview ? (
         <aside className="document-preview document-drawer" aria-label="Preview tài liệu">
-          <div><div><p className="eyebrow">DOCUMENT PREVIEW</p><h2>Preview</h2></div><button onClick={() => setPreview(null)} type="button">Đóng</button></div>
+          <div><div><p className="eyebrow">DOCUMENT PREVIEW</p><h2>Preview</h2></div><button aria-label="Đóng preview" className="icon-button" onClick={() => setPreview(null)} type="button"><X aria-hidden="true" size={19} /></button></div>
           <p>{preview.pages.length} trang · {preview.byte_size} bytes · {preview.parser_version}</p>
           <div className="preview-pages">{preview.pages.map((page) => <article key={page.page_number}><strong>Trang {page.page_number}</strong><p>{page.text}</p></article>)}</div>
         </aside>

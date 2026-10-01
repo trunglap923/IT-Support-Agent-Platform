@@ -9,6 +9,7 @@ from redis.asyncio import Redis
 from app.api.approvals import router as approvals_router
 from app.api.auth import router as auth_router
 from app.api.conversations import router as conversations_router
+from app.api.dashboard import router as dashboard_router
 from app.api.documents import router as documents_router
 from app.api.errors import register_error_handlers
 from app.api.health import router as health_router
@@ -85,6 +86,7 @@ def create_app(
     application.include_router(auth_router, prefix="/api/v1")
     application.include_router(approvals_router, prefix="/api/v1")
     application.include_router(conversations_router, prefix="/api/v1")
+    application.include_router(dashboard_router, prefix="/api/v1")
     application.include_router(documents_router, prefix="/api/v1")
     application.include_router(runs_router, prefix="/api/v1")
     application.include_router(service_status_router, prefix="/api/v1")

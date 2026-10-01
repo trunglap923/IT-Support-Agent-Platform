@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { BookOpenCheck, Brain, ShieldCheck } from "lucide-react";
 
 import { useAuth } from "./useAuth";
 
@@ -43,9 +44,9 @@ export function LoginPage() {
           <p>Tra cứu hướng dẫn nội bộ, theo dõi ticket và làm việc với trợ lý AI trong một không gian có kiểm soát.</p>
         </div>
         <ul className="auth-assurances">
-          <li><span>01</span><div><strong>Câu trả lời có nguồn</strong><small>Citation được xác thực trước khi hiển thị.</small></div></li>
-          <li><span>02</span><div><strong>Hành động cần xác nhận</strong><small>Ticket không được tạo trước khi bạn duyệt.</small></div></li>
-          <li><span>03</span><div><strong>Memory minh bạch</strong><small>Chỉ fact đã xác nhận mới được sử dụng.</small></div></li>
+          <li><span><BookOpenCheck aria-hidden="true" size={18} /></span><div><strong>Câu trả lời có nguồn</strong><small>Citation được xác thực trước khi hiển thị.</small></div></li>
+          <li><span><ShieldCheck aria-hidden="true" size={18} /></span><div><strong>Hành động cần xác nhận</strong><small>Ticket không được tạo trước khi bạn duyệt.</small></div></li>
+          <li><span><Brain aria-hidden="true" size={18} /></span><div><strong>Memory minh bạch</strong><small>Chỉ fact đã xác nhận mới được sử dụng.</small></div></li>
         </ul>
       </section>
 

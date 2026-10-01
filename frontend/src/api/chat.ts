@@ -1,6 +1,12 @@
 export interface Conversation {
   id: string;
   title: string;
+  device_id: string | null;
+  created_at: string;
+  updated_at: string;
+  preview: string | null;
+  preview_at: string | null;
+  preview_role: "user" | "assistant" | null;
 }
 
 export interface ChatCitation {
@@ -18,6 +24,7 @@ export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   outcome: string | null;
+  created_at: string;
   citations?: ChatCitation[];
   feedback?: MessageFeedback | null;
 }

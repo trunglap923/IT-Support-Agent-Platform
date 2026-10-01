@@ -51,6 +51,8 @@ class DeviceResponse(BaseModel):
     platform: str
     active: bool
     version: int
+    created_at: datetime
+    updated_at: datetime
 
 
 class CandidateDecisionRequest(BaseModel):

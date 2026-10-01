@@ -75,10 +75,17 @@ def test_chat_api_creates_conversation_and_enqueues_owned_run(
             ("user", "How do I connect?")
         ]
 
-        assert client.get("/api/v1/conversations").json() == {
-            "items": [{"id": conversation_id, "title": "VPN help"}],
-            "next_cursor": None,
-        }
+        conversation_page = client.get("/api/v1/conversations").json()
+        listed_conversation = conversation_page["items"][0]
+        assert listed_conversation["id"] == conversation_id
+        assert listed_conversation["title"] == "VPN help"
+        assert listed_conversation["preview"] == "How do I connect?"
+        assert listed_conversation["preview_role"] == "user"
+        assert listed_conversation["preview_at"] is not None
+        assert listed_conversation["updated_at"] is not None
+        assert listed_conversation["created_at"] is not None
+        assert listed_conversation["device_id"] is None
+        assert conversation_page["next_cursor"] is None
 
         for title in ("Docker help", "GitLab help"):
             assert (

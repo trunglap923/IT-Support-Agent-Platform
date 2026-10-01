@@ -252,5 +252,11 @@ def test_publish_acl_revoke_apply_to_retrieval_and_history(
         assert hidden.json()["items"][0]["outcome"] == "source_revoked"
         assert hidden.json()["items"][0]["citations"] == []
         assert "managed VPN" not in hidden.json()["items"][0]["content"]
+        conversation_preview = next(
+            item
+            for item in employee_client.get("/api/v1/conversations").json()["items"]
+            if item["id"] == str(conversation_id)
+        )
+        assert "managed VPN" not in conversation_preview["preview"]
         assert employee_client.get(f"/api/v1/sources/{source_id}").status_code == 404
         assert employee_client.get(f"/api/v1/sources/{source_id}/download").status_code == 404

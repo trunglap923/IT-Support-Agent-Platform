@@ -24,12 +24,20 @@ test("retrying an unchanged chat message reuses its client request id", async ({
   const requestIds: string[] = [];
 
   await page.route("**/api/v1/conversations?**", (route) => json(route, {
-    items: [{ id: "55555555-5555-5555-5555-555555555555", title: "VPN support" }],
+    items: [{
+      id: "55555555-5555-5555-5555-555555555555", title: "VPN support", device_id: null,
+      created_at: "2026-10-01T08:00:00Z", updated_at: "2026-10-01T08:00:00Z",
+      preview: null, preview_at: null, preview_role: null,
+    }],
     next_cursor: null,
   }));
   await page.route("**/api/v1/approvals?approval_status=pending**", (route) =>
     json(route, { items: [], next_cursor: null }),
   );
+  await page.route("**/api/v1/tickets/mine**", (route) =>
+    json(route, { items: [], next_cursor: null }),
+  );
+  await page.route("**/api/v1/memory/devices", (route) => json(route, []));
   await page.route("**/api/v1/conversations/*/messages**", async (route) => {
     if (route.request().method() === "GET") {
       await json(route, { items: [], next_cursor: null });

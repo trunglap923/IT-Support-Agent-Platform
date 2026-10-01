@@ -10,6 +10,7 @@ from sqlalchemy import select
 from app.agent.approval_checkpoint import resume_ticket_approval
 from app.db import Database
 from app.db.models import ApprovalRequest, ApprovalStatus, Message, RunStatus
+from app.repositories.conversations import ConversationRepository
 from app.repositories.runs import RunRepository
 from app.services.conversations.run_state import RunStateService
 from app.services.tickets import TicketWriteService
@@ -89,6 +90,7 @@ async def execute_approval_resume_run(
             )
         )
         if existing_message is None:
+            await ConversationRepository().touch(session, conversation_id=run.conversation_id)
             session.add(
                 Message(
                     conversation_id=run.conversation_id,

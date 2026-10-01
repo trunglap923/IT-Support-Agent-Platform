@@ -44,8 +44,8 @@ test("admin uploads, previews, processes, publishes and revokes a document", asy
     versions: [{ id: versionId, version_label: "v1", status: versionStatus, authority: "IT Operations", language: "vi", effective_at: "2026-09-16T00:00:00Z", expires_at: null, created_at: "2026-09-16T00:00:00Z" }],
   });
 
-  await page.route("**/api/v1/documents", (route) =>
-    json(route, documentExists ? [responseDocument()] : []),
+  await page.route("**/api/v1/documents**", (route) =>
+    json(route, { items: documentExists ? [responseDocument()] : [], next_cursor: null }),
   );
   await page.route("**/api/v1/documents/uploads", async (route) => {
     expect(route.request().headers()["x-csrf-token"]).toBe("csrf-documents-e2e");
@@ -74,28 +74,34 @@ test("admin uploads, previews, processes, publishes and revokes a document", asy
   });
 
   await page.goto("/admin/documents");
+  await page.getByRole("button", { name: "Tài liệu mới" }).click();
   await page.getByLabel("PDF").first().setInputFiles({ name: "vpn.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-e2e") });
   await page.getByLabel("Document key").fill("vpn-admin-guide");
   await page.getByLabel("Tiêu đề").fill("VPN admin guide");
   await page.getByRole("button", { name: "Upload draft" }).click();
-  await expect(page.getByRole("heading", { name: "VPN admin guide" })).toBeVisible();
+  await expect(page.getByRole("status")).toContainText("Đã tạo document");
   await expect(page.getByText("Use the managed VPN client.")).toBeVisible();
-  await page.getByRole("button", { name: "Đóng" }).click();
-  await page.getByRole("button", { name: "Preview" }).click();
+  await page.getByRole("button", { name: "Đóng preview" }).click();
+  await page.getByRole("button", { name: "VPN admin guide vpn-admin-guide" }).click();
+  await expect(page.getByRole("heading", { name: "VPN admin guide" })).toBeVisible();
+  await page.getByRole("button", { name: "Xem", exact: true }).click();
   await expect(page.getByText("Trang 1")).toBeVisible();
-  await page.getByRole("button", { name: "Đóng" }).click();
+  await page.getByRole("button", { name: "Đóng preview" }).click();
+  await page.getByRole("button", { name: "VPN admin guide vpn-admin-guide" }).click();
   await page.getByRole("button", { name: "Process" }).click();
   await expect(page.getByRole("button", { name: "Publish" })).toBeVisible();
   await page.getByRole("button", { name: "Publish" }).click();
   await expect(page.getByRole("button", { name: "Revoke" })).toBeVisible();
   await page.getByRole("button", { name: "Revoke" }).click();
-  await expect(page.getByText("revoked", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Revoke tài liệu" }).click();
+  await expect(page.getByRole("complementary", { name: "Chi tiết VPN admin guide" })
+    .getByText("Đã thu hồi", { exact: true })).toBeVisible();
 });
 
 test("employee cannot access document administration", async ({ page }) => {
   await mockSession(page, employee);
   let documentRequests = 0;
-  await page.route("**/api/v1/documents", (route) => {
+  await page.route("**/api/v1/documents**", (route) => {
     documentRequests += 1;
     return json(route, { detail: "Insufficient role" }, 403);
   });

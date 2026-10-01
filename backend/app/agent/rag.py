@@ -45,6 +45,9 @@ class ToolRunner(Protocol):
     ) -> ToolResult: ...
 
 
+ProgressCallback = Callable[[str, str, str | None, int | None], Awaitable[None]]
+
+
 def _evidence_state(source: Any, score: float) -> EvidenceState:
     return {
         "source_id": source.source_id,
@@ -78,6 +81,7 @@ class RAGGraphNodes:
         tool_runner: ToolRunner | None = None,
         on_stream_started: Callable[[], Awaitable[None]] | None = None,
         on_text_delta: TextDeltaCallback | None = None,
+        on_progress: ProgressCallback | None = None,
         log_prompts: bool = False,
     ) -> None:
         self._session = session
@@ -92,9 +96,20 @@ class RAGGraphNodes:
         self._tool_runner = tool_runner
         self._on_stream_started = on_stream_started
         self._on_text_delta = on_text_delta
+        self._on_progress = on_progress
         self._log_prompts = log_prompts
         self._hits: list[RetrievalHit] = []
         self._sources_by_id: dict[str, EvidenceInput] = {}
+
+    async def _progress(
+        self,
+        stage: str,
+        status: str,
+        detail: str | None = None,
+        count: int | None = None,
+    ) -> None:
+        if self._on_progress is not None:
+            await self._on_progress(stage, status, detail, count)
 
     def _log(self, event: str, state: SupportAgentState, **fields: Any) -> None:
         log_event(
@@ -145,6 +160,7 @@ class RAGGraphNodes:
             suggested_steps=len(context.suggested_steps),
             confirmed_attempted_steps=len(context.confirmed_attempted_steps),
         )
+        await self._progress("analyze", "completed", "Đã xác định nội dung cần hỗ trợ.")
         return update
 
     async def rewrite_query(self, state: SupportAgentState) -> dict[str, Any]:
@@ -215,6 +231,26 @@ class RAGGraphNodes:
         raw_arguments = call.get("arguments")
         if not isinstance(raw_arguments, dict):
             return {"tool_result": {"status": "failed", "error": {"code": "invalid_arguments"}}}
+        tool_name = str(call["name"])
+        stage = "service" if tool_name == "check_service_status" else "support_data"
+        service_labels = {
+            "vpn": "VPN Gateway",
+            "registry": "Docker Registry",
+            "gitlab": "GitLab",
+        }
+        service_id = raw_arguments.get("service_id")
+        service_label = (
+            service_labels.get(service_id, "dịch vụ")
+            if isinstance(service_id, str)
+            else "dịch vụ"
+        )
+        await self._progress(
+            stage,
+            "started",
+            f"Đang kiểm tra {service_label}."
+            if stage == "service"
+            else "Đang kiểm tra thông tin hỗ trợ.",
+        )
         result = await self._tool_runner.execute(
             call_id=str(call["call_id"]),
             name=str(call["name"]),
@@ -228,6 +264,21 @@ class RAGGraphNodes:
             status=result.status,
             error_code=result.error.code if result.error is not None else None,
         )
+        if result.status == "success" and stage == "service":
+            data = result.data if isinstance(result.data, dict) else {}
+            status = data.get("status")
+            safe_status = (
+                status if status in {"healthy", "degraded", "down", "unknown"} else "unknown"
+            )
+            await self._progress("service", "completed", f"{service_label}: {safe_status}.")
+        elif result.status == "success":
+            await self._progress("support_data", "completed", "Đã tải thông tin ticket.")
+        else:
+            await self._progress(
+                stage,
+                "warning",
+                "Chưa thể tải dữ liệu; sẽ nêu trong câu trả lời.",
+            )
         return {
             "tool_result": result.model_dump(mode="json"),
             "tool_calls": state.get("tool_calls", 0) + 1,
@@ -251,6 +302,11 @@ class RAGGraphNodes:
             and call.get("name") == "create_ticket"
             and isinstance(call.get("arguments"), dict)
         ):
+            await self._progress(
+                "approval",
+                "waiting_approval",
+                "Bản nháp ticket cần bạn xác nhận.",
+            )
             arguments = cast(dict[str, Any], call["arguments"])
             return {
                 "answer": (
@@ -264,6 +320,7 @@ class RAGGraphNodes:
                 "route": "done",
             }
         if result.get("status") != "success" or not isinstance(result.get("data"), dict):
+            await self._progress("answer", "warning", "Đang chuẩn bị hướng xử lý thay thế.")
             return {
                 "answer": "Không thể đọc dữ liệu hỗ trợ hiện tại. Vui lòng thử lại sau.",
                 "citations": [],
@@ -272,6 +329,7 @@ class RAGGraphNodes:
                 "route": "done",
             }
         data = cast(dict[str, Any], result["data"])
+        await self._progress("answer", "started")
         if result.get("name") == "check_service_status":
             answer = (
                 f"Trạng thái {data.get('service_id', 'dịch vụ')}: "
@@ -301,6 +359,7 @@ class RAGGraphNodes:
                 answer = "Các ticket gần đây của bạn:\n" + "\n".join(lines)
             else:
                 answer = "Bạn chưa có ticket nào gần đây."
+        await self._progress("answer", "completed", "Đã tổng hợp thông tin hỗ trợ.")
         return {
             "answer": answer,
             "citations": [],
@@ -310,6 +369,7 @@ class RAGGraphNodes:
         }
 
     async def retrieve(self, state: SupportAgentState) -> dict[str, Any]:
+        await self._progress("knowledge", "started")
         operation_id = f"rag:{state.get('run_id', 'preview')}:retrieve"
         self._hits = await self._retriever.search(
             self._session,
@@ -358,6 +418,13 @@ class RAGGraphNodes:
                 for item in evidence
             ],
         )
+        document_count = len({str(item["document_id"]) for item in evidence})
+        await self._progress(
+            "knowledge",
+            "completed",
+            f"Tìm thấy {document_count} tài liệu liên quan.",
+            document_count,
+        )
         return {"evidence": evidence}
 
     async def decide_evidence(self, state: SupportAgentState) -> dict[str, Any]:
@@ -372,6 +439,7 @@ class RAGGraphNodes:
         return {"route": route}
 
     async def generate_answer(self, state: SupportAgentState) -> dict[str, Any]:
+        await self._progress("answer", "started")
         run_id = state.get("run_id", "preview")
         generation = state.get("model_calls", 0) + 1
         operation_id = f"rag:{run_id}:generation:{generation}"
@@ -509,6 +577,7 @@ class RAGGraphNodes:
 
     async def validate_answer(self, state: SupportAgentState) -> dict[str, Any]:
         if state.get("outcome") == "no_answer":
+            await self._progress("answer", "warning", "Thiếu nguồn đủ căn cứ để trả lời.")
             self._log("agent.answer.validated", state, route="no_answer", errors=[])
             return {"route": "no_answer", "validation_errors": []}
         try:
@@ -519,6 +588,7 @@ class RAGGraphNodes:
                 minimum_vector_similarity=self._minimum_vector_similarity,
             )
         except InvalidCitationError as exc:
+            await self._progress("answer", "warning", "Đang kiểm tra lại nguồn tham chiếu.")
             self._log("agent.answer.validated", state, route="retry", errors=[str(exc)])
             return {"route": "retry", "validation_errors": [str(exc)]}
         scores = {str(hit.chunk_id): hit.score for hit in self._hits}
@@ -529,6 +599,7 @@ class RAGGraphNodes:
             errors=[],
             selected_sources=len(selected.sources),
         )
+        await self._progress("answer", "completed", "Đã kiểm tra nguồn tham chiếu.")
         return {
             "route": "done",
             "outcome": "answered",
@@ -557,6 +628,7 @@ class RAGGraphNodes:
             validation_errors=state.get("validation_errors", []),
             preserved_generated_answer=preserve_generated_answer,
         )
+        await self._progress("answer", "completed", "Đã hoàn tất hướng dẫn.")
         return {
             "answer": answer,
             "citation_ids": [],

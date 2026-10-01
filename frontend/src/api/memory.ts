@@ -4,6 +4,8 @@ export interface MemoryDevice {
   platform: "windows" | "macos" | "linux" | "other";
   active: boolean;
   version: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface MemoryCandidate {

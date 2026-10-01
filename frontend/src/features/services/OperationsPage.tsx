@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Activity, AlertTriangle, Container, GitBranch, Search, ShieldCheck, TicketCheck, UserRound } from "lucide-react";
 
 import {
   listServiceStates,
@@ -8,7 +9,8 @@ import {
   type ServiceState,
 } from "../../api/operations";
 import type { Ticket } from "../../api/tickets";
-import { AccessDenied, EmptyState, LoadingState, PageHeader, StatusBadge } from "../../components/ProductUI";
+import { AccessDenied, EmptyState, LoadingState, MetricCard, PageHeader, StatusBadge } from "../../components/ProductUI";
+import { formatIssueType, formatRelativeTime } from "../../utils/format";
 import { useAuth } from "../auth/useAuth";
 
 export function OperationsPage() {
@@ -72,7 +74,7 @@ export function OperationsPage() {
   }
 
   const filteredTickets = useMemo(() => tickets.filter((ticket) => {
-    const matchesQuery = `${ticket.display_key} ${ticket.title} ${ticket.description}`
+    const matchesQuery = `${ticket.display_key} ${ticket.title} ${ticket.description} ${ticket.requester_name ?? ""}`
       .toLowerCase()
       .includes(query.toLowerCase());
     return matchesQuery
@@ -113,6 +115,12 @@ export function OperationsPage() {
     }
   }
 
+  function serviceIcon(serviceId: string) {
+    if (serviceId === "gitlab") return <GitBranch aria-hidden="true" size={20} />;
+    if (serviceId === "registry") return <Container aria-hidden="true" size={20} />;
+    return <ShieldCheck aria-hidden="true" size={20} />;
+  }
+
   return (
     <div className="operations-page">
       <PageHeader
@@ -122,11 +130,11 @@ export function OperationsPage() {
       />
       {error ? <div className="alert-banner error" role="alert">{error}</div> : null}
 
-      <section className="operations-metrics" aria-label="Tổng quan hàng đợi">
-        <div><span className="metric-icon">▤</span><span><small>Tổng ticket</small><strong>{tickets.length}</strong></span></div>
-        <div><span className="metric-icon amber">◷</span><span><small>Đang xử lý</small><strong>{tickets.filter((ticket) => ticket.status === "in_progress").length}</strong></span></div>
-        <div><span className="metric-icon red">△</span><span><small>Mức độ cao</small><strong>{tickets.filter((ticket) => ticket.severity === "high").length}</strong></span></div>
-        <div><span className="metric-icon">♙</span><span><small>Chưa xử lý</small><strong>{tickets.filter((ticket) => ticket.status === "open").length}</strong></span></div>
+      <section className="metric-grid" aria-label="Tổng quan hàng đợi">
+        <MetricCard icon={TicketCheck} label="Tổng ticket" value={tickets.length} detail="Trong phạm vi xử lý" />
+        <MetricCard icon={Activity} label="Đang xử lý" value={tickets.filter((ticket) => ticket.status === "in_progress").length} tone="amber" detail="Cần tiếp tục theo dõi" />
+        <MetricCard icon={AlertTriangle} label="Mức độ cao" value={tickets.filter((ticket) => ticket.severity === "high" && ticket.status !== "resolved").length} tone="red" detail="Cần chú ý sớm" />
+        <MetricCard icon={UserRound} label="Chưa xử lý" value={tickets.filter((ticket) => ticket.status === "open").length} detail="Có thể bắt đầu xử lý" />
       </section>
 
       <section className="panel operations-services">
@@ -140,7 +148,7 @@ export function OperationsPage() {
           <div className="service-cards">
             {services.map((service) => (
               <article key={service.service_id}>
-                <div className="service-card-heading"><span className="service-logo" aria-hidden="true">{service.service_id.slice(0, 1).toUpperCase()}</span><div><strong>{service.service_id}</strong><small>Fault mode: {service.fault_mode}</small></div></div>
+                <div className="service-card-heading"><span className="service-logo" aria-hidden="true">{serviceIcon(service.service_id)}</span><div><strong>{service.service_id === "registry" ? "Docker Registry" : service.service_id}</strong><small>{service.message}</small></div></div>
                 <div className="service-card-state">
                     <div className="service-status-control">
                       <StatusBadge value={service.status} />
@@ -161,7 +169,7 @@ export function OperationsPage() {
       <section className="panel operations-queue">
         <header className="panel-header"><div><h2>Ticket trong phạm vi</h2><p>{tickets.length} ticket được phép xử lý</p></div></header>
         <div className="filter-bar">
-          <label className="search-field"><span className="sr-only">Tìm ticket trong hàng đợi</span><input onChange={(event) => setQuery(event.target.value)} placeholder="Tìm theo mã, tiêu đề…" type="search" value={query} /></label>
+          <label className="search-field"><Search aria-hidden="true" size={16} /><span className="sr-only">Tìm ticket trong hàng đợi</span><input onChange={(event) => setQuery(event.target.value)} placeholder="Tìm theo mã, tiêu đề, người yêu cầu…" type="search" value={query} /></label>
           <label><span className="sr-only">Lọc trạng thái</span><select aria-label="Lọc trạng thái hàng đợi" onChange={(event) => setStatusFilter(event.target.value)} value={statusFilter}><option value="all">Mọi trạng thái</option><option value="open">Open</option><option value="in_progress">In progress</option><option value="resolved">Resolved</option></select></label>
           <label><span className="sr-only">Lọc mức độ</span><select aria-label="Lọc mức độ hàng đợi" onChange={(event) => setSeverityFilter(event.target.value)} value={severityFilter}><option value="all">Mọi mức độ</option><option value="high">Cao</option><option value="normal">Bình thường</option><option value="low">Thấp</option></select></label>
           <label><span className="sr-only">Lọc loại sự cố</span><select aria-label="Lọc loại sự cố hàng đợi" onChange={(event) => setIssueTypeFilter(event.target.value)} value={issueTypeFilter}><option value="all">Mọi loại</option><option value="vpn">VPN</option><option value="docker">Docker</option><option value="gitlab">GitLab</option><option value="other">Khác</option></select></label>
@@ -170,9 +178,9 @@ export function OperationsPage() {
           <EmptyState title={tickets.length === 0 ? "Hàng đợi trống" : "Không tìm thấy ticket"} description={tickets.length === 0 ? "Ticket mới trong phạm vi sẽ xuất hiện tại đây." : "Thử thay đổi từ khóa hoặc bộ lọc."} />
         ) : (
           <div className="table-scroll">
-            <span className="mobile-scroll-hint">Vuốt ngang để xem thao tác →</span>
+            <span className="mobile-scroll-hint">Vuốt ngang để xem thao tác</span>
             <table className="data-table operations-ticket-table">
-              <thead><tr><th>Ticket</th><th>Dịch vụ</th><th>Ưu tiên</th><th>Trạng thái</th><th>Thao tác tiếp theo</th></tr></thead>
+              <thead><tr><th>Ticket</th><th>Dịch vụ</th><th>Mức độ</th><th>Người yêu cầu</th><th>Cập nhật</th><th>Trạng thái</th><th>Thao tác tiếp theo</th></tr></thead>
               <tbody>{filteredTickets.map((ticket) => (
                 <tr key={ticket.id}>
                   <td>
@@ -180,8 +188,10 @@ export function OperationsPage() {
                     <strong>{ticket.title}</strong>
                     <small>{ticket.description}</small>
                   </td>
-                  <td><StatusBadge value={ticket.issue_type} label={ticket.issue_type} /></td>
+                  <td><StatusBadge value={ticket.issue_type} label={formatIssueType(ticket.issue_type)} /></td>
                   <td><StatusBadge value={ticket.severity} /></td>
+                  <td>{ticket.requester_name ?? "—"}</td>
+                  <td>{formatRelativeTime(ticket.updated_at)}</td>
                   <td><StatusBadge value={ticket.status} /></td>
                   <td className="queue-actions">
                     {ticket.status === "open" ? <button className="primary-button" onClick={() => void moveTicket(ticket, "start")} type="button">Bắt đầu xử lý</button> : null}

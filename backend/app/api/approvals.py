@@ -15,6 +15,7 @@ from app.auth.csrf import require_csrf
 from app.db.models import AgentRun, ApprovalRequest, ApprovalStatus, Message, RunStatus
 from app.dependencies import CurrentPrincipal, get_db_session
 from app.jobs.dispatch import BrokerUnavailableError, RunDispatcher
+from app.repositories.conversations import ConversationRepository
 from app.services.approvals import (
     ApprovalConflictError,
     ApprovalExpiredError,
@@ -130,6 +131,7 @@ async def decide_approval(
         if payload.decision == "reject":
             run = await session.get(AgentRun, approval.run_id)
             if run is not None:
+                await ConversationRepository().touch(session, conversation_id=run.conversation_id)
                 session.add(
                     Message(
                         conversation_id=run.conversation_id,

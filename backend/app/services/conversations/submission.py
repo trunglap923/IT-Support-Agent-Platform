@@ -145,6 +145,7 @@ class RunSubmissionService:
             )
             if conversation is None:
                 raise ConversationNotFoundError("Conversation was not found")
+            await self.conversations.touch(session, conversation_id=conversation_id)
             run = AgentRun(
                 id=run_id,
                 conversation_id=conversation_id,

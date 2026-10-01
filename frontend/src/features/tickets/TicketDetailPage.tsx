@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { CalendarClock, UserRound } from "lucide-react";
 
 import { getTicket, type Ticket } from "../../api/tickets";
 import { EmptyState, LoadingState, PageHeader, StatusBadge } from "../../components/ProductUI";
+import { formatDateTime, formatIssueType } from "../../utils/format";
 
 export function TicketDetailPage() {
   const { ticketId } = useParams();
@@ -52,8 +54,8 @@ export function TicketDetailPage() {
           <article>
             <div className="activity-avatar" aria-hidden="true">U</div>
             <div>
-              <strong>Người yêu cầu</strong>
-              <small>Mô tả ban đầu</small>
+              <strong>{ticket.requester_name ?? "Người yêu cầu"}</strong>
+              <small>Mô tả ban đầu · {formatDateTime(ticket.created_at)}</small>
               <p>{ticket.description}</p>
             </div>
           </article>
@@ -75,8 +77,11 @@ export function TicketDetailPage() {
           <dl>
             <div><dt>Trạng thái</dt><dd><StatusBadge value={ticket.status} /></dd></div>
             <div><dt>Ưu tiên</dt><dd><StatusBadge value={ticket.severity} /></dd></div>
-            <div><dt>Loại sự cố</dt><dd>{ticket.issue_type}</dd></div>
+            <div><dt>Người yêu cầu</dt><dd><UserRound aria-hidden="true" size={14} /> {ticket.requester_name ?? "Chưa xác định"}</dd></div>
+            <div><dt>Loại sự cố</dt><dd>{formatIssueType(ticket.issue_type)}</dd></div>
             <div><dt>Mã ticket</dt><dd>{ticket.display_key}</dd></div>
+            <div><dt>Ngày tạo</dt><dd><CalendarClock aria-hidden="true" size={14} /> {formatDateTime(ticket.created_at)}</dd></div>
+            <div><dt>Cập nhật</dt><dd>{formatDateTime(ticket.updated_at)}</dd></div>
             <div><dt>Phiên bản</dt><dd>{ticket.version}</dd></div>
           </dl>
         </aside>

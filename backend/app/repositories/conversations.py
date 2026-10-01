@@ -6,13 +6,20 @@ from datetime import datetime
 from typing import cast
 from uuid import UUID
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Conversation, Message
 
 
 class ConversationRepository:
+    async def touch(self, session: AsyncSession, *, conversation_id: UUID) -> None:
+        await session.execute(
+            update(Conversation)
+            .where(Conversation.id == conversation_id)
+            .values(updated_at=func.now())
+        )
+
     async def create(self, session: AsyncSession, *, owner_id: UUID, title: str) -> Conversation:
         conversation = Conversation(owner_id=owner_id, title=title, issue_state={})
         session.add(conversation)
@@ -52,6 +59,20 @@ class ConversationRepository:
         if limit is not None:
             statement = statement.limit(limit)
         return list((await session.scalars(statement)).all())
+
+    async def latest_messages_for_conversations(
+        self, session: AsyncSession, *, conversation_ids: list[UUID]
+    ) -> dict[UUID, Message]:
+        if not conversation_ids:
+            return {}
+        statement = (
+            select(Message)
+            .where(Message.conversation_id.in_(conversation_ids))
+            .distinct(Message.conversation_id)
+            .order_by(Message.conversation_id, Message.created_at.desc(), Message.id.desc())
+        )
+        values = await session.scalars(statement)
+        return {message.conversation_id: message for message in values}
 
     async def list_messages_owned(
         self,
