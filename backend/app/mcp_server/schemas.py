@@ -26,6 +26,10 @@ class ServiceStatusResult(BaseModel):
     updated_at: datetime
 
 
+class CurrentUserProfileResult(BaseModel):
+    display_name: str
+
+
 class TicketSummary(BaseModel):
     id: UUID
     display_key: str

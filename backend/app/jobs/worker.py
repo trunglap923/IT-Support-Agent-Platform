@@ -16,7 +16,7 @@ from app.agent.graph import build_support_graph, run_support_graph
 from app.agent.rag import RAGGraphNodes
 from app.auth.principal import Principal
 from app.db import Database
-from app.db.models import Conversation, Message, RunStatus, UserDevice
+from app.db.models import Conversation, Message, RunStatus
 from app.diagnostics import content_log_fields, log_event
 from app.jobs.dispatch import (
     BrokerUnavailableError,
@@ -245,28 +245,6 @@ async def execute_support_run(
             conversation_device_id = await session.scalar(
                 select(Conversation.device_id).where(Conversation.id == conversation_id)
             )
-            await append_progress_event("device", "started")
-            device = None
-            if conversation_device_id is not None:
-                device = await session.scalar(
-                    select(UserDevice).where(
-                        UserDevice.id == conversation_device_id,
-                        UserDevice.owner_id == actor_id,
-                        UserDevice.active.is_(True),
-                    )
-                )
-            if device is not None:
-                platform_labels = {
-                    "windows": "Windows",
-                    "macos": "macOS",
-                    "linux": "Linux",
-                    "other": "thiết bị",
-                }
-                platform = platform_labels.get(device.platform, "thiết bị")
-                device_detail = f"{device.label} · {platform}"
-            else:
-                device_detail = "Không có thiết bị gắn với hội thoại."
-            await append_progress_event("device", "completed", device_detail)
             memory_context = await MemoryContextService().context_messages(
                 session,
                 owner_id=actor_id,

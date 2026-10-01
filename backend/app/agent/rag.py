@@ -111,6 +111,10 @@ class RAGGraphNodes:
         if self._on_progress is not None:
             await self._on_progress(stage, status, detail, count)
 
+    async def _plan(self, stages: Sequence[str]) -> None:
+        for stage in stages:
+            await self._progress(stage, "pending")
+
     def _log(self, event: str, state: SupportAgentState, **fields: Any) -> None:
         log_event(
             logger,
@@ -160,7 +164,6 @@ class RAGGraphNodes:
             suggested_steps=len(context.suggested_steps),
             confirmed_attempted_steps=len(context.confirmed_attempted_steps),
         )
-        await self._progress("analyze", "completed", "Đã xác định nội dung cần hỗ trợ.")
         return update
 
     async def rewrite_query(self, state: SupportAgentState) -> dict[str, Any]:
@@ -180,6 +183,8 @@ class RAGGraphNodes:
     async def decide_action(self, state: SupportAgentState) -> dict[str, Any]:
         if self._tool_runner is None:
             self._log("agent.action.decided", state, route="rag", reason="tools_disabled")
+            await self._progress("analyze", "completed", "Đã chọn tìm hướng dẫn phù hợp.")
+            await self._plan(("knowledge", "answer"))
             return {"action_route": "rag"}
         run_id = state.get("run_id", "preview")
         started_at = time.monotonic()
@@ -199,6 +204,8 @@ class RAGGraphNodes:
                 output_tokens=decision.output_tokens,
                 duration_ms=round((time.monotonic() - started_at) * 1_000, 2),
             )
+            await self._progress("analyze", "completed", "Đã chọn tìm hướng dẫn phù hợp.")
+            await self._plan(("knowledge", "answer"))
             return {
                 "action_route": "rag",
                 "provider_request_id": decision.provider_request_id,
@@ -216,6 +223,15 @@ class RAGGraphNodes:
             output_tokens=decision.output_tokens,
             duration_ms=round((time.monotonic() - started_at) * 1_000, 2),
         )
+        tool_plans = {
+            "get_my_profile": ("profile", "answer"),
+            "check_service_status": ("service", "answer"),
+            "get_my_open_tickets": ("support_data", "answer"),
+            "get_my_recent_tickets": ("support_data", "answer"),
+            "create_ticket": ("approval",),
+        }
+        await self._progress("analyze", "completed", "Đã chọn cách xử lý phù hợp.")
+        await self._plan(tool_plans.get(decision.call.name, ("answer",)))
         return {
             "action_route": "tool",
             "tool_call": decision.call.model_dump(mode="json"),
@@ -232,7 +248,14 @@ class RAGGraphNodes:
         if not isinstance(raw_arguments, dict):
             return {"tool_result": {"status": "failed", "error": {"code": "invalid_arguments"}}}
         tool_name = str(call["name"])
-        stage = "service" if tool_name == "check_service_status" else "support_data"
+        stage_by_tool = {
+            "get_my_profile": "profile",
+            "check_service_status": "service",
+            "get_my_open_tickets": "support_data",
+            "get_my_recent_tickets": "support_data",
+            "create_ticket": "approval",
+        }
+        stage = stage_by_tool.get(tool_name, "support_data")
         service_labels = {
             "vpn": "VPN Gateway",
             "registry": "Docker Registry",
@@ -247,9 +270,15 @@ class RAGGraphNodes:
         await self._progress(
             stage,
             "started",
-            f"Đang kiểm tra {service_label}."
-            if stage == "service"
-            else "Đang kiểm tra thông tin hỗ trợ.",
+            (
+                f"Đang kiểm tra {service_label}."
+                if stage == "service"
+                else "Đang đọc thông tin tài khoản."
+                if stage == "profile"
+                else "Đang chuẩn bị bản nháp cần xác nhận."
+                if stage == "approval"
+                else "Đang kiểm tra thông tin hỗ trợ."
+            ),
         )
         result = await self._tool_runner.execute(
             call_id=str(call["call_id"]),
@@ -271,8 +300,16 @@ class RAGGraphNodes:
                 status if status in {"healthy", "degraded", "down", "unknown"} else "unknown"
             )
             await self._progress("service", "completed", f"{service_label}: {safe_status}.")
+        elif result.status == "success" and stage == "profile":
+            await self._progress("profile", "completed", "Đã xác thực tài khoản hiện tại.")
         elif result.status == "success":
             await self._progress("support_data", "completed", "Đã tải thông tin ticket.")
+        elif (
+            stage == "approval"
+            and result.error is not None
+            and result.error.code == "approval_required"
+        ):
+            pass
         else:
             await self._progress(
                 stage,
@@ -330,7 +367,14 @@ class RAGGraphNodes:
             }
         data = cast(dict[str, Any], result["data"])
         await self._progress("answer", "started")
-        if result.get("name") == "check_service_status":
+        if result.get("name") == "get_my_profile":
+            display_name = str(data.get("display_name", "")).strip()
+            answer = (
+                f"Tên hiển thị trong tài khoản của bạn là **{display_name}**."
+                if display_name
+                else "Tài khoản hiện tại chưa có tên hiển thị."
+            )
+        elif result.get("name") == "check_service_status":
             answer = (
                 f"Trạng thái {data.get('service_id', 'dịch vụ')}: "
                 f"{data.get('status', 'unknown')}. {data.get('message', '')}"

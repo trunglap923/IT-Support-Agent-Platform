@@ -48,6 +48,15 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
         arguments_model=SearchKnowledgeArguments,
         route="local",
     ),
+    "get_my_profile": ToolSpec(
+        name="get_my_profile",
+        description=(
+            "Read the current authenticated user's display name when they ask who they are "
+            "or what their name is."
+        ),
+        arguments_model=EmptyArguments,
+        route="mcp_read",
+    ),
     "check_service_status": ToolSpec(
         name="check_service_status",
         description="Read the simulated status of an allowlisted internal service.",

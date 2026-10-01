@@ -21,6 +21,7 @@ export interface RunProgressSummary {
 
 const stageTitles: Record<string, string> = {
   analyze: "Phân tích yêu cầu",
+  profile: "Đọc thông tin tài khoản",
   device: "Kiểm tra thông tin thiết bị",
   knowledge: "Tìm kiếm kho tri thức",
   service: "Kiểm tra trạng thái dịch vụ",
@@ -29,7 +30,7 @@ const stageTitles: Record<string, string> = {
   answer: "Tổng hợp hướng xử lý",
 };
 
-const stageOrder = ["analyze", "device", "knowledge", "service", "support_data", "approval", "answer"];
+const stageOrder = ["analyze", "profile", "device", "knowledge", "service", "support_data", "approval", "answer"];
 function progressSteps(events: RunEventData[], status: RunStatus | undefined): ProgressStep[] {
   const byStage = new Map<string, { status: string; detail?: string; count?: number }>();
   for (const event of events) {
@@ -44,7 +45,10 @@ function progressSteps(events: RunEventData[], status: RunStatus | undefined): P
     });
   }
 
-  const included = new Set(["analyze", "device", "answer", ...byStage.keys()]);
+  if (byStage.size === 0 && status === "running") {
+    byStage.set("analyze", { status: "started" });
+  }
+  const included = new Set(byStage.keys());
   const ordered = stageOrder.filter((stage) => included.has(stage));
   let activeFound = false;
   return ordered.map((id) => {
@@ -105,6 +109,7 @@ function stateIcon(state: ProgressState): string {
 
 function currentStep(steps: ProgressStep[]): ProgressStep | undefined {
   return steps.find((step) => step.state === "running" || step.state === "waiting")
+    ?? steps.find((step) => step.state === "pending")
     ?? [...steps].reverse().find((step) => step.state === "complete" || step.state === "warning");
 }
 
@@ -162,7 +167,6 @@ export function RunStatusPanel({
   const notifiedSummary = useRef<string | null>(null);
   const steps = useMemo(() => progressSteps(events, snapshot?.status), [events, snapshot?.status]);
   const active = currentStep(steps);
-  const consideredSteps = steps.filter((step) => step.state !== "pending").length;
   const completedSteps = steps.filter((step) => step.state === "complete").length;
   const terminal = snapshot && ["completed", "failed", "cancelled"].includes(snapshot.status);
 
@@ -209,7 +213,7 @@ export function RunStatusPanel({
           <h2>{title}</h2>
           <p>{active?.title ?? (snapshot?.status === "waiting_approval" ? "Không có thao tác nào được thực hiện trước khi bạn xác nhận." : "Đang cập nhật tiến trình an toàn của Agent.")}</p>
         </div>
-        <span className="run-progress-count">{completedSteps}/{Math.max(consideredSteps, steps.length)} bước</span>
+        <span className="run-progress-count">{completedSteps}/{steps.length} bước</span>
       </div>
       <div className="run-progress-track" role="progressbar" aria-label="Tiến độ xử lý" aria-valuemin={0} aria-valuemax={steps.length} aria-valuenow={completedSteps}>
         <span style={{ width: `${steps.length ? (completedSteps / steps.length) * 100 : 0}%` }} />

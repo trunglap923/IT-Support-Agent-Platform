@@ -291,6 +291,52 @@ def test_rag_graph_uses_no_answer_for_weak_evidence() -> None:
     asyncio.run(scenario())
 
 
+def test_graph_routes_profile_question_without_retrieval() -> None:
+    async def scenario() -> None:
+        runner = StubToolRunner(
+            ToolResult(
+                call_id="call-profile",
+                name="get_my_profile",
+                status="success",
+                data={"display_name": "Lập"},
+            )
+        )
+        progress: list[tuple[str, str]] = []
+
+        async def on_progress(
+            stage: str,
+            status: str,
+            detail: str | None,
+            count: int | None,
+        ) -> None:
+            del detail, count
+            progress.append((stage, status))
+
+        retriever = StubRetriever([])
+        nodes = RAGGraphNodes(
+            session=SimpleNamespace(),  # type: ignore[arg-type]
+            principal=principal(),
+            retriever=retriever,  # type: ignore[arg-type]
+            provider=FakeTextProvider(),
+            tool_runner=runner,
+            on_progress=on_progress,
+        )
+        result = await run_support_graph(
+            build_support_graph(nodes.graph_nodes()),
+            {"query": "Tôi tên là gì?", "run_id": "run-profile"},
+        )
+
+        assert result["outcome"] == "answered"
+        assert "Lập" in result["answer"]
+        assert result["retrieval_calls"] == 0
+        assert runner.calls[0]["name"] == "get_my_profile"
+        assert ("profile", "pending") in progress
+        assert ("profile", "completed") in progress
+        assert not any(stage in {"device", "knowledge"} for stage, _ in progress)
+
+    asyncio.run(scenario())
+
+
 def test_graph_routes_service_status_tool_from_model_decision() -> None:
     async def scenario() -> None:
         retriever = StubRetriever([])

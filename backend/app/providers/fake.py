@@ -100,7 +100,20 @@ class FakeTextProvider:
             "outage",
         )
         create_phrases = ("tạo ticket", "mở ticket", "create a ticket", "open a ticket")
-        if any(phrase in normalized for phrase in create_phrases):
+        profile_phrases = (
+            "tôi tên là gì",
+            "tên của tôi",
+            "tôi là ai",
+            "what is my name",
+            "who am i",
+        )
+        if any(phrase in normalized for phrase in profile_phrases):
+            call = SupportToolCall(
+                call_id=self._fake_call_id(normalized),
+                name="get_my_profile",
+                arguments={},
+            )
+        elif any(phrase in normalized for phrase in create_phrases):
             fields = self._ticket_edit_fields(query)
             requested_issue_type = fields.get("loại sự cố", "").casefold()
             issue_type = (

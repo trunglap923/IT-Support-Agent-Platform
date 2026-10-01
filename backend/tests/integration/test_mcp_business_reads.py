@@ -127,6 +127,7 @@ def test_mcp_stdio_reads_revalidate_actor_and_preserve_ownership(
             database_url=migrated_database_url,
         )
         assert set(discovered) == {
+            "get_my_profile",
             "check_service_status",
             "get_my_open_tickets",
             "get_my_recent_tickets",
@@ -151,6 +152,16 @@ def test_mcp_stdio_reads_revalidate_actor_and_preserve_ownership(
         assert alice_result[0] is False
         assert [item["display_key"] for item in alice_result[1]["tickets"]] == ["IT-MCP-A"]
         assert [item["display_key"] for item in bob_result[1]["tickets"]] == ["IT-MCP-B"]
+
+        profile_error, profile = await call_business_tool(
+            actor_id=alice_id,
+            run_id=alice_run_id,
+            database_url=migrated_database_url,
+            name="get_my_profile",
+            arguments={},
+        )
+        assert profile_error is False
+        assert profile == {"display_name": "Alice"}
 
         recent_error, recent_result = await call_business_tool(
             actor_id=alice_id,

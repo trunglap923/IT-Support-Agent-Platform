@@ -5,6 +5,7 @@ from __future__ import annotations
 from app.db import Database
 from app.mcp_server.context import ExecutionContext, load_current_principal
 from app.mcp_server.schemas import (
+    CurrentUserProfileResult,
     OpenTicketsResult,
     RecentTicketsResult,
     ServiceStatusResult,
@@ -21,6 +22,13 @@ async def check_service_status(
     async with database.session() as session:
         item = await ServiceStatusService().get(session, service_id=service_id)
     return ServiceStatusResult.model_validate(item, from_attributes=True)
+
+
+async def get_my_profile(
+    database: Database, *, context: ExecutionContext
+) -> CurrentUserProfileResult:
+    principal = await load_current_principal(database, context=context)
+    return CurrentUserProfileResult(display_name=principal.display_name)
 
 
 async def get_my_open_tickets(

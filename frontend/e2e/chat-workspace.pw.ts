@@ -71,7 +71,7 @@ test("chat shows grouped history, message actions, device and ticket context", a
       currentMessages = [{
         id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
         run_id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
-        role: "user", content: "VPN không kết nối được.", outcome: null,
+        role: "user", content: "Tôi tên là gì?", outcome: null,
         created_at: new Date().toISOString(), citations: [], feedback: null,
       }];
       return json(route, {
@@ -90,8 +90,8 @@ test("chat shows grouped history, message actions, device and ticket context", a
     const events = [
       { sequence: 1, type: "run.running", payload: {} },
       { sequence: 2, type: "agent.progress", payload: { stage: "analyze", status: "completed", detail: "Đã xác định nội dung cần hỗ trợ." } },
-      { sequence: 3, type: "agent.progress", payload: { stage: "device", status: "completed", detail: "DEMO-LT-001 · Windows" } },
-      { sequence: 4, type: "agent.progress", payload: { stage: "knowledge", status: "started" } },
+      { sequence: 3, type: "agent.progress", payload: { stage: "profile", status: "started", detail: "Đang đọc thông tin tài khoản." } },
+      { sequence: 4, type: "agent.progress", payload: { stage: "answer", status: "pending" } },
     ].map((event) => ({
       ...event, run_id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", timestamp,
     }));
@@ -135,12 +135,13 @@ test("chat shows grouped history, message actions, device and ticket context", a
   await page.getByRole("button", { name: /Tạo ticket/ }).first().click();
   await expect(page.getByLabel("Tin nhắn")).toHaveValue(/Tạo ticket hỗ trợ/);
 
-  await page.getByLabel("Tin nhắn").fill("VPN không kết nối được.");
+  await page.getByLabel("Tin nhắn").fill("Tôi tên là gì?");
   await page.getByRole("button", { name: "Gửi" }).click();
   await expect(page.getByRole("heading", { name: "Đang xử lý yêu cầu của bạn…" })).toBeVisible();
-  await expect(page.getByText("Tìm kiếm kho tri thức")).toBeVisible();
+  await expect(page.getByText("Đọc thông tin tài khoản", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Xem chi tiết" }).click();
-  await expect(page.getByText("DEMO-LT-001 · Windows")).toBeVisible();
+  await expect(page.getByText("Tổng hợp hướng xử lý")).toBeVisible();
+  await expect(page.getByText("Tìm kiếm kho tri thức")).toHaveCount(0);
   await page.screenshot({ path: "/tmp/chat-agent-progress-desktop.png", fullPage: true });
 
   await page.setViewportSize({ width: 390, height: 844 });

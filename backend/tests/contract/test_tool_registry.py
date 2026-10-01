@@ -21,6 +21,7 @@ def test_registry_and_mcp_discovery_share_read_contracts() -> None:
             database_url="postgresql+asyncpg://unused:unused@127.0.0.1/unused",
         )
         for name in (
+            "get_my_profile",
             "check_service_status",
             "get_my_open_tickets",
             "get_my_recent_tickets",
@@ -30,9 +31,10 @@ def test_registry_and_mcp_discovery_share_read_contracts() -> None:
     asyncio.run(scenario())
 
 
-def test_registry_exposes_only_five_model_capabilities() -> None:
+def test_registry_exposes_only_six_model_capabilities() -> None:
     assert tuple(TOOL_REGISTRY) == (
         "search_knowledge_base",
+        "get_my_profile",
         "check_service_status",
         "get_my_open_tickets",
         "get_my_recent_tickets",
@@ -52,11 +54,13 @@ def test_model_definitions_require_every_property_for_strict_mode() -> None:
 
 def test_chat_router_exposes_only_read_tools() -> None:
     assert [item["name"] for item in read_tool_definitions()] == [
+        "get_my_profile",
         "check_service_status",
         "get_my_open_tickets",
         "get_my_recent_tickets",
     ]
     assert [item["name"] for item in support_tool_definitions()] == [
+        "get_my_profile",
         "check_service_status",
         "get_my_open_tickets",
         "get_my_recent_tickets",

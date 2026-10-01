@@ -14,9 +14,11 @@ from app.mcp_server.context import MCPContextError, load_execution_context
 from app.mcp_server.read_tools import (
     check_service_status,
     get_my_open_tickets,
+    get_my_profile,
     get_my_recent_tickets,
 )
 from app.mcp_server.schemas import (
+    CurrentUserProfileResult,
     EmptyArguments,
     OpenTicketsResult,
     RecentTicketsResult,
@@ -28,6 +30,11 @@ from app.services.service_status import ServiceStatusNotFoundError
 SERVER_NAME = "it-support-internal-tools"
 SERVER_VERSION = "0.1.0"
 READ_TOOL_DEFINITIONS: tuple[dict[str, Any], ...] = (
+    {
+        "name": "get_my_profile",
+        "description": "Read the current authenticated user's display name.",
+        "inputSchema": EmptyArguments.model_json_schema(),
+    },
     {
         "name": "check_service_status",
         "description": "Read the simulated status of an allowlisted internal service.",
@@ -103,8 +110,16 @@ async def dispatch(message: dict[str, Any]) -> dict[str, Any] | None:
         context = load_execution_context()
         database = Database(context.database_url)
         try:
-            response: ServiceStatusResult | OpenTicketsResult | RecentTicketsResult
-            if name == "check_service_status":
+            response: (
+                CurrentUserProfileResult
+                | ServiceStatusResult
+                | OpenTicketsResult
+                | RecentTicketsResult
+            )
+            if name == "get_my_profile":
+                EmptyArguments.model_validate(raw_arguments)
+                response = await get_my_profile(database, context=context)
+            elif name == "check_service_status":
                 arguments = ServiceStatusArguments.model_validate(raw_arguments)
                 response = await check_service_status(
                     database, context=context, service_id=arguments.service_id

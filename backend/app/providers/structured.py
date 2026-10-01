@@ -27,6 +27,7 @@ class SupportToolCall(BaseModel):
 
     call_id: str = Field(min_length=1, max_length=160)
     name: Literal[
+        "get_my_profile",
         "check_service_status",
         "get_my_open_tickets",
         "get_my_recent_tickets",

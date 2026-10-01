@@ -178,8 +178,10 @@ class OpenAITextProvider:
                 model=self._model,
                 instructions=(
                     "Choose at most one supplied read-only tool only when the user explicitly "
-                    "asks for current service status, their open tickets, their recent ticket "
-                    "history, or explicitly asks to draft a support ticket. Ticket creation is "
+                    "asks for their name or identity, current service status, their open tickets, "
+                    "their recent ticket history, or explicitly asks to draft a support ticket. "
+                    "Use get_my_profile for questions about the current user's name or identity. "
+                    "Ticket creation is "
                     "only a proposal requiring "
                     "later approval. Otherwise do not call a tool. Never invent actor "
                     "identifiers or authorization fields."
