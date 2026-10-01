@@ -337,6 +337,37 @@ def test_graph_routes_profile_question_without_retrieval() -> None:
     asyncio.run(scenario())
 
 
+def test_graph_planner_routes_greeting_directly_without_retrieval() -> None:
+    async def scenario() -> None:
+        runner = StubToolRunner(
+            ToolResult(
+                call_id="unused",
+                name="get_my_profile",
+                status="success",
+                data={"display_name": "Employee"},
+            )
+        )
+        retriever = StubRetriever([])
+        nodes = RAGGraphNodes(
+            session=SimpleNamespace(),  # type: ignore[arg-type]
+            principal=principal(),
+            retriever=retriever,  # type: ignore[arg-type]
+            provider=FakeTextProvider(),
+            tool_runner=runner,
+        )
+
+        result = await run_support_graph(
+            build_support_graph(nodes.graph_nodes()),
+            {"query": "Xin chào", "run_id": "run-direct"},
+        )
+
+        assert result["planned_steps"] == ["answer"]
+        assert result["retrieval_calls"] == 0
+        assert runner.calls == []
+
+    asyncio.run(scenario())
+
+
 def test_graph_routes_service_status_tool_from_model_decision() -> None:
     async def scenario() -> None:
         retriever = StubRetriever([])

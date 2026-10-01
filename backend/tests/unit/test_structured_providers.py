@@ -12,6 +12,7 @@ from app.providers.structured import (
     IncompleteStructuredResponseError,
     InvalidStructuredResponseError,
     ProviderContractError,
+    SupportExecutionPlan,
     SupportReply,
 )
 
@@ -28,7 +29,7 @@ def evidence() -> list[EvidenceInput]:
 
 
 class FakeResponsesApi:
-    def __init__(self, reply: SupportReply | None) -> None:
+    def __init__(self, reply: object | None) -> None:
         self.reply = reply
         self.kwargs: dict[str, object] = {}
 
@@ -256,6 +257,31 @@ def test_fake_provider_preserves_edited_ticket_fields() -> None:
     asyncio.run(scenario())
 
 
+def test_fake_provider_plans_only_relevant_observable_steps() -> None:
+    async def scenario() -> None:
+        provider = FakeTextProvider()
+
+        profile = await provider.plan_support_steps(
+            "Tôi tên là gì?",
+            selected_action="get_my_profile",
+        )
+        device_issue = await provider.plan_support_steps(
+            "VPN lỗi trên máy Ubuntu của tôi",
+            selected_action="knowledge",
+        )
+        greeting = await provider.plan_support_steps(
+            "Xin chào",
+            selected_action="auto",
+        )
+
+        assert profile.plan.steps == ["profile", "answer"]
+        assert device_issue.plan.steps == ["device", "knowledge", "answer"]
+        assert greeting.plan.action == "direct"
+        assert greeting.plan.steps == ["answer"]
+
+    asyncio.run(scenario())
+
+
 def test_openai_adapter_rejects_citation_outside_evidence() -> None:
     async def scenario() -> None:
         api = FakeResponsesApi(
@@ -448,6 +474,28 @@ def test_openai_adapter_preserves_allowlisted_tool_call_id() -> None:
         assert response.call.arguments == {"service_id": "vpn"}
         assert api.kwargs["parallel_tool_calls"] is False
         assert api.kwargs["max_tool_calls"] == 1
+        assert api.kwargs["store"] is False
+
+    asyncio.run(scenario())
+
+
+def test_openai_adapter_returns_model_generated_execution_plan() -> None:
+    async def scenario() -> None:
+        api = FakeResponsesApi(
+            SupportExecutionPlan(
+                action="get_my_profile",
+                steps=["profile", "answer"],
+            )
+        )
+        provider = OpenAITextProvider(client=SimpleNamespace(responses=api), model="gpt-test")
+
+        response = await provider.plan_support_steps(
+            "Tôi tên là gì?",
+            selected_action="get_my_profile",
+        )
+
+        assert response.plan.steps == ["profile", "answer"]
+        assert api.kwargs["text_format"] is SupportExecutionPlan
         assert api.kwargs["store"] is False
 
     asyncio.run(scenario())

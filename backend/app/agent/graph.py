@@ -25,6 +25,7 @@ AgentNode = Callable[[SupportAgentState], Awaitable[StateUpdate]]
 class SupportGraphNodes:
     load_context: AgentNode
     decide_action: AgentNode
+    inspect_device: AgentNode
     execute_tool: AgentNode
     respond_tool: AgentNode
     rewrite_query: AgentNode
@@ -55,7 +56,8 @@ def _bounded_model(node: AgentNode) -> AgentNode:
                 "step_count": state.get("step_count", 0) + 1,
             }
         update = await node(state)
-        update["model_calls"] = calls + 1
+        consumed_calls = int(update.pop("_model_calls_used", 1))
+        update["model_calls"] = calls + max(1, consumed_calls)
         update["step_count"] = state.get("step_count", 0) + 1
         return update
 
@@ -103,6 +105,12 @@ async def _route_action(state: SupportAgentState) -> str:
     return state.get("action_route", "rag")
 
 
+async def _route_plan(state: SupportAgentState) -> str:
+    if "device" in state.get("planned_steps", []):
+        return "device"
+    return state.get("action_route", "rag")
+
+
 async def _route_validation(state: SupportAgentState) -> str:
     return state.get("route", "no_answer")
 
@@ -113,6 +121,7 @@ def build_support_graph(nodes: SupportGraphNodes) -> Any:
     # even though it is a supported runtime callable.
     builder.add_node("load_context", cast(Any, _with_step(nodes.load_context)))
     builder.add_node("decide_action", cast(Any, _bounded_model(nodes.decide_action)))
+    builder.add_node("inspect_device", cast(Any, _with_step(nodes.inspect_device)))
     builder.add_node("execute_tool", cast(Any, _with_step(nodes.execute_tool)))
     builder.add_node("respond_tool", cast(Any, _with_step(nodes.respond_tool)))
     builder.add_node("rewrite_query", cast(Any, _with_step(nodes.rewrite_query)))
@@ -125,8 +134,18 @@ def build_support_graph(nodes: SupportGraphNodes) -> Any:
     builder.add_edge("load_context", "decide_action")
     builder.add_conditional_edges(
         "decide_action",
+        _route_plan,
+        {
+            "device": "inspect_device",
+            "direct": "generate_answer",
+            "rag": "rewrite_query",
+            "tool": "execute_tool",
+        },
+    )
+    builder.add_conditional_edges(
+        "inspect_device",
         _route_action,
-        {"rag": "rewrite_query", "tool": "execute_tool"},
+        {"direct": "generate_answer", "rag": "rewrite_query", "tool": "execute_tool"},
     )
     builder.add_edge("execute_tool", "respond_tool")
     builder.add_edge("respond_tool", END)

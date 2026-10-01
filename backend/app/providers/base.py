@@ -4,7 +4,12 @@ from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
-from app.providers.structured import EvidenceInput, StructuredModelResponse, ToolDecisionResponse
+from app.providers.structured import (
+    EvidenceInput,
+    ExecutionPlanResponse,
+    StructuredModelResponse,
+    ToolDecisionResponse,
+)
 
 TextDeltaCallback = Callable[[str], Awaitable[None]]
 
@@ -40,6 +45,17 @@ class StructuredResponseProvider(TextGenerationProvider, Protocol):
         operation_id: str | None = None,
     ) -> ToolDecisionResponse:
         """Choose at most one allowlisted read tool; never execute it."""
+
+    async def plan_support_steps(
+        self,
+        query: str,
+        *,
+        selected_action: str,
+        history: Sequence[tuple[str, str]] = (),
+        max_output_tokens: int = 120,
+        operation_id: str | None = None,
+    ) -> ExecutionPlanResponse:
+        """Plan a short sequence of observable, allowlisted execution stages."""
 
     async def generate_support_reply(
         self,

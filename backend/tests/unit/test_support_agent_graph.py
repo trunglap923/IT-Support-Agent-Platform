@@ -58,6 +58,10 @@ class FakeNodes:
         del state
         raise AssertionError("tool route was not selected")
 
+    async def inspect_device(self, state: SupportAgentState) -> dict[str, Any]:
+        del state
+        return {}
+
     async def generate_answer(self, state: SupportAgentState) -> dict[str, Any]:
         del state
         self.generated += 1
@@ -82,6 +86,7 @@ class FakeNodes:
         return SupportGraphNodes(
             load_context=self.load_context,
             decide_action=self.decide_action,
+            inspect_device=self.inspect_device,
             execute_tool=self.execute_tool,
             respond_tool=self.respond_tool,
             rewrite_query=self.rewrite_query,

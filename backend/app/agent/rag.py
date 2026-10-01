@@ -6,13 +6,16 @@ import logging
 import time
 from collections.abc import Awaitable, Callable, Sequence
 from typing import Any, Protocol, cast
+from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.context.builder import ContextMessage, build_agent_context
 from app.agent.graph import SupportGraphNodes
 from app.agent.state import EvidenceState, SupportAgentState
 from app.auth.principal import Principal
+from app.db.models import Conversation, UserDevice
 from app.diagnostics import content_log_fields, log_event
 from app.observability import AIObserver, NoopAIObserver
 from app.providers.base import StructuredResponseProvider, TextDeltaCallback
@@ -20,6 +23,8 @@ from app.providers.structured import (
     EvidenceInput,
     IncompleteStructuredResponseError,
     ProviderContractError,
+    SupportExecutionPlan,
+    SupportToolCall,
 )
 from app.rag.citations.sources import InvalidCitationError, build_evidence_output
 from app.rag.retrieval.query import RetrievalHit
@@ -115,6 +120,32 @@ class RAGGraphNodes:
         for stage in stages:
             await self._progress(stage, "pending")
 
+    async def _create_execution_plan(
+        self,
+        state: SupportAgentState,
+        *,
+        selected_action: str,
+    ) -> tuple[SupportExecutionPlan, list[str], int, int, str]:
+        run_id = state.get("run_id", "preview")
+        plan_response = await self._provider.plan_support_steps(
+            state["query"],
+            selected_action=selected_action,
+            history=[(item["role"], item["content"]) for item in state.get("history", [])],
+            operation_id=f"agent:{run_id}:execution-plan",
+        )
+        if selected_action != "auto" and plan_response.plan.action != selected_action:
+            raise ProviderContractError("Execution plan changed the selected action")
+        planned_steps = [str(step) for step in plan_response.plan.steps]
+        await self._progress("analyze", "completed", "Đã lập kế hoạch xử lý phù hợp.")
+        await self._plan(planned_steps)
+        return (
+            plan_response.plan,
+            planned_steps,
+            plan_response.input_tokens,
+            plan_response.output_tokens,
+            plan_response.provider_request_id,
+        )
+
     def _log(self, event: str, state: SupportAgentState, **fields: Any) -> None:
         log_event(
             logger,
@@ -181,64 +212,85 @@ class RAGGraphNodes:
         return {"normalized_query": normalized_query}
 
     async def decide_action(self, state: SupportAgentState) -> dict[str, Any]:
-        if self._tool_runner is None:
-            self._log("agent.action.decided", state, route="rag", reason="tools_disabled")
-            await self._progress("analyze", "completed", "Đã chọn tìm hướng dẫn phù hợp.")
-            await self._plan(("knowledge", "answer"))
-            return {"action_route": "rag"}
         run_id = state.get("run_id", "preview")
         started_at = time.monotonic()
-        self._log("agent.action.decision.started", state)
-        decision = await self._provider.choose_support_tool(
-            state["query"],
-            history=[(item["role"], item["content"]) for item in state.get("history", [])],
-            operation_id=f"agent:{run_id}:tool-decision",
-        )
-        if decision.call is None:
-            self._log(
-                "agent.action.decided",
+        self._log("agent.plan.started", state)
+        plan, planned_steps, plan_input, plan_output, provider_request_id = (
+            await self._create_execution_plan(
                 state,
-                route="rag",
-                provider_request_id=decision.provider_request_id,
-                input_tokens=decision.input_tokens,
-                output_tokens=decision.output_tokens,
-                duration_ms=round((time.monotonic() - started_at) * 1_000, 2),
+                selected_action="auto",
             )
-            await self._progress("analyze", "completed", "Đã chọn tìm hướng dẫn phù hợp.")
-            await self._plan(("knowledge", "answer"))
-            return {
-                "action_route": "rag",
-                "provider_request_id": decision.provider_request_id,
-                "input_tokens": decision.input_tokens,
-                "output_tokens": decision.output_tokens,
-            }
+        )
+        planned_action = plan.action
+        if planned_action == "direct":
+            action_route = "direct"
+        elif planned_action == "knowledge":
+            action_route = "rag"
+        else:
+            action_route = "tool"
+        tool_call: SupportToolCall | None = None
+        if action_route == "tool":
+            if self._tool_runner is None:
+                raise ProviderContractError("Execution plan requires tools but tools are disabled")
+            tool_call = SupportToolCall.model_validate(
+                {
+                    "call_id": f"plan:{run_id}",
+                    "name": planned_action,
+                    "arguments": plan.tool_arguments(),
+                }
+            )
         self._log(
             "agent.action.decided",
             state,
-            route="tool",
-            tool_name=decision.call.name,
-            tool_call_id=decision.call.call_id,
-            provider_request_id=decision.provider_request_id,
-            input_tokens=decision.input_tokens,
-            output_tokens=decision.output_tokens,
+            route=action_route,
+            tool_name=tool_call.name if tool_call is not None else None,
+            tool_call_id=tool_call.call_id if tool_call is not None else None,
+            provider_request_id=provider_request_id,
+            input_tokens=plan_input,
+            output_tokens=plan_output,
             duration_ms=round((time.monotonic() - started_at) * 1_000, 2),
         )
-        tool_plans = {
-            "get_my_profile": ("profile", "answer"),
-            "check_service_status": ("service", "answer"),
-            "get_my_open_tickets": ("support_data", "answer"),
-            "get_my_recent_tickets": ("support_data", "answer"),
-            "create_ticket": ("approval",),
+        update: dict[str, Any] = {
+            "action_route": action_route,
+            "planned_steps": planned_steps,
+            "_model_calls_used": 1,
+            "provider_request_id": provider_request_id,
+            "input_tokens": plan_input,
+            "output_tokens": plan_output,
         }
-        await self._progress("analyze", "completed", "Đã chọn cách xử lý phù hợp.")
-        await self._plan(tool_plans.get(decision.call.name, ("answer",)))
-        return {
-            "action_route": "tool",
-            "tool_call": decision.call.model_dump(mode="json"),
-            "provider_request_id": decision.provider_request_id,
-            "input_tokens": decision.input_tokens,
-            "output_tokens": decision.output_tokens,
+        if tool_call is not None:
+            update["tool_call"] = tool_call.model_dump(mode="json")
+        return update
+
+    async def inspect_device(self, state: SupportAgentState) -> dict[str, Any]:
+        await self._progress("device", "started", "Đang đọc thiết bị gắn với hội thoại.")
+        try:
+            conversation_id = UUID(state["conversation_id"])
+        except (KeyError, ValueError):
+            await self._progress("device", "warning", "Hội thoại chưa gắn thiết bị.")
+            return {}
+        device = await self._session.scalar(
+            select(UserDevice)
+            .join(Conversation, Conversation.device_id == UserDevice.id)
+            .where(
+                Conversation.id == conversation_id,
+                Conversation.owner_id == self._principal.user_id,
+                UserDevice.owner_id == self._principal.user_id,
+                UserDevice.active.is_(True),
+            )
+        )
+        if device is None:
+            await self._progress("device", "warning", "Hội thoại chưa gắn thiết bị.")
+            return {}
+        platform_labels = {
+            "windows": "Windows",
+            "macos": "macOS",
+            "linux": "Linux",
+            "other": "Thiết bị khác",
         }
+        platform = platform_labels.get(device.platform, "Thiết bị khác")
+        await self._progress("device", "completed", f"{device.label} · {platform}")
+        return {}
 
     async def execute_tool(self, state: SupportAgentState) -> dict[str, Any]:
         call = state.get("tool_call")
@@ -685,6 +737,7 @@ class RAGGraphNodes:
         return SupportGraphNodes(
             load_context=self.load_context,
             decide_action=self.decide_action,
+            inspect_device=self.inspect_device,
             execute_tool=self.execute_tool,
             respond_tool=self.respond_tool,
             rewrite_query=self.rewrite_query,

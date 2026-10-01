@@ -8,7 +8,9 @@ from dataclasses import dataclass
 from app.providers.base import GeneratedText, TextDeltaCallback
 from app.providers.structured import (
     EvidenceInput,
+    ExecutionPlanResponse,
     StructuredModelResponse,
+    SupportExecutionPlan,
     SupportReply,
     SupportToolCall,
     ToolDecisionResponse,
@@ -174,6 +176,76 @@ class FakeTextProvider:
         return ToolDecisionResponse(
             call=call,
             provider_request_id="fake-tool-decision",
+            input_tokens=0,
+            output_tokens=0,
+        )
+
+    async def plan_support_steps(
+        self,
+        query: str,
+        *,
+        selected_action: str,
+        history: Sequence[tuple[str, str]] = (),
+        max_output_tokens: int = 120,
+        operation_id: str | None = None,
+    ) -> ExecutionPlanResponse:
+        del max_output_tokens, operation_id
+        normalized = " ".join(query.casefold().split())
+        steps: list[str] = []
+        tool_arguments: dict[str, object] = {}
+        if selected_action == "auto":
+            decision = await self.choose_support_tool(query, history=history)
+            if decision.call is not None:
+                selected_action = decision.call.name
+                tool_arguments = decision.call.arguments
+            else:
+                direct_phrases = (
+                    "xin chào",
+                    "chào bạn",
+                    "hello",
+                    "hi ",
+                    "cảm ơn",
+                    "thank",
+                )
+                selected_action = (
+                    "direct"
+                    if normalized in {"hi", "hello"}
+                    or any(phrase in normalized for phrase in direct_phrases)
+                    else "knowledge"
+                )
+        device_markers = ("ubuntu", "windows", "macos", "laptop", "máy", "thiết bị")
+        if selected_action in {"knowledge", "check_service_status"} and any(
+            marker in normalized for marker in device_markers
+        ):
+            steps.append("device")
+        action_stage = {
+            "knowledge": "knowledge",
+            "direct": "answer",
+            "get_my_profile": "profile",
+            "check_service_status": "service",
+            "get_my_open_tickets": "support_data",
+            "get_my_recent_tickets": "support_data",
+            "create_ticket": "approval",
+        }.get(selected_action, "knowledge")
+        steps.append(action_stage)
+        if action_stage not in {"approval", "answer"}:
+            steps.append("answer")
+        plan_data: dict[str, object] = {"action": selected_action, "steps": steps}
+        if selected_action == "check_service_status":
+            plan_data["service_id"] = tool_arguments.get("service_id")
+        if selected_action == "create_ticket":
+            plan_data.update(
+                {
+                    "ticket_title": tool_arguments.get("title"),
+                    "ticket_description": tool_arguments.get("description"),
+                    "ticket_issue_type": tool_arguments.get("issue_type"),
+                    "ticket_severity": tool_arguments.get("severity"),
+                    "ticket_device_id": tool_arguments.get("device_id"),
+                }
+            )
+        return ExecutionPlanResponse(
+            plan=SupportExecutionPlan.model_validate(plan_data),
+            provider_request_id="fake-execution-plan",
             input_tokens=0,
             output_tokens=0,
         )

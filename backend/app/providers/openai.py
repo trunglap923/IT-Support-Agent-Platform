@@ -14,10 +14,12 @@ from app.prompts import SUPPORT_INSTRUCTIONS
 from app.providers.base import GeneratedText, TextDeltaCallback
 from app.providers.structured import (
     EvidenceInput,
+    ExecutionPlanResponse,
     IncompleteStructuredResponseError,
     InvalidStructuredResponseError,
     ProviderContractError,
     StructuredModelResponse,
+    SupportExecutionPlan,
     SupportReply,
     SupportToolCall,
     ToolDecisionResponse,
@@ -232,6 +234,84 @@ class OpenAITextProvider:
             ) from contract_error
         return ToolDecisionResponse(
             call=call,
+            provider_request_id=response.id,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+        )
+
+    async def plan_support_steps(
+        self,
+        query: str,
+        *,
+        selected_action: str,
+        history: Sequence[tuple[str, str]] = (),
+        max_output_tokens: int = 120,
+        operation_id: str | None = None,
+    ) -> ExecutionPlanResponse:
+        payload = {
+            "query": query.strip(),
+            "selected_action": selected_action,
+            "recent_history": [
+                {"role": role, "content": content} for role, content in history
+            ],
+        }
+        serialized = json.dumps(payload, ensure_ascii=False)
+        if self._usage_ledger is not None:
+            if not operation_id:
+                raise ValueError("operation_id is required for a paid execution plan")
+            await self._usage_ledger.reserve(
+                operation_id=operation_id,
+                provider="openai",
+                model=self._model,
+                estimated_input_tokens=max(1, len(serialized.encode("utf-8")) // 3),
+                estimated_output_tokens=max_output_tokens,
+                kind="chat",
+            )
+        try:
+            response = await self._client.responses.parse(
+                model=self._model,
+                instructions=(
+                    "Create a short observable execution plan and choose the action needed for "
+                    "the request. "
+                    "Return action stages, not hidden reasoning. Available stages are device, "
+                    "profile, service, support_data, knowledge, approval, and answer. Include "
+                    "device only when the user's device or operating system materially affects "
+                    "the request. Omit unrelated stages. End with answer unless ticket creation "
+                    "requires approval. Choose get_my_profile for the current user's identity, "
+                    "check_service_status for current service health, the matching ticket read "
+                    "action for ticket lists, create_ticket only for an explicit draft request, "
+                    "knowledge for IT questions needing internal guidance, or direct for greetings "
+                    "and conversational requests that do not benefit from retrieval. For service "
+                    "and ticket actions, fill the corresponding structured argument fields. When "
+                    "selected_action is not auto, keep that exact action."
+                ),
+                input=serialized,
+                text_format=SupportExecutionPlan,
+                max_output_tokens=max_output_tokens,
+                store=False,
+            )
+        except Exception:
+            if self._usage_ledger is not None and operation_id:
+                await self._usage_ledger.mark_unknown(operation_id=operation_id)
+            raise
+        parsed = response.output_parsed
+        if parsed is None:
+            if self._usage_ledger is not None and operation_id:
+                await self._usage_ledger.mark_unknown(operation_id=operation_id)
+            raise ProviderContractError("OpenAI returned no parsed execution plan")
+        plan = SupportExecutionPlan.model_validate(parsed)
+        usage = response.usage
+        input_tokens = usage.input_tokens if usage is not None else 0
+        output_tokens = usage.output_tokens if usage is not None else 0
+        if self._usage_ledger is not None and operation_id:
+            await self._usage_ledger.complete(
+                operation_id=operation_id,
+                actual_input_tokens=input_tokens,
+                actual_output_tokens=output_tokens,
+                provider_request_id=response.id,
+            )
+        return ExecutionPlanResponse(
+            plan=plan,
             provider_request_id=response.id,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
