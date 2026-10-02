@@ -1,26 +1,86 @@
 {
-  "report_version": "retrieval-baseline-v1",
+  "report_version": "retrieval-baseline-v2",
   "evaluated_at": "2026-09-16T00:00:00+00:00",
   "corpus_snapshot": "m2-corpus-v1",
   "corpus_manifest_sha256": "d83d8e921252349b45f6a247dc7a7106fa8b5687b73089e26c6d4d44e60faf19",
+  "dataset": {
+    "path": "evals/cases/retrieval-baseline.jsonl",
+    "sha256": "72a2fdf7cb816b149ba7e80d998609c4ddc72ebeeb04331662b5eaf49947a3a7",
+    "case_count": 22,
+    "tags": [
+      "acl",
+      "current_version",
+      "exact_identifier",
+      "historical_version",
+      "known_gap",
+      "multi_relevant",
+      "no_answer",
+      "semantic_en",
+      "semantic_vi"
+    ]
+  },
   "configuration": {
-    "embedding": "fake-embedding-v2/1536",
-    "vector": "exact cosine top20",
-    "lexical": "PostgreSQL simple FTS OR meaningful terms top20",
-    "fusion": "max lexical coverage/cosine confidence; RRF(k=60) tie-break",
-    "minimum_lexical_coverage": 0.5,
-    "minimum_vector_similarity": 0.75
+    "schema_version": "retrieval-config-v1",
+    "embedding": {
+      "provider": "fake",
+      "model": "fake-embedding-v2",
+      "dimensions": 1536
+    },
+    "parser": {
+      "name": "markdown",
+      "version": "markdown-v1"
+    },
+    "chunking": {
+      "version": "semantic-window-v2",
+      "target_tokens": 120,
+      "overlap_tokens": 20
+    },
+    "dense": {
+      "strategy": "exact_cosine",
+      "candidate_limit": 20
+    },
+    "sparse": {
+      "strategy": "postgres_simple_fts_or_terms",
+      "candidate_limit": 20,
+      "preserves_original_query": true
+    },
+    "fusion": {
+      "strategy": "max_confidence_with_rrf_tiebreak",
+      "rrf_k": 60
+    },
+    "version_scope": "published_current_effective_unexpired",
+    "result_limit": 5
   },
   "metrics": {
     "recall_at_5": {
-      "numerator": 10,
-      "denominator": 10,
+      "numerator": 13.0,
+      "denominator": 13,
       "value": 1.0
     },
+    "precision_at_5": {
+      "numerator_sum": 2.8,
+      "denominator": 13,
+      "value": 0.21538461538461537
+    },
     "mrr_at_5": {
-      "numerator_reciprocal_rank_sum": 9.5,
-      "denominator": 10,
-      "value": 0.95
+      "numerator_reciprocal_rank_sum": 12.0,
+      "denominator": 13,
+      "value": 0.9230769230769231
+    },
+    "ndcg_at_5": {
+      "numerator_sum": 12.261859507142916,
+      "denominator": 13,
+      "value": 0.9432199620879166
+    },
+    "duplicate_rate_at_5": {
+      "numerator_sum": 7.400000000000003,
+      "denominator": 22,
+      "value": 0.3363636363636365
+    },
+    "known_gap_historical_version": {
+      "retrieved": 0,
+      "denominator": 2,
+      "value": 0.0
     },
     "no_answer_accuracy": {
       "numerator": 5,
@@ -39,6 +99,8 @@
   },
   "limitations": [
     "Fake hash embeddings validate wiring and reproducibility, not semantic quality.",
+    "Historical version requests are measured as a known gap and excluded from the release gate.",
+    "Precision and duplicate rate are measured at document-version level.",
     "No-answer uses the retrieval/citation threshold; claim support needs WP-06.",
     "The dataset is development-only and must not be treated as a holdout set."
   ],
@@ -51,11 +113,19 @@
       "rank": 1,
       "top5": [
         "vpn-setup:v2",
-        "vpn-troubleshooting:v1",
         "vpn-setup:v2",
-        "it-escalation:v1",
-        "vpn-troubleshooting:v1"
+        "vpn-setup:v2",
+        "docker-registry:v1",
+        "docker-registry-token-policy:v2"
       ],
+      "tags": [
+        "semantic_vi",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "vpn-setup:v2"
+      ],
+      "duplicate_rate_at_5": 0.4,
       "forbidden_returned": []
     },
     {
@@ -71,6 +141,14 @@
         "vpn-troubleshooting:v1",
         "vpn-troubleshooting:v1"
       ],
+      "tags": [
+        "semantic_en",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "vpn-setup:v2"
+      ],
+      "duplicate_rate_at_5": 0.4,
       "forbidden_returned": []
     },
     {
@@ -86,6 +164,14 @@
         "docker-registry:v1",
         "docker-registry-token-policy:v2"
       ],
+      "tags": [
+        "semantic_en",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "docker-registry:v1"
+      ],
+      "duplicate_rate_at_5": 0.2,
       "forbidden_returned": []
     },
     {
@@ -101,6 +187,14 @@
         "docker-registry:v1",
         "docker-troubleshooting:v1"
       ],
+      "tags": [
+        "semantic_en",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "docker-troubleshooting:v1"
+      ],
+      "duplicate_rate_at_5": 0.6,
       "forbidden_returned": []
     },
     {
@@ -116,6 +210,14 @@
         "gitlab-access:v3",
         "docker-registry:v1"
       ],
+      "tags": [
+        "semantic_en",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "gitlab-access:v3"
+      ],
+      "duplicate_rate_at_5": 0.4,
       "forbidden_returned": []
     },
     {
@@ -131,6 +233,14 @@
         "engineering-oncall:v1",
         "it-escalation:v1"
       ],
+      "tags": [
+        "semantic_en",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "it-escalation:v1"
+      ],
+      "duplicate_rate_at_5": 0.2,
       "forbidden_returned": []
     },
     {
@@ -142,10 +252,18 @@
       "top5": [
         "docker-registry-token-policy:v2",
         "docker-registry-token-policy:v2",
+        "docker-registry:v1",
         "docker-troubleshooting:v1",
-        "docker-troubleshooting:v1",
-        "it-escalation:v1"
+        "docker-troubleshooting:v1"
       ],
+      "tags": [
+        "semantic_vi",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "docker-registry-token-policy:v2"
+      ],
+      "duplicate_rate_at_5": 0.4,
       "forbidden_returned": []
     },
     {
@@ -161,6 +279,14 @@
         "gitlab-access:v3",
         "docker-registry:v1"
       ],
+      "tags": [
+        "semantic_en",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "engineering-oncall:v1"
+      ],
+      "duplicate_rate_at_5": 0.4,
       "forbidden_returned": []
     },
     {
@@ -176,6 +302,14 @@
         "docker-registry:v1",
         "it-escalation:v1"
       ],
+      "tags": [
+        "semantic_en",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "it-service-recovery:v1"
+      ],
+      "duplicate_rate_at_5": 0.2,
       "forbidden_returned": []
     },
     {
@@ -191,6 +325,12 @@
         "docker-registry-token-policy:v2",
         "docker-registry-token-policy:v2"
       ],
+      "tags": [
+        "semantic_en",
+        "no_answer"
+      ],
+      "relevant_documents": [],
+      "duplicate_rate_at_5": 0.4,
       "forbidden_returned": []
     },
     {
@@ -206,6 +346,12 @@
         "vpn-troubleshooting:v1",
         "vpn-troubleshooting:v1"
       ],
+      "tags": [
+        "semantic_en",
+        "no_answer"
+      ],
+      "relevant_documents": [],
+      "duplicate_rate_at_5": 0.4,
       "forbidden_returned": []
     },
     {
@@ -221,6 +367,12 @@
         "docker-troubleshooting:v1",
         "vpn-setup:v2"
       ],
+      "tags": [
+        "semantic_en",
+        "no_answer"
+      ],
+      "relevant_documents": [],
+      "duplicate_rate_at_5": 0.2,
       "forbidden_returned": []
     },
     {
@@ -236,6 +388,12 @@
         "vpn-setup:v2",
         "docker-registry:v1"
       ],
+      "tags": [
+        "semantic_en",
+        "no_answer"
+      ],
+      "relevant_documents": [],
+      "duplicate_rate_at_5": 0.2,
       "forbidden_returned": []
     },
     {
@@ -251,6 +409,12 @@
         "engineering-oncall:v1",
         "it-escalation:v1"
       ],
+      "tags": [
+        "semantic_en",
+        "no_answer"
+      ],
+      "relevant_documents": [],
+      "duplicate_rate_at_5": 0.2,
       "forbidden_returned": []
     },
     {
@@ -266,6 +430,12 @@
         "docker-registry:v1",
         "docker-registry:v1"
       ],
+      "tags": [
+        "semantic_en",
+        "acl"
+      ],
+      "relevant_documents": [],
+      "duplicate_rate_at_5": 0.4,
       "forbidden_returned": []
     },
     {
@@ -281,6 +451,12 @@
         "vpn-troubleshooting:v1",
         "vpn-setup:v2"
       ],
+      "tags": [
+        "semantic_en",
+        "acl"
+      ],
+      "relevant_documents": [],
+      "duplicate_rate_at_5": 0.2,
       "forbidden_returned": []
     },
     {
@@ -296,6 +472,135 @@
         "vpn-setup:v2",
         "docker-troubleshooting:v1"
       ],
+      "tags": [
+        "semantic_vi",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "vpn-troubleshooting:v1"
+      ],
+      "duplicate_rate_at_5": 0.4,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-018",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "no_answer",
+      "expected_document": "engineering-oncall:v1",
+      "rank": 1,
+      "top5": [
+        "engineering-oncall:v1",
+        "docker-registry:v1",
+        "engineering-oncall:v1",
+        "docker-registry:v1",
+        "docker-registry-token-policy:v2"
+      ],
+      "tags": [
+        "exact_identifier",
+        "semantic_vi",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "engineering-oncall:v1"
+      ],
+      "duplicate_rate_at_5": 0.4,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-019",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "no_answer",
+      "expected_document": "docker-troubleshooting:v1",
+      "rank": 1,
+      "top5": [
+        "docker-troubleshooting:v1",
+        "docker-registry:v1",
+        "docker-registry:v1",
+        "docker-troubleshooting:v1",
+        "it-escalation:v1"
+      ],
+      "tags": [
+        "exact_identifier",
+        "semantic_vi",
+        "multi_relevant",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "docker-registry:v1",
+        "docker-troubleshooting:v1"
+      ],
+      "duplicate_rate_at_5": 0.4,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-020",
+      "expected_outcome": "known_gap",
+      "retrieval_outcome": "no_answer",
+      "expected_document": "vpn-setup:v1",
+      "rank": null,
+      "top5": [
+        "vpn-troubleshooting:v1",
+        "vpn-setup:v2",
+        "it-escalation:v1",
+        "docker-registry:v1",
+        "vpn-troubleshooting:v1"
+      ],
+      "tags": [
+        "exact_identifier",
+        "historical_version",
+        "known_gap"
+      ],
+      "relevant_documents": [
+        "vpn-setup:v1"
+      ],
+      "duplicate_rate_at_5": 0.2,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-021",
+      "expected_outcome": "known_gap",
+      "retrieval_outcome": "no_answer",
+      "expected_document": "docker-registry-token-policy:v1",
+      "rank": null,
+      "top5": [
+        "docker-registry-token-policy:v2",
+        "docker-registry:v1",
+        "docker-registry-token-policy:v2",
+        "docker-troubleshooting:v1",
+        "docker-troubleshooting:v1"
+      ],
+      "tags": [
+        "exact_identifier",
+        "historical_version",
+        "known_gap"
+      ],
+      "relevant_documents": [
+        "docker-registry-token-policy:v1"
+      ],
+      "duplicate_rate_at_5": 0.4,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-022",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "no_answer",
+      "expected_document": "vpn-troubleshooting:v1",
+      "rank": 2,
+      "top5": [
+        "vpn-setup:v2",
+        "vpn-troubleshooting:v1",
+        "vpn-setup:v2",
+        "vpn-troubleshooting:v1",
+        "it-escalation:v1"
+      ],
+      "tags": [
+        "semantic_vi",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "vpn-troubleshooting:v1"
+      ],
+      "duplicate_rate_at_5": 0.4,
       "forbidden_returned": []
     }
   ]

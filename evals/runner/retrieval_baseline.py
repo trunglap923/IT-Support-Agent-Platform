@@ -35,16 +35,44 @@ from app.rag.chunking.splitter import (
 from app.rag.citations.sources import build_evidence_output
 from app.rag.ingestion.markdown_parser import MarkdownParser
 from app.rag.retrieval.query import HybridRetriever
+from jsonschema import Draft202012Validator  # type: ignore[import-untyped]
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
+
+from evals.runner.retrieval_metrics import (
+    duplicate_rate_at_k,
+    ndcg_at_k,
+    precision_at_k,
+    recall_at_k,
+    reciprocal_rank_at_k,
+    unique_at_k,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 BACKEND_ROOT = ROOT / "backend"
 MANIFEST_PATH = ROOT / "data" / "manifests" / "documents.json"
 CASES_PATH = ROOT / "evals" / "cases" / "retrieval-baseline.jsonl"
-REPORT_JSON = ROOT / "reports" / "retrieval-baseline.json"
-REPORT_MARKDOWN = ROOT / "reports" / "retrieval-baseline.md"
+CASES_SCHEMA_PATH = ROOT / "evals" / "cases" / "retrieval-baseline.schema.json"
+REPORT_ROOT = Path(os.getenv("RETRIEVAL_REPORT_DIR", ROOT / "reports"))
+REPORT_JSON = REPORT_ROOT / "retrieval-baseline.json"
+REPORT_MARKDOWN = REPORT_ROOT / "retrieval-baseline.md"
 EVALUATION_TIME = datetime(2026, 9, 16, tzinfo=UTC)
+RESULT_LIMIT = 5
+BRANCH_LIMIT = 20
+RRF_K = 60
+CHUNK_TARGET_TOKENS = 120
+CHUNK_OVERLAP_TOKENS = 20
+
+
+@dataclass(frozen=True, slots=True)
+class RelevantDocument:
+    document_key: str
+    version_label: str
+    relevance: int
+
+    @property
+    def identifier(self) -> str:
+        return f"{self.document_key}:{self.version_label}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,14 +85,42 @@ class RetrievalCase:
     expected_document_key: str | None
     expected_version_label: str | None
     forbidden_document_keys: list[str]
+    relevant_documents: list[RelevantDocument]
+    tags: list[str]
 
 
 def load_cases() -> list[RetrievalCase]:
-    return [
-        RetrievalCase(**json.loads(line))
-        for line in CASES_PATH.read_text(encoding="utf-8").splitlines()
-        if line.strip()
-    ]
+    cases: list[RetrievalCase] = []
+    validator = Draft202012Validator(
+        json.loads(CASES_SCHEMA_PATH.read_text(encoding="utf-8"))
+    )
+    for line_number, line in enumerate(
+        CASES_PATH.read_text(encoding="utf-8").splitlines(), start=1
+    ):
+        if not line.strip():
+            continue
+        raw = json.loads(line)
+        errors = sorted(validator.iter_errors(raw), key=lambda error: list(error.path))
+        if errors:
+            details = "; ".join(error.message for error in errors)
+            raise ValueError(f"{CASES_PATH}:{line_number}: {details}")
+        relevant = [RelevantDocument(**item) for item in raw.pop("relevant_documents")]
+        case = RetrievalCase(relevant_documents=relevant, **raw)
+        expected = (
+            f"{case.expected_document_key}:{case.expected_version_label}"
+            if case.expected_document_key
+            else None
+        )
+        if case.expected_outcome == "answered" and expected not in {
+            item.identifier for item in relevant
+        }:
+            raise ValueError(
+                f"{CASES_PATH}:{line_number}: expected document is not relevant"
+            )
+        cases.append(case)
+    if len({case.case_id for case in cases}) != len(cases):
+        raise ValueError("Retrieval case IDs must be unique")
+    return cases
 
 
 def markdown_blocks(path: Path) -> list[SourceBlock]:
@@ -155,7 +211,10 @@ async def seed_corpus(database: Database) -> dict[str, Department]:
                 drafts = chunk_blocks(
                     version_id=version.id,
                     blocks=markdown_blocks(ROOT / "data" / "knowledge" / item["path"]),
-                    config=ChunkingConfig(target_tokens=120, overlap_tokens=20),
+                    config=ChunkingConfig(
+                        target_tokens=CHUNK_TARGET_TOKENS,
+                        overlap_tokens=CHUNK_OVERLAP_TOKENS,
+                    ),
                 )
                 batch = await provider.embed(
                     [draft.content for draft in drafts],
@@ -193,14 +252,24 @@ async def evaluate(database_url: str) -> dict[str, Any]:
         departments = await seed_corpus(database)
         cases = load_cases()
         results: list[dict[str, Any]] = []
-        recall_hits = 0
+        recall_sum = 0.0
+        precision_sum = 0.0
         reciprocal_rank_sum = 0.0
+        ndcg_sum = 0.0
+        duplicate_rate_sum = 0.0
         answerable_count = 0
         no_answer_correct = 0
         no_answer_count = 0
         scope_leaks = 0
         scope_count = 0
-        retriever = HybridRetriever(embedding_provider=provider)
+        known_gap_count = 0
+        known_gap_hits = 0
+        retriever = HybridRetriever(
+            embedding_provider=provider,
+            branch_limit=BRANCH_LIMIT,
+            result_limit=RESULT_LIMIT,
+            rrf_k=RRF_K,
+        )
         async with database.session() as session:
             for case in cases:
                 department = departments[case.department_key]
@@ -221,16 +290,33 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                     now=EVALUATION_TIME,
                 )
                 ranked = [f"{hit.document_key}:{hit.version_label}" for hit in hits]
+                unique_ranked = unique_at_k(ranked, RESULT_LIMIT)
+                relevant = {item.identifier for item in case.relevant_documents}
+                relevance = {
+                    item.identifier: item.relevance for item in case.relevant_documents
+                }
                 rank: int | None = None
-                if case.expected_document_key:
+                if case.expected_outcome == "answered":
                     answerable_count += 1
-                    expected = (
-                        f"{case.expected_document_key}:{case.expected_version_label}"
-                    )
-                    if expected in ranked:
-                        rank = ranked.index(expected) + 1
-                        recall_hits += 1
-                        reciprocal_rank_sum += 1 / rank
+                    case_recall = recall_at_k(ranked, relevant, RESULT_LIMIT)
+                    case_precision = precision_at_k(ranked, relevant, RESULT_LIMIT)
+                    case_rr = reciprocal_rank_at_k(ranked, relevant, RESULT_LIMIT)
+                    case_ndcg = ndcg_at_k(ranked, relevance, RESULT_LIMIT)
+                    recall_sum += case_recall
+                    precision_sum += case_precision
+                    reciprocal_rank_sum += case_rr
+                    ndcg_sum += case_ndcg
+                    if case_rr:
+                        rank = next(
+                            index
+                            for index, identifier in enumerate(unique_ranked, start=1)
+                            if identifier in relevant
+                        )
+                elif case.expected_outcome == "known_gap":
+                    known_gap_count += 1
+                    known_gap_hits += bool(set(ranked) & relevant)
+                case_duplicate_rate = duplicate_rate_at_k(ranked, RESULT_LIMIT)
+                duplicate_rate_sum += case_duplicate_rate
                 forbidden_returned = sorted(
                     {hit.document_key for hit in hits}
                     & set(case.forbidden_document_keys)
@@ -257,37 +343,85 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                         ),
                         "rank": rank,
                         "top5": ranked,
+                        "tags": case.tags,
+                        "relevant_documents": sorted(relevant),
+                        "duplicate_rate_at_5": case_duplicate_rate,
                         "forbidden_returned": forbidden_returned,
                     }
                 )
-        recall = recall_hits / answerable_count
+        recall = recall_sum / answerable_count
+        case_count = len(cases)
         return {
-            "report_version": "retrieval-baseline-v1",
+            "report_version": "retrieval-baseline-v2",
             "evaluated_at": EVALUATION_TIME.isoformat(),
             "corpus_snapshot": "m2-corpus-v1",
             "corpus_manifest_sha256": hashlib.sha256(
                 MANIFEST_PATH.read_bytes()
             ).hexdigest(),
+            "dataset": {
+                "path": str(CASES_PATH.relative_to(ROOT)),
+                "sha256": hashlib.sha256(CASES_PATH.read_bytes()).hexdigest(),
+                "case_count": case_count,
+                "tags": sorted({tag for case in cases for tag in case.tags}),
+            },
             "configuration": {
-                "embedding": "fake-embedding-v2/1536",
-                "parser": "markdown-v1",
-                "chunker": CHUNKER_VERSION,
-                "vector": "exact cosine top20",
-                "lexical": "PostgreSQL simple FTS OR meaningful terms top20",
-                "fusion": "max lexical coverage/cosine confidence; RRF(k=60) tie-break",
-                "minimum_lexical_coverage": 0.5,
-                "minimum_vector_similarity": 0.75,
+                "schema_version": "retrieval-config-v1",
+                "embedding": {
+                    "provider": "fake",
+                    "model": "fake-embedding-v2",
+                    "dimensions": 1536,
+                },
+                "parser": {"name": "markdown", "version": "markdown-v1"},
+                "chunking": {
+                    "version": CHUNKER_VERSION,
+                    "target_tokens": CHUNK_TARGET_TOKENS,
+                    "overlap_tokens": CHUNK_OVERLAP_TOKENS,
+                },
+                "dense": {"strategy": "exact_cosine", "candidate_limit": BRANCH_LIMIT},
+                "sparse": {
+                    "strategy": "postgres_simple_fts_or_terms",
+                    "candidate_limit": BRANCH_LIMIT,
+                    "preserves_original_query": True,
+                },
+                "fusion": {
+                    "strategy": "max_confidence_with_rrf_tiebreak",
+                    "rrf_k": RRF_K,
+                },
+                "version_scope": "published_current_effective_unexpired",
+                "result_limit": RESULT_LIMIT,
             },
             "metrics": {
                 "recall_at_5": {
-                    "numerator": recall_hits,
+                    "numerator": recall_sum,
                     "denominator": answerable_count,
                     "value": recall,
+                },
+                "precision_at_5": {
+                    "numerator_sum": precision_sum,
+                    "denominator": answerable_count,
+                    "value": precision_sum / answerable_count,
                 },
                 "mrr_at_5": {
                     "numerator_reciprocal_rank_sum": reciprocal_rank_sum,
                     "denominator": answerable_count,
                     "value": reciprocal_rank_sum / answerable_count,
+                },
+                "ndcg_at_5": {
+                    "numerator_sum": ndcg_sum,
+                    "denominator": answerable_count,
+                    "value": ndcg_sum / answerable_count,
+                },
+                "duplicate_rate_at_5": {
+                    "numerator_sum": duplicate_rate_sum,
+                    "denominator": case_count,
+                    "value": duplicate_rate_sum / case_count,
+                },
+                "known_gap_historical_version": {
+                    "retrieved": known_gap_hits,
+                    "denominator": known_gap_count,
+                    "value": known_gap_hits / known_gap_count
+                    if known_gap_count
+                    else 0.0,
                 },
                 "no_answer_accuracy": {
                     "numerator": no_answer_correct,
@@ -303,6 +437,8 @@ async def evaluate(database_url: str) -> dict[str, Any]:
             },
             "limitations": [
                 "Fake hash embeddings validate wiring and reproducibility, not semantic quality.",
+                "Historical version requests are measured as a known gap and excluded from the release gate.",
+                "Precision and duplicate rate are measured at document-version level.",
                 "No-answer uses the retrieval/citation threshold; claim support needs WP-06.",
                 "The dataset is development-only and must not be treated as a holdout set.",
             ],
@@ -313,6 +449,7 @@ async def evaluate(database_url: str) -> dict[str, Any]:
 
 
 def write_report(report: dict[str, Any]) -> None:
+    REPORT_ROOT.mkdir(parents=True, exist_ok=True)
     REPORT_JSON.write_text(
         json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
@@ -320,7 +457,9 @@ def write_report(report: dict[str, Any]) -> None:
     failed = [
         case
         for case in report["cases"]
-        if case["rank"] is None and case["expected_document"]
+        if case["rank"] is None
+        and case["expected_document"]
+        and case["expected_outcome"] == "answered"
     ]
     false_answers = [
         case
@@ -330,13 +469,33 @@ def write_report(report: dict[str, Any]) -> None:
         and case["retrieval_outcome"] != "no_answer"
     ]
     recall = metrics["recall_at_5"]
+    precision = metrics["precision_at_5"]
     mrr = metrics["mrr_at_5"]
+    ndcg = metrics["ndcg_at_5"]
+    duplicates = metrics["duplicate_rate_at_5"]
+    historical = metrics["known_gap_historical_version"]
     no_answer = metrics["no_answer_accuracy"]
     leakage = metrics["scope_leakage"]
     recall_row = f"| Recall@5 | {recall['numerator']} | {recall['denominator']} | {recall['value']:.3f} |"
     mrr_row = (
         f"| MRR@5 (sum RR / answerable) | {mrr['numerator_reciprocal_rank_sum']:.3f} "
         f"| {mrr['denominator']} | {mrr['value']:.3f} |"
+    )
+    precision_row = (
+        f"| Precision@5 (document-version) | {precision['numerator_sum']:.3f} "
+        f"| {precision['denominator']} | {precision['value']:.3f} |"
+    )
+    ndcg_row = (
+        f"| nDCG@5 | {ndcg['numerator_sum']:.3f} | {ndcg['denominator']} "
+        f"| {ndcg['value']:.3f} |"
+    )
+    duplicate_row = (
+        f"| Duplicate rate@5 | {duplicates['numerator_sum']:.3f} "
+        f"| {duplicates['denominator']} | {duplicates['value']:.3f} |"
+    )
+    historical_row = (
+        f"| Historical-version known gap | {historical['retrieved']} "
+        f"| {historical['denominator']} | {historical['value']:.3f} |"
     )
     no_answer_row = (
         f"| No-answer accuracy | {no_answer['numerator']} | {no_answer['denominator']} "
@@ -354,7 +513,11 @@ Run against an isolated, freshly migrated PostgreSQL/pgvector database at
 | Metric | Numerator | Denominator | Result |
 |---|---:|---:|---:|
 {recall_row}
+{precision_row}
 {mrr_row}
+{ndcg_row}
+{duplicate_row}
+{historical_row}
 {no_answer_row}
 {leakage_row}
 
@@ -383,9 +546,11 @@ def main() -> None:
     database_name = f"test_retrieval_eval_{uuid4().hex}"
     target_url = admin_url.set(database=database_name)
     admin_engine = create_engine(admin_url, isolation_level="AUTOCOMMIT")
+    database_created = False
     try:
         with admin_engine.connect() as connection:
             connection.execute(text(f'CREATE DATABASE "{database_name}"'))
+        database_created = True
         environment = os.environ.copy()
         environment["MIGRATION_DATABASE_URL"] = target_url.render_as_string(
             hide_password=False
@@ -407,10 +572,11 @@ def main() -> None:
     finally:
         if not database_name.startswith("test_retrieval_eval_"):
             raise RuntimeError("Refusing to drop a database outside the eval namespace")
-        with admin_engine.connect() as connection:
-            connection.execute(
-                text(f'DROP DATABASE IF EXISTS "{database_name}" WITH (FORCE)')
-            )
+        if database_created:
+            with admin_engine.connect() as connection:
+                connection.execute(
+                    text(f'DROP DATABASE IF EXISTS "{database_name}" WITH (FORCE)')
+                )
         admin_engine.dispose()
     print(json.dumps(report["metrics"], indent=2))
 
