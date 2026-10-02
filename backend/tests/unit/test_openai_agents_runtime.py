@@ -106,6 +106,18 @@ def test_request_policy_keeps_operational_reads_narrow() -> None:
     assert ticket.allowed_tools == frozenset({"create_ticket", "get_conversation_device"})
 
 
+def test_request_policy_treats_self_introduction_as_social_without_hiding_it_request() -> None:
+    introduction = policy_for_request("Xin chào tôi tên là Lập")
+    introduction_with_support = policy_for_request(
+        "Xin chào, tôi tên là Lập và cách để truy cập VPN là gì?"
+    )
+
+    assert introduction.requires_knowledge is False
+    assert introduction.allowed_tools == frozenset()
+    assert introduction_with_support.requires_knowledge is True
+    assert introduction_with_support.allows("search_knowledge_base") is True
+
+
 def test_request_policy_allows_evidence_and_service_for_incident() -> None:
     policy = policy_for_request("Tôi không kết nối được VPN")
 

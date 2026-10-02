@@ -444,9 +444,9 @@ class OpenAIAgentsRuntime:
             model=model,
             model_settings=ModelSettings(
                 parallel_tool_calls=False,
-                tool_choice=(
-                    "search_knowledge_base" if self._request_policy.requires_knowledge else "auto"
-                ),
+                # Let the model read the current request and choose its next action. The
+                # request policy and output guard remain deterministic safety boundaries.
+                tool_choice="auto",
                 max_tokens=800,
                 store=False,
             ),

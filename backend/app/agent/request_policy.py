@@ -99,6 +99,64 @@ _CONVERSATIONAL_REQUESTS = frozenset(
         "goodbye",
     }
 )
+_SELF_INTRODUCTION_MARKERS = (
+    "tôi tên là",
+    "toi ten la",
+    "tên tôi là",
+    "ten toi la",
+    "my name is",
+    "i am ",
+    "i'm ",
+)
+_SELF_IDENTITY_QUESTION_MARKERS = (
+    "tên tôi là gì",
+    "ten toi la gi",
+    "tôi tên gì",
+    "toi ten gi",
+    "what is my name",
+)
+_SUPPORT_REQUEST_MARKERS = (
+    "vpn",
+    "docker",
+    "registry",
+    "gitlab",
+    "ticket",
+    "thiết bị",
+    "thiet bi",
+    "máy tính",
+    "may tinh",
+    "laptop",
+    "tài khoản",
+    "tai khoan",
+    "mật khẩu",
+    "mat khau",
+    "email",
+    "internet",
+    "mạng",
+    "mang ",
+    "cài ",
+    "cai ",
+    "cấu hình",
+    "cau hinh",
+    "truy cập",
+    "truy cap",
+    "kết nối",
+    "ket noi",
+    "lỗi",
+    "loi",
+    "hướng dẫn",
+    "huong dan",
+    "làm sao",
+    "lam sao",
+    "cách ",
+    "cach ",
+    "install",
+    "configure",
+    "connect",
+    "access",
+    "troubleshoot",
+    "how ",
+)
 _MEMORY_MARKERS = (
     "ghi nhớ",
     "ghi nho",
@@ -115,6 +173,17 @@ def _contains_any(query: str, markers: tuple[str, ...]) -> bool:
     return any(marker in query for marker in markers)
 
 
+def _is_social_request(query: str) -> bool:
+    stripped = query.strip(" .!?,")
+    if stripped in _CONVERSATIONAL_REQUESTS:
+        return True
+    if _contains_any(stripped, _SELF_IDENTITY_QUESTION_MARKERS):
+        return False
+    introduces_self = _contains_any(stripped, _SELF_INTRODUCTION_MARKERS)
+    asks_for_support = _contains_any(stripped, _SUPPORT_REQUEST_MARKERS)
+    return introduces_self and not asks_for_support
+
+
 @dataclass(frozen=True, slots=True)
 class AgentRequestPolicy:
     requires_knowledge: bool
@@ -126,12 +195,12 @@ class AgentRequestPolicy:
 
 def policy_for_request(query: str) -> AgentRequestPolicy:
     normalized = " ".join(query.casefold().split())
+    is_conversational = _is_social_request(normalized)
     has_incident = _contains_any(normalized, _INCIDENT_MARKERS)
     asks_service = _contains_any(normalized, _SERVICE_MARKERS)
-    asks_identity = _contains_any(normalized, _IDENTITY_MARKERS)
+    asks_identity = _contains_any(normalized, _IDENTITY_MARKERS) and not is_conversational
     asks_ticket_read = _contains_any(normalized, _TICKET_READ_MARKERS)
     asks_ticket_create = _contains_any(normalized, _TICKET_CREATE_MARKERS)
-    is_conversational = normalized.strip(" .!?") in _CONVERSATIONAL_REQUESTS
     is_memory_request = _contains_any(normalized, _MEMORY_MARKERS)
 
     requires_knowledge = (
