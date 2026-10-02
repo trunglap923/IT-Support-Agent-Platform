@@ -81,6 +81,8 @@ class RetrievalCandidate:
     sparse_rank: int | None = None
     dense_score: float | None = None
     sparse_score: float | None = None
+    section_id: UUID | None = None
+    section_path: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

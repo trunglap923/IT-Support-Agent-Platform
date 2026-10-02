@@ -13,6 +13,7 @@ from app.db import Database
 from app.db.models import (
     Document,
     DocumentChunk,
+    DocumentSection,
     DocumentVersion,
     DocumentVersionStatus,
     DocumentVisibility,
@@ -67,6 +68,7 @@ def test_demo_corpus_is_published_idempotently_with_scoped_retrieval(
                 versions = list((await session.scalars(select(DocumentVersion))).all())
                 jobs = list((await session.scalars(select(IngestionJob))).all())
                 chunks = list((await session.scalars(select(DocumentChunk))).all())
+                sections = list((await session.scalars(select(DocumentSection))).all())
                 users = {user.email: user for user in await session.scalars(select(User))}
                 department_keys = {
                     document.department_id
@@ -173,6 +175,11 @@ def test_demo_corpus_is_published_idempotently_with_scoped_retrieval(
             )
             assert all(job.status is IngestionJobStatus.COMPLETED for job in jobs)
             assert all(chunk.embedding_model == "fake-embedding-v2" for chunk in chunks)
+            section_ids = {section.id for section in sections}
+            assert section_ids
+            assert all(chunk.section_id in section_ids for chunk in chunks)
+            assert any(section.parent_id is not None for section in sections)
+            assert any(len(section.section_path) > 1 for section in sections)
             assert len(department_keys) == 1
 
             operations_keys = {hit.document_key for hit in operations_hits}
@@ -188,7 +195,7 @@ def test_demo_corpus_is_published_idempotently_with_scoped_retrieval(
             assert vietnamese_setup_evidence.outcome == "answered"
             assert vietnamese_setup_evidence.sources[0].document_key == "vpn-setup"
             assert preview is not None
-            assert preview.parser_version == "markdown-sections-v1"
+            assert preview.parser_version == "markdown-structure-v2"
             assert len(preview.pages) >= 3
         finally:
             await database.close()

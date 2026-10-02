@@ -28,12 +28,18 @@
     },
     "parser": {
       "name": "markdown",
-      "version": "markdown-v1"
+      "version": "markdown-structure-v2"
     },
     "chunking": {
-      "version": "semantic-window-v2",
+      "version": "hierarchical-window-v3",
       "target_tokens": 120,
       "overlap_tokens": 20
+    },
+    "structure": {
+      "parent_store": "document_sections",
+      "leaf_store": "document_chunks",
+      "section_path_preserved": true,
+      "content_types_preserved": true
     },
     "dense": {
       "strategy": "exact_cosine",

@@ -48,5 +48,4 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [x] Có baseline tái lập; G-04 đạt và report ghi rõ giới hạn fake embedding.
 
 Bằng chứng: `test_hybrid_retrieval.py`, `test_demo_document_seed.py` và
-`reports/retrieval-baseline.json`. RET-05 vẫn mở vì trace runtime chưa ghi đủ corpus/config
-snapshot dù evaluation artifact đã có.
+`reports/retrieval-baseline.json`.

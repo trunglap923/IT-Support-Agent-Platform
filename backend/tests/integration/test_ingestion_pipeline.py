@@ -9,6 +9,7 @@ from app.db import Database
 from app.db.models import (
     Document,
     DocumentChunk,
+    DocumentSection,
     DocumentVersion,
     DocumentVersionStatus,
     DocumentVisibility,
@@ -28,6 +29,9 @@ class CountingEmbeddingProvider:
     async def embed(self, texts: list[str], *, operation_id: str) -> EmbeddingBatch:
         self.calls += 1
         return await self._provider.embed(texts, operation_id=operation_id)
+
+    async def close(self) -> None:
+        await self._provider.close()
 
 
 def test_ingestion_retry_is_idempotent(migrated_database_url: str, tmp_path: Path) -> None:
@@ -84,7 +88,20 @@ def test_ingestion_retry_is_idempotent(migrated_database_url: str, tmp_path: Pat
                     )
                 )
                 stored_job = await session.get(IngestionJob, job_id)
+                sections = list(
+                    await session.scalars(
+                        select(DocumentSection).where(DocumentSection.version_id == version_id)
+                    )
+                )
+                chunks = list(
+                    await session.scalars(
+                        select(DocumentChunk).where(DocumentChunk.version_id == version_id)
+                    )
+                )
                 assert count == first.chunk_count
+                assert len(sections) == 1
+                assert all(chunk.section_id == sections[0].id for chunk in chunks)
+                assert sections[0].section_path == ["Page 1"]
                 assert stored_job is not None
                 assert stored_job.status is IngestionJobStatus.COMPLETED
         finally:

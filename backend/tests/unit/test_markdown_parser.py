@@ -14,13 +14,19 @@ def test_markdown_parser_preserves_heading_sections(tmp_path: Path) -> None:
 
     extracted = MarkdownParser(max_bytes=1024).parse(path)
 
-    assert extracted.parser_version == "markdown-sections-v1"
+    assert extracted.parser_version == "markdown-structure-v2"
     assert [section.title for section in extracted.sections] == [
         None,
         "VPN guide",
         "Verification",
     ]
     assert [section.section_number for section in extracted.sections] == [1, 2, 3]
+    assert [section.heading_level for section in extracted.sections] == [0, 1, 2]
+    assert [section.section_path for section in extracted.sections] == [
+        (),
+        ("VPN guide",),
+        ("VPN guide", "Verification"),
+    ]
     assert "Setup steps" in extracted.sections[1].text
 
 
@@ -39,3 +45,30 @@ def test_markdown_parser_rejects_empty_invalid_and_oversized_files(tmp_path: Pat
         MarkdownParser(max_bytes=10).parse(invalid)
     with pytest.raises(MarkdownExtractionError, match="size limit"):
         parser.parse(large)
+
+
+def test_markdown_parser_preserves_structural_content_types(tmp_path: Path) -> None:
+    path = tmp_path / "structured.md"
+    path.write_text(
+        """# Recovery
+
+> [!WARNING] Restart requires approval.
+
+- Check service status
+- Record the ticket
+
+| State | Action |
+|---|---|
+| down | escalate |
+
+```bash
+systemctl status vpn
+```
+""",
+        encoding="utf-8",
+    )
+
+    section = MarkdownParser().parse(path).sections[0]
+
+    assert section.section_path == ("Recovery",)
+    assert set(section.content_types) == {"admonition", "list", "table", "code", "paragraph"}

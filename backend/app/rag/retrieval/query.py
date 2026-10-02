@@ -178,6 +178,7 @@ class RetrievalHit:
     vector_similarity: float | None = None
     lexical_coverage: float = 0.0
     rrf_score: float = 0.0
+    section_path: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -192,11 +193,10 @@ class _Candidate:
     section: str | None
     content: str
     ordinal: int
+    section_path: tuple[str, ...]
 
 
-def _base_query(
-    principal: Principal, *, now: datetime
-) -> Select[tuple[UUID, UUID, UUID, str, str, str, int | None, str | None, str, int]]:
+def _base_query(principal: Principal, *, now: datetime) -> Select[Any]:
     return (
         select(
             DocumentChunk.id.label("chunk_id"),
@@ -209,6 +209,7 @@ def _base_query(
             DocumentChunk.section,
             DocumentChunk.content,
             DocumentChunk.ordinal,
+            DocumentChunk.section_path,
         )
         .join(DocumentVersion, DocumentChunk.version_id == DocumentVersion.id)
         .join(Document, DocumentVersion.document_id == Document.id)
@@ -229,6 +230,7 @@ def _candidate(row: object) -> _Candidate:
         section=mapping["section"],
         content=mapping["content"],
         ordinal=mapping["ordinal"],
+        section_path=tuple(mapping["section_path"] or ()),
     )
 
 
@@ -378,6 +380,7 @@ class HybridRetriever:
                     vector_similarity=vector_similarity,
                     lexical_coverage=lexical_coverage,
                     rrf_score=rrf_score,
+                    section_path=item.section_path,
                 )
             )
         stable_order = {

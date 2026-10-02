@@ -1,6 +1,6 @@
 # Nhập và trích xuất tài liệu
 
-Trạng thái: PDF/Markdown parser có giới hạn và pipeline parse → chunk → embed → store đã triển khai.
+Trạng thái: PDF/Markdown parser có giới hạn và pipeline structure → section → chunk → embed → store đã triển khai.
 Work packages: WP-04, WP-11.
 Nguồn: [kế hoạch tổng](../../../../plan.md), mục 6, 8.1; [thứ tự triển khai](../../../../docs/implementation-roadmap.md).
 
@@ -39,9 +39,12 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [x] ING-04: Gọi chunking và embedding theo batch, lưu progress vào DB.
 - [x] ING-05: Dedupe theo job identity và deterministic chunks; chỉ đánh dấu ready khi lưu đủ chunks.
 - [x] ING-06: Re-index có dry-run, giới hạn seed corpus và paid-provider budget guard.
+- [x] ING-07: Markdown giữ heading hierarchy/content types; PDF tạo section theo page.
+- [x] ING-08: Lưu parent section riêng và nối leaf chunks bằng section_id/path.
 
 ## Điều kiện hoàn thành
 
 - [x] PDF text giữ đúng page; Markdown giữ heading và page=null.
 - [x] PDF scan/file lỗi trả failed với lý do, không đổi current_version_id.
 - [x] Retry không tạo duplicate chunks; không log raw file/secret.
+- [x] Dữ liệu cũ được backfill thành section phẳng; re-ingest nâng cấp lên hierarchy đầy đủ.

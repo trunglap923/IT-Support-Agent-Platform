@@ -11,13 +11,19 @@ from sqlalchemy import delete, func, select
 from app.db import Database
 from app.db.models import (
     DocumentChunk,
+    DocumentSection,
     DocumentVersion,
     DocumentVersionStatus,
     IngestionJob,
     IngestionJobStatus,
 )
 from app.providers.embeddings import EmbeddingProvider
-from app.rag.chunking.splitter import ChunkingConfig, SourceBlock, chunk_blocks
+from app.rag.chunking.splitter import (
+    ChunkingConfig,
+    SourceBlock,
+    build_section_drafts,
+    chunk_blocks,
+)
 from app.rag.ingestion.markdown_parser import MarkdownParser
 from app.rag.ingestion.pdf_parser import PdfExtractionError, PdfParser
 
@@ -107,6 +113,7 @@ class IngestionPipeline:
             )
             if not drafts:
                 raise IngestionPipelineError("Document did not produce any chunks")
+            section_drafts = build_section_drafts(version_id=version_id, blocks=blocks)
             batch = await self._embedding_provider.embed(
                 [draft.content for draft in drafts],
                 operation_id=f"ingestion:{job_id}:attempt:{job.attempts}",
@@ -124,14 +131,40 @@ class IngestionPipeline:
                 await session.execute(
                     delete(DocumentChunk).where(DocumentChunk.version_id == version_id)
                 )
+                await session.execute(
+                    delete(DocumentSection).where(DocumentSection.version_id == version_id)
+                )
+                session.add_all(
+                    [
+                        DocumentSection(
+                            id=draft.id,
+                            version_id=version_id,
+                            parent_id=draft.parent_id,
+                            ordinal=draft.ordinal,
+                            level=draft.level,
+                            title=draft.title,
+                            section_path=list(draft.section_path),
+                            content_types=list(draft.content_types),
+                            content=draft.content,
+                            token_count=draft.token_count,
+                            page_number=draft.page_number,
+                            source_path=draft.source_path,
+                        )
+                        for draft in section_drafts
+                    ]
+                )
+                await session.flush()
                 session.add_all(
                     [
                         DocumentChunk(
                             id=draft.id,
                             version_id=version_id,
+                            section_id=draft.section_id,
                             ordinal=draft.ordinal,
+                            section_chunk_index=draft.section_chunk_index,
                             page_number=draft.page_number,
                             section=draft.section,
+                            section_path=list(draft.section_path),
                             source_path=draft.source_path,
                             source_token_start=draft.source_token_start,
                             source_token_end=draft.source_token_end,
@@ -191,6 +224,9 @@ class IngestionPipeline:
                     page_number=page.page_number,
                     section=None,
                     source_path=storage_key,
+                    section_path=(f"Page {page.page_number}",),
+                    section_level=1,
+                    content_types=("paragraph",),
                 )
                 for page in extracted_pdf.pages
                 if page.text
@@ -204,6 +240,9 @@ class IngestionPipeline:
                 page_number=None,
                 section=section.title,
                 source_path=storage_key,
+                section_path=section.section_path,
+                section_level=section.heading_level,
+                content_types=section.content_types,
             )
             for section in extracted_markdown.sections
         ]

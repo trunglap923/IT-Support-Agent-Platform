@@ -2,7 +2,12 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from app.rag.chunking.splitter import ChunkingConfig, SourceBlock, chunk_blocks
+from app.rag.chunking.splitter import (
+    ChunkingConfig,
+    SourceBlock,
+    build_section_drafts,
+    chunk_blocks,
+)
 
 
 def test_chunk_boundaries_overlap_and_source_metadata() -> None:
@@ -126,3 +131,36 @@ Use a short-lived token for Docker Registry.
     ]
     assert "# Registry" in first[0].content
     assert any("# GitLab" in chunk.content for chunk in first)
+
+
+def test_section_drafts_and_leaf_chunks_share_hierarchical_provenance() -> None:
+    version_id = UUID(int=2)
+    blocks = [
+        SourceBlock(
+            "# VPN\nOverview",
+            None,
+            "VPN",
+            "vpn.md",
+            section_path=("VPN",),
+            section_level=1,
+            content_types=("paragraph",),
+        ),
+        SourceBlock(
+            "## Ubuntu\nInstall the managed client.",
+            None,
+            "Ubuntu",
+            "vpn.md",
+            section_path=("VPN", "Ubuntu"),
+            section_level=2,
+            content_types=("paragraph",),
+        ),
+    ]
+
+    sections = build_section_drafts(version_id=version_id, blocks=blocks)
+    chunks = chunk_blocks(version_id=version_id, blocks=blocks)
+
+    assert sections[1].parent_id == sections[0].id
+    assert sections[1].section_path == ("VPN", "Ubuntu")
+    assert chunks[1].section_id == sections[1].id
+    assert chunks[1].section_path == sections[1].section_path
+    assert chunks[1].section_chunk_index == 0

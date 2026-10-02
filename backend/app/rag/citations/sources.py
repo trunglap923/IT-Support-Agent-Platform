@@ -26,6 +26,7 @@ class Source:
     page_number: int | None
     section: str | None
     excerpt: str
+    section_path: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,6 +93,7 @@ def build_evidence_output(
             page_number=hit.page_number,
             section=hit.section,
             excerpt=_excerpt(hit.content),
+            section_path=hit.section_path,
         )
         for hit in supported
     }
@@ -106,7 +108,8 @@ def build_evidence_output(
     sources = tuple(sources_by_id[source_id] for source_id in selected_ids)
     context = tuple(
         f"[{source.source_id}] {source.title} ({source.version_label}, "
-        f"page={source.page_number}, section={source.section or 'n/a'}): {source.excerpt}"
+        f"page={source.page_number}, section="
+        f"{' > '.join(source.section_path) or source.section or 'n/a'}): {source.excerpt}"
         for source in sources
     )
     return EvidenceOutput(outcome="answered", sources=sources, context=context, message=None)

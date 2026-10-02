@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-MARKDOWN_PARSER_VERSION = "markdown-sections-v1"
+MARKDOWN_PARSER_VERSION = "markdown-structure-v2"
 
 
 class MarkdownExtractionError(ValueError):
@@ -17,6 +17,9 @@ class MarkdownExtractionError(ValueError):
 class MarkdownSection:
     section_number: int
     title: str | None
+    heading_level: int
+    section_path: tuple[str, ...]
+    content_types: tuple[str, ...]
     text: str
 
 
@@ -57,6 +60,28 @@ class MarkdownParser:
         sections: list[MarkdownSection] = []
         lines: list[str] = []
         title: str | None = None
+        heading_level = 0
+        heading_stack: list[str] = []
+
+        def content_types(value: str) -> tuple[str, ...]:
+            detected: list[str] = []
+            if re.search(r"^```", value, re.MULTILINE):
+                detected.append("code")
+            if re.search(r"^\s*(?:[-*+] |\d+[.)] )", value, re.MULTILINE):
+                detected.append("list")
+            if re.search(r"^\s*\|.+\|\s*$", value, re.MULTILINE):
+                detected.append("table")
+            if re.search(
+                r"^\s*>\s*(?:\[!(?:NOTE|WARNING|CAUTION)\]|(?:note|warning):)",
+                value,
+                re.MULTILINE | re.IGNORECASE,
+            ):
+                detected.append("admonition")
+            if not detected or re.search(
+                r"^(?!\s*(?:#|```|[-*+] |\d+[.)] |\||>)).+", value, re.MULTILINE
+            ):
+                detected.append("paragraph")
+            return tuple(detected)
 
         def flush() -> None:
             value = "\n".join(lines).strip()
@@ -65,15 +90,20 @@ class MarkdownParser:
                     MarkdownSection(
                         section_number=len(sections) + 1,
                         title=title,
+                        heading_level=heading_level,
+                        section_path=tuple(heading_stack),
+                        content_types=content_types(value),
                         text=value,
                     )
                 )
 
         for line in text.splitlines():
-            heading = re.match(r"^#{1,6}\s+(.+?)\s*$", line)
+            heading = re.match(r"^(#{1,6})\s+(.+?)\s*$", line)
             if heading:
                 flush()
-                title = heading.group(1)
+                heading_level = len(heading.group(1))
+                title = heading.group(2)
+                heading_stack[heading_level - 1 :] = [title]
                 lines = [line]
             else:
                 lines.append(line)

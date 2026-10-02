@@ -396,6 +396,7 @@ class DocumentChunk(Base):
         UniqueConstraint("version_id", "ordinal", name="uq_document_chunk_ordinal"),
         UniqueConstraint("version_id", "content_hash", name="uq_document_chunk_content_hash"),
         CheckConstraint("ordinal >= 0", name="ordinal_non_negative"),
+        CheckConstraint("section_chunk_index >= 0", name="section_chunk_index_non_negative"),
         CheckConstraint("token_count > 0 AND token_count <= 800", name="token_count_range"),
     )
 
@@ -403,9 +404,14 @@ class DocumentChunk(Base):
     version_id: Mapped[UUID] = mapped_column(
         ForeignKey("document_versions.id", ondelete="CASCADE"), index=True
     )
+    section_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("document_sections.id", ondelete="SET NULL"), index=True
+    )
     ordinal: Mapped[int] = mapped_column(Integer)
+    section_chunk_index: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     page_number: Mapped[int | None] = mapped_column(Integer)
     section: Mapped[str | None] = mapped_column(String(240))
+    section_path: Mapped[list[str]] = mapped_column(JSONB, default=list, server_default="[]")
     source_path: Mapped[str] = mapped_column(String(500))
     source_token_start: Mapped[int] = mapped_column(Integer)
     source_token_end: Mapped[int] = mapped_column(Integer)
@@ -419,6 +425,34 @@ class DocumentChunk(Base):
         TSVECTOR,
         Computed("to_tsvector('simple', content)", persisted=True),
     )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class DocumentSection(Base):
+    __tablename__ = "document_sections"
+    __table_args__ = (
+        UniqueConstraint("version_id", "ordinal", name="uq_document_section_ordinal"),
+        CheckConstraint("ordinal >= 0", name="ordinal_non_negative"),
+        CheckConstraint("level >= 0 AND level <= 6", name="level_range"),
+        CheckConstraint("token_count > 0", name="token_count_positive"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    version_id: Mapped[UUID] = mapped_column(
+        ForeignKey("document_versions.id", ondelete="CASCADE"), index=True
+    )
+    parent_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("document_sections.id", ondelete="SET NULL"), index=True
+    )
+    ordinal: Mapped[int] = mapped_column(Integer)
+    level: Mapped[int] = mapped_column(Integer)
+    title: Mapped[str | None] = mapped_column(String(240))
+    section_path: Mapped[list[str]] = mapped_column(JSONB, default=list, server_default="[]")
+    content_types: Mapped[list[str]] = mapped_column(JSONB, default=list, server_default="[]")
+    content: Mapped[str] = mapped_column(Text)
+    token_count: Mapped[int] = mapped_column(Integer)
+    page_number: Mapped[int | None] = mapped_column(Integer)
+    source_path: Mapped[str] = mapped_column(String(500))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

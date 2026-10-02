@@ -16,6 +16,7 @@ def hit(
     content: str = "Use the managed VPN client.",
     vector_similarity: float | None = None,
     lexical_coverage: float = 0.0,
+    section_path: tuple[str, ...] = (),
 ) -> RetrievalHit:
     return RetrievalHit(
         chunk_id=uuid4(),
@@ -32,6 +33,7 @@ def hit(
         lexical_rank=1,
         vector_similarity=vector_similarity,
         lexical_coverage=lexical_coverage,
+        section_path=section_path,
     )
 
 
@@ -48,6 +50,13 @@ def test_builds_traceable_source_from_retrieval_hit() -> None:
     assert output.sources[0].page_number == 2
     assert output.sources[0].version_id == retrieval_hit.version_id
     assert output.sources[0].excerpt == retrieval_hit.content
+
+
+def test_context_uses_full_section_path() -> None:
+    output = build_evidence_output([hit(section_path=("VPN", "Ubuntu", "Authentication"))])
+
+    assert output.sources[0].section_path == ("VPN", "Ubuntu", "Authentication")
+    assert "section=VPN > Ubuntu > Authentication" in output.context[0]
 
 
 def test_rejects_source_not_present_in_retrieval_results() -> None:

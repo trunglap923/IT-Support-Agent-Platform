@@ -20,6 +20,7 @@ from app.db.models import (
     Department,
     Document,
     DocumentChunk,
+    DocumentSection,
     DocumentVersion,
     DocumentVersionStatus,
     DocumentVisibility,
@@ -30,10 +31,11 @@ from app.rag.chunking.splitter import (
     CHUNKER_VERSION,
     ChunkingConfig,
     SourceBlock,
+    build_section_drafts,
     chunk_blocks,
 )
 from app.rag.citations.sources import build_evidence_output
-from app.rag.ingestion.markdown_parser import MarkdownParser
+from app.rag.ingestion.markdown_parser import MARKDOWN_PARSER_VERSION, MarkdownParser
 from app.rag.retrieval.query import HybridRetriever
 from jsonschema import Draft202012Validator  # type: ignore[import-untyped]
 from sqlalchemy import create_engine, text
@@ -126,7 +128,15 @@ def load_cases() -> list[RetrievalCase]:
 def markdown_blocks(path: Path) -> list[SourceBlock]:
     extracted = MarkdownParser().parse(path)
     return [
-        SourceBlock(section.text, None, section.title, path.name)
+        SourceBlock(
+            section.text,
+            None,
+            section.title,
+            path.name,
+            section.section_path,
+            section.heading_level,
+            section.content_types,
+        )
         for section in extracted.sections
     ]
 
@@ -200,7 +210,7 @@ async def seed_corpus(database: Database) -> dict[str, Department]:
                         if item["expires_at"]
                         else None
                     ),
-                    parser_version="markdown-v1",
+                    parser_version=MARKDOWN_PARSER_VERSION,
                     chunker_version=CHUNKER_VERSION,
                     embedding_model="fake-embedding-v2",
                     embedding_dimensions=1536,
@@ -208,9 +218,33 @@ async def seed_corpus(database: Database) -> dict[str, Department]:
                 session.add(version)
                 await session.flush()
                 versions[item["version_label"]] = version
+                blocks = markdown_blocks(ROOT / "data" / "knowledge" / item["path"])
+                section_drafts = build_section_drafts(
+                    version_id=version.id, blocks=blocks
+                )
+                session.add_all(
+                    [
+                        DocumentSection(
+                            id=draft.id,
+                            version_id=version.id,
+                            parent_id=draft.parent_id,
+                            ordinal=draft.ordinal,
+                            level=draft.level,
+                            title=draft.title,
+                            section_path=list(draft.section_path),
+                            content_types=list(draft.content_types),
+                            content=draft.content,
+                            token_count=draft.token_count,
+                            page_number=draft.page_number,
+                            source_path=draft.source_path,
+                        )
+                        for draft in section_drafts
+                    ]
+                )
+                await session.flush()
                 drafts = chunk_blocks(
                     version_id=version.id,
-                    blocks=markdown_blocks(ROOT / "data" / "knowledge" / item["path"]),
+                    blocks=blocks,
                     config=ChunkingConfig(
                         target_tokens=CHUNK_TARGET_TOKENS,
                         overlap_tokens=CHUNK_OVERLAP_TOKENS,
@@ -225,9 +259,12 @@ async def seed_corpus(database: Database) -> dict[str, Department]:
                         DocumentChunk(
                             id=draft.id,
                             version_id=version.id,
+                            section_id=draft.section_id,
                             ordinal=draft.ordinal,
+                            section_chunk_index=draft.section_chunk_index,
                             page_number=draft.page_number,
                             section=draft.section,
+                            section_path=list(draft.section_path),
                             source_path=draft.source_path,
                             source_token_start=draft.source_token_start,
                             source_token_end=draft.source_token_end,
@@ -371,11 +408,17 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                     "model": "fake-embedding-v2",
                     "dimensions": 1536,
                 },
-                "parser": {"name": "markdown", "version": "markdown-v1"},
+                "parser": {"name": "markdown", "version": MARKDOWN_PARSER_VERSION},
                 "chunking": {
                     "version": CHUNKER_VERSION,
                     "target_tokens": CHUNK_TARGET_TOKENS,
                     "overlap_tokens": CHUNK_OVERLAP_TOKENS,
+                },
+                "structure": {
+                    "parent_store": "document_sections",
+                    "leaf_store": "document_chunks",
+                    "section_path_preserved": True,
+                    "content_types_preserved": True,
                 },
                 "dense": {"strategy": "exact_cosine", "candidate_limit": BRANCH_LIMIT},
                 "sparse": {

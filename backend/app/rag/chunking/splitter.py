@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from uuid import UUID, uuid5
 
 CHUNK_NAMESPACE = UUID("95dce5a9-6821-52dc-b74d-c655b842ef57")
-CHUNKER_VERSION = "semantic-window-v2"
+CHUNKER_VERSION = "hierarchical-window-v3"
 TOKEN_PATTERN = re.compile(r"\S+")
 
 
@@ -17,6 +17,24 @@ class SourceBlock:
     text: str
     page_number: int | None
     section: str | None
+    source_path: str
+    section_path: tuple[str, ...] = ()
+    section_level: int = 0
+    content_types: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class SectionDraft:
+    id: UUID
+    parent_id: UUID | None
+    ordinal: int
+    level: int
+    title: str | None
+    section_path: tuple[str, ...]
+    content_types: tuple[str, ...]
+    content: str
+    token_count: int
+    page_number: int | None
     source_path: str
 
 
@@ -33,6 +51,9 @@ class ChunkDraft:
     source_token_start: int
     source_token_end: int
     chunker_version: str
+    section_id: UUID
+    section_path: tuple[str, ...]
+    section_chunk_index: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,6 +174,51 @@ def _flush_packed_units(
     packed.clear()
 
 
+def _section_id(version_id: UUID, block_index: int, block: SourceBlock) -> UUID:
+    identity = ":".join(
+        (
+            str(version_id),
+            "section",
+            str(block_index),
+            block.source_path,
+            str(block.page_number),
+            "/".join(block.section_path),
+        )
+    )
+    return uuid5(CHUNK_NAMESPACE, identity)
+
+
+def build_section_drafts(*, version_id: UUID, blocks: list[SourceBlock]) -> list[SectionDraft]:
+    """Build deterministic section parents while preserving heading hierarchy."""
+
+    drafts: list[SectionDraft] = []
+    ids_by_path: dict[tuple[str, ...], UUID] = {}
+    for block_index, block in enumerate(blocks):
+        content = normalize_text(block.text)
+        if not content:
+            continue
+        section_id = _section_id(version_id, block_index, block)
+        parent_id = ids_by_path.get(block.section_path[:-1]) if block.section_path else None
+        drafts.append(
+            SectionDraft(
+                id=section_id,
+                parent_id=parent_id,
+                ordinal=block_index,
+                level=block.section_level,
+                title=block.section,
+                section_path=block.section_path,
+                content_types=block.content_types,
+                content=content,
+                token_count=len(TOKEN_PATTERN.findall(content)),
+                page_number=block.page_number,
+                source_path=block.source_path,
+            )
+        )
+        if block.section_path:
+            ids_by_path[block.section_path] = section_id
+    return drafts
+
+
 def chunk_blocks(
     *,
     version_id: UUID,
@@ -193,7 +259,8 @@ def chunk_blocks(
             packed.append(unit)
         _flush_packed_units(packed, candidates)
 
-        for content, start, end in candidates:
+        section_id = _section_id(version_id, block_index, block)
+        for section_chunk_index, (content, start, end) in enumerate(candidates):
             token_count = len(TOKEN_PATTERN.findall(content))
             content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
             identity = ":".join(
@@ -221,6 +288,9 @@ def chunk_blocks(
                     source_token_start=start,
                     source_token_end=end,
                     chunker_version=selected.version,
+                    section_id=section_id,
+                    section_path=block.section_path,
+                    section_chunk_index=section_chunk_index,
                 )
             )
             ordinal += 1

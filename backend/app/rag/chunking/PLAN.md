@@ -1,6 +1,6 @@
 # Chia đoạn tài liệu
 
-Trạng thái: deterministic semantic/window chunker M2 đã triển khai.
+Trạng thái: deterministic hierarchical/window chunker đã triển khai.
 Work packages: WP-04, WP-05.
 Nguồn: [kế hoạch tổng](../../../../plan.md), mục 8.1, 19.2; [thứ tự triển khai](../../../../docs/implementation-roadmap.md).
 
@@ -34,9 +34,11 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [x] CHUNK-03: Block quá dài được chia theo cửa sổ có source token span và overlap.
 - [x] CHUNK-04: Sinh ordinal, token_count, content_hash và chunker_version.
 - [x] CHUNK-05: Eval dùng document/version/section/span và validator đối chiếu span với corpus snapshot, không khóa chunk ID.
+- [x] CHUNK-06: Sinh section parent xác định, section_path và chỉ mục leaf trong section.
 
 ## Điều kiện hoàn thành
 
 - [x] Output xác định với cùng text/config; ordinal không trùng trong version.
 - [x] Không chunk vượt hard cap; metadata page/section truy vết được.
 - [x] Test trên tiếng Việt/Anh, command nhiều dòng và tài liệu nhiều heading.
+- [x] Parent-child hierarchy và content types có regression test.

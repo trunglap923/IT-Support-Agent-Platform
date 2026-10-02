@@ -57,8 +57,34 @@ def test_alembic_upgrade_on_clean_database() -> None:
                 vector_version = connection.execute(
                     text("SELECT extversion FROM pg_extension WHERE extname = 'vector'")
                 ).scalar_one()
-            assert revision == "0018_always_on_memory"
+            assert revision == "0020_hierarchical_sections"
             assert vector_version == "0.8.2"
+
+            subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "alembic",
+                    "-c",
+                    "alembic.ini",
+                    "downgrade",
+                    "0019_agent_runtime_state",
+                ],
+                cwd=BACKEND_ROOT,
+                env=environment,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            with target_engine.connect() as connection:
+                downgraded_revision = connection.execute(
+                    text("SELECT version_num FROM alembic_version")
+                ).scalar_one()
+                section_table = connection.execute(
+                    text("SELECT to_regclass('public.document_sections')")
+                ).scalar_one()
+            assert downgraded_revision == "0019_agent_runtime_state"
+            assert section_table is None
         finally:
             target_engine.dispose()
     finally:
