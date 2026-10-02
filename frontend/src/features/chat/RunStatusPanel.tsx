@@ -167,7 +167,6 @@ export function RunStatusPanel({
   const notifiedSummary = useRef<string | null>(null);
   const steps = useMemo(() => progressSteps(events, snapshot?.status), [events, snapshot?.status]);
   const active = currentStep(steps);
-  const completedSteps = steps.filter((step) => step.state === "complete").length;
   const terminal = snapshot && ["completed", "failed", "cancelled"].includes(snapshot.status);
 
   useEffect(() => {
@@ -213,10 +212,6 @@ export function RunStatusPanel({
           <h2>{title}</h2>
           <p>{active?.title ?? (snapshot?.status === "waiting_approval" ? "Không có thao tác nào được thực hiện trước khi bạn xác nhận." : "Đang cập nhật tiến trình an toàn của Agent.")}</p>
         </div>
-        <span className="run-progress-count">{completedSteps}/{steps.length} bước</span>
-      </div>
-      <div className="run-progress-track" role="progressbar" aria-label="Tiến độ xử lý" aria-valuemin={0} aria-valuemax={steps.length} aria-valuenow={completedSteps}>
-        <span style={{ width: `${steps.length ? (completedSteps / steps.length) * 100 : 0}%` }} />
       </div>
       <div className="run-progress-summary">
         {active?.detail ? <p>{active.detail}</p> : <p>{active?.state === "waiting" ? "Đang đợi bạn duyệt thao tác." : "Agent đang thực hiện các bước hỗ trợ."}</p>}

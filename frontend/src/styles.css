@@ -868,14 +868,11 @@ body { font-size: 13px; }
 
 /* Safe, user-facing Agent progress timeline */
 .message-list > .run-monitor { display: grid; gap: 10px; width: min(720px, 94%); margin: 0 0 0 24px; border: 1px solid #dce4ef; border-radius: 8px; padding: 12px 14px; color: var(--text); background: #fff; box-shadow: 0 1px 2px rgb(15 23 42 / 3%); }
-.run-monitor-heading { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 9px; align-items: center; }
+.run-monitor-heading { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 9px; align-items: center; }
 .run-agent-mark { display: grid; width: 26px; height: 26px; place-items: center; border-radius: 6px; color: white; background: var(--accent); font-size: 15px; }
 .run-monitor-copy { min-width: 0; }
 .run-monitor-copy h2 { margin: 0; color: #17263d; font-size: 12px; font-weight: 700; }
 .run-monitor-copy p { overflow: hidden; margin: 3px 0 0; color: var(--text-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
-.run-progress-count { color: var(--text-muted); font-size: 10px; white-space: nowrap; }
-.run-progress-track { height: 3px; overflow: hidden; border-radius: 99px; background: #edf1f6; }
-.run-progress-track > span { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width 180ms ease; }
 .run-progress-summary { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
 .run-progress-summary p { overflow: hidden; margin: 0; color: var(--text-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .run-progress-summary button, .completed-progress-heading button { flex: 0 0 auto; border: 0; padding: 2px 0; color: var(--accent); background: transparent; font-size: 10px; font-weight: 650; cursor: pointer; }
@@ -905,5 +902,4 @@ body { font-size: 13px; }
 @media (max-width: 640px) {
   .message-list > .run-monitor { width: 100%; margin: 0; }
   .run-monitor-heading { grid-template-columns: 26px minmax(0, 1fr); }
-  .run-progress-count { grid-column: 2; }
 }
