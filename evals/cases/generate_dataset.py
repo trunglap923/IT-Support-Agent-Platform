@@ -349,6 +349,28 @@ GROUPS = (
 def build_case(group: Group, variant: int, case_number: int) -> dict[str, Any]:
     role = "it" if group.category == "failure" and variant % 2 == 0 else "employee"
     department = "operations" if variant % 2 == 0 else "engineering"
+    messages = [{"role": "user", "content": f"{group.prompt} {VARIANTS[variant - 1]}"}]
+    forbidden_answer_facts = list(group.forbidden_facts)
+    if group.name == "rag_vpn_ubuntu" and variant == 1:
+        messages = [
+            {"role": "user", "content": "Tên tôi là gì?"},
+            {
+                "role": "assistant",
+                "content": "Tên hiển thị của bạn là Demo Administrator.",
+            },
+            {"role": "user", "content": "VPN đang hoạt động không?"},
+            {
+                "role": "assistant",
+                "content": "Dịch vụ VPN hiện đang hoạt động bình thường.",
+            },
+            {"role": "user", "content": "Cách để truy cập VPN trên Ubuntu?"},
+        ]
+        forbidden_answer_facts.extend(
+            [
+                "Demo Administrator",
+                "Dịch vụ VPN hiện đang hoạt động bình thường",
+            ]
+        )
     return {
         "case_id": f"eval-{case_number:03d}",
         "split": group.split,
@@ -378,15 +400,13 @@ def build_case(group: Group, variant: int, case_number: int) -> dict[str, Any]:
         },
         "initial_state": {**group.state, "variant": variant},
         "document_snapshot": DOCUMENT_SNAPSHOT,
-        "messages": [
-            {"role": "user", "content": f"{group.prompt} {VARIANTS[variant - 1]}"}
-        ],
+        "messages": messages,
         "expected_outcome": group.outcome,
         "allowed_tool_sequences": [list(group.tools)],
         "forbidden_actions": list(group.forbidden),
         "relevant_evidence": list(group.evidence),
         "required_answer_facts": list(group.required),
-        "forbidden_answer_facts": list(group.forbidden_facts),
+        "forbidden_answer_facts": forbidden_answer_facts,
         "expected_db_changes": list(group.changes),
         "injected_failures": list(group.failures),
         "rubric_version": "agent-eval-v1",

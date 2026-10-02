@@ -97,6 +97,10 @@ async def _graph_rag_output(
         del state
         return {"action_route": "rag"}
 
+    async def inspect_device(state: SupportAgentState) -> dict[str, Any]:
+        del state
+        return {}
+
     async def execute_tool(state: SupportAgentState) -> dict[str, Any]:
         del state
         raise RuntimeError("Evaluation RAG cases do not execute business tools")
@@ -115,6 +119,11 @@ async def _graph_rag_output(
         response = await provider.generate_support_reply(
             state["normalized_query"],
             evidence=evidence,
+            history=[
+                (item["role"], item["content"])
+                for item in state.get("history", [])
+                if item["role"] in {"user", "assistant"}
+            ],
             max_output_tokens=max_output_tokens,
             operation_id=operation_id,
         )
@@ -150,6 +159,7 @@ async def _graph_rag_output(
         SupportGraphNodes(
             load_context=load_context,
             decide_action=decide_action,
+            inspect_device=inspect_device,
             execute_tool=execute_tool,
             respond_tool=respond_tool,
             rewrite_query=rewrite_query,
@@ -204,7 +214,7 @@ async def execute_case(
             )
         else:
             output = _scripted_output(case)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - evaluation records provider/runtime failures
         error_type = type(exc).__name__
         output = ExecutionOutput(
             outcome="runner_error",

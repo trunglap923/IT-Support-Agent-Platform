@@ -9,7 +9,7 @@
     "tool": 20
   },
   "dataset_version": "agent-eval-v1",
-  "development_sha256": "85d72062ea1159b1b54ac098375ee0ac8434034bf98928649e3471fe912e8707",
+  "development_sha256": "cefb270173544d909976ac5d22d786d6468978788c883e75565573dd580608fb",
   "holdout_sha256": "6abf400a1fa3db99f85b05daa1fef7411f0f802d2daf6a86fdaff78d3315c7de",
   "scenario_groups": {
     "approval_argument_tamper": "holdout",
