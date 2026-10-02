@@ -393,38 +393,40 @@ export function ChatPage() {
           <Plus aria-hidden="true" size={16} /> Cuộc trò chuyện mới
         </button>
         <label className="conversation-search"><Search aria-hidden="true" size={15} /><span className="sr-only">Tìm cuộc trò chuyện</span><input onChange={(event) => setConversationQuery(event.target.value)} placeholder="Tìm cuộc trò chuyện…" type="search" value={conversationQuery} /></label>
-        {conversationGroups.map(([group, groupConversations]) => (
-          <section className="conversation-group" key={group}>
-            <p className="conversation-period">{group}</p>
-            {groupConversations.map((conversation) => (
-          <button
-            className={conversation.id === active?.id ? "active" : ""}
-            key={conversation.id}
-            onClick={() => {
-              setActive(conversation);
-              setCompletedProgress(null);
-              setStreamingAnswer("");
-              void refreshConversation(conversation.id);
-            }}
-            type="button"
-          >
-            <MessageCircle aria-hidden="true" size={15} />
-            <span className="conversation-copy"><strong>{conversation.title}</strong><small>{conversation.preview_role === "assistant" ? "Trợ lý" : conversation.preview_role === "user" ? user?.display_name ?? "Bạn" : "Cuộc trò chuyện mới"}: {conversation.preview ?? "Bắt đầu cuộc trò chuyện"}</small></span>
-            <time dateTime={conversationActivityAt(conversation)}>{conversation.preview_at ? formatChatTime(conversation.preview_at) : formatConversationDate(conversation.updated_at)}</time>
-          </button>
-            ))}
-          </section>
-        ))}
-        {conversationCursor ? (
-          <button
-            className="load-more-button"
-            disabled={Boolean(loadingMore)}
-            onClick={() => void loadMoreConversations()}
-            type="button"
-          >
-            {loadingMore === "conversations" ? "Đang tải…" : "Tải thêm hội thoại"}
-          </button>
-        ) : null}
+        <div aria-label="Danh sách cuộc trò chuyện" className="conversation-scroll" tabIndex={0}>
+          {conversationGroups.map(([group, groupConversations]) => (
+            <section className="conversation-group" key={group}>
+              <p className="conversation-period">{group}</p>
+              {groupConversations.map((conversation) => (
+                <button
+                  className={conversation.id === active?.id ? "active" : ""}
+                  key={conversation.id}
+                  onClick={() => {
+                    setActive(conversation);
+                    setCompletedProgress(null);
+                    setStreamingAnswer("");
+                    void refreshConversation(conversation.id);
+                  }}
+                  type="button"
+                >
+                  <MessageCircle aria-hidden="true" size={15} />
+                  <span className="conversation-copy"><strong>{conversation.title}</strong><small>{conversation.preview_role === "assistant" ? "Trợ lý" : conversation.preview_role === "user" ? user?.display_name ?? "Bạn" : "Cuộc trò chuyện mới"}: {conversation.preview ?? "Bắt đầu cuộc trò chuyện"}</small></span>
+                  <time dateTime={conversationActivityAt(conversation)}>{conversation.preview_at ? formatChatTime(conversation.preview_at) : formatConversationDate(conversation.updated_at)}</time>
+                </button>
+              ))}
+            </section>
+          ))}
+          {conversationCursor ? (
+            <button
+              className="load-more-button"
+              disabled={Boolean(loadingMore)}
+              onClick={() => void loadMoreConversations()}
+              type="button"
+            >
+              {loadingMore === "conversations" ? "Đang tải…" : "Tải thêm hội thoại"}
+            </button>
+          ) : null}
+        </div>
       </aside>
       <section className="chat-panel">
         <header>
@@ -432,7 +434,7 @@ export function ChatPage() {
           <div><h1>Trợ lý AI</h1><p>Hỏi đáp hỗ trợ IT dựa trên tài liệu nội bộ và ngữ cảnh vận hành</p></div>
           <span className="assistant-scope">IT support <ChevronDown aria-hidden="true" size={13} /></span>
         </header>
-        <div className="message-list" aria-live="polite">
+        <div aria-label="Nội dung cuộc trò chuyện" className="message-list" aria-live="polite" tabIndex={0}>
           {messageCursor ? (
             <button
               className="load-more-button message-history-button"
@@ -535,7 +537,7 @@ export function ChatPage() {
           </button>
         </form>
       </section>
-      <details className="chat-context-rail" open>
+      <details aria-label="Ngữ cảnh hỗ trợ và ticket" className="chat-context-rail" open tabIndex={0}>
         <summary className="chat-context-summary">Ngữ cảnh hỗ trợ <ChevronDown aria-hidden="true" size={16} /></summary>
         <section className="context-card">
           <header><div><FileText aria-hidden="true" size={16} /><h2>Nguồn tham chiếu</h2></div><span>{contextSources.length}</span></header>
