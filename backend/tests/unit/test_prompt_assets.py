@@ -20,14 +20,14 @@ def test_prompt_assets_are_checksum_verified_and_versioned() -> None:
     assert "same language as the user's newest query" in SUPPORT_INSTRUCTIONS
     assert "no more than 180 words" in SUPPORT_INSTRUCTIONS
     assert "Never print source IDs" in SUPPORT_INSTRUCTIONS
-    assert "generally applicable technical" in SUPPORT_INSTRUCTIONS
+    assert "do not fill the gap" in SUPPORT_INSTRUCTIONS
     assert "proposed troubleshooting steps" in MEMORY_EXTRACTION_PROMPT.read_text()
-    assert SUPPORT_PROMPT_VERSION == "support-agent-v9"
+    assert SUPPORT_PROMPT_VERSION == "support-agent-v10"
     assert REPLY_SCHEMA_VERSION == "support-reply-v2"
     assert "Markdown numbered" in SUPPORT_INSTRUCTIONS
     assert "do not paste long document" in SUPPORT_INSTRUCTIONS
     assert prompt_versions() == {
-        "support_agent": "support-agent-v9",
+        "support_agent": "support-agent-v10",
         "memory_extraction": "memory-extraction-v1",
         "support_reply_schema": "support-reply-v2",
     }
