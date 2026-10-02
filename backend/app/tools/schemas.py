@@ -37,9 +37,25 @@ class CreateTicketArguments(BaseModel):
         return value.strip()
 
 
+class KnowledgeSourceResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source_id: str
+    title: str
+    excerpt: str
+    page_number: int | None = None
+
+
+class SearchKnowledgeResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    sources: list[KnowledgeSourceResult] = Field(max_length=8)
+
+
 __all__ = [
     "CreateTicketArguments",
     "EmptyArguments",
     "SearchKnowledgeArguments",
+    "SearchKnowledgeResult",
     "ServiceStatusArguments",
 ]

@@ -70,7 +70,8 @@ def test_chat_router_exposes_only_read_tools() -> None:
 
 def test_executor_rejects_untrusted_and_repeated_arguments() -> None:
     async def local_search(query: str, limit: int) -> dict[str, object]:
-        return {"query": query, "limit": limit, "results": []}
+        del query, limit
+        return {"sources": []}
 
     async def scenario() -> None:
         executor = ToolExecutor(

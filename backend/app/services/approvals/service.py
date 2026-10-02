@@ -12,6 +12,7 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import AgentRun, ApprovalRequest, ApprovalStatus, RunStatus, UserDevice
+from app.services.conversations.agent_runtime_state import AgentRuntimeStateService
 from app.services.conversations.run_state import RunStateService
 from app.tools.schemas import CreateTicketArguments
 
@@ -66,6 +67,7 @@ class ApprovalService:
                 safe_payload={"approval_id": str(approval.id)},
                 now=now,
             )
+            await AgentRuntimeStateService().complete(session, run_id=approval.run_id)
         await session.flush()
         return True
 

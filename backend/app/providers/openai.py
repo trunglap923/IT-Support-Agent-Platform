@@ -251,9 +251,7 @@ class OpenAITextProvider:
         payload = {
             "query": query.strip(),
             "selected_action": selected_action,
-            "recent_history": [
-                {"role": role, "content": content} for role, content in history
-            ],
+            "recent_history": [{"role": role, "content": content} for role, content in history],
         }
         serialized = json.dumps(payload, ensure_ascii=False)
         if self._usage_ledger is not None:

@@ -43,6 +43,17 @@ def create_provider(
     )
 
 
+def create_text_usage_ledger(settings: Settings, database: Database) -> DatabaseUsageLedger:
+    return DatabaseUsageLedger(
+        database,
+        daily_budget_usd=Decimal(str(settings.app_ai_daily_budget_usd)),
+        monthly_budget_usd=Decimal(str(settings.app_ai_monthly_budget_usd)),
+        input_price_per_million_usd=Decimal(str(settings.openai_input_price_per_million_usd)),
+        output_price_per_million_usd=Decimal(str(settings.openai_output_price_per_million_usd)),
+        price_version=settings.openai_price_version,
+    )
+
+
 def create_embedding_provider(settings: Settings, database: Database) -> EmbeddingProvider:
     if settings.embedding_provider is AIProvider.FAKE:
         return FakeEmbeddingProvider(dimensions=settings.embedding_dimensions)

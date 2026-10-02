@@ -492,6 +492,30 @@ class AgentRun(Base):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class AgentRuntimeState(Base):
+    __tablename__ = "agent_runtime_states"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('paused', 'active', 'completed')",
+            name="agent_runtime_state_status_allowlist",
+        ),
+    )
+
+    run_id: Mapped[UUID] = mapped_column(
+        ForeignKey("agent_runs.id", ondelete="CASCADE"), primary_key=True
+    )
+    runtime: Mapped[str] = mapped_column(String(40))
+    schema_version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    serialized_state: Mapped[str | None] = mapped_column(Text)
+    approval_call_id: Mapped[str | None] = mapped_column(String(160))
+    status: Mapped[str] = mapped_column(String(20), default="paused", server_default="paused")
+    version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
 class RunEvent(Base):
     __tablename__ = "run_events"
     __table_args__ = (

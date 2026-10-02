@@ -7,14 +7,23 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from app.mcp_server.schemas import (
+    CurrentUserProfileResult,
+    OpenTicketsResult,
+    RecentTicketsResult,
+    ServiceStatusResult,
+)
 from app.tools.schemas import (
     CreateTicketArguments,
     EmptyArguments,
     SearchKnowledgeArguments,
+    SearchKnowledgeResult,
     ServiceStatusArguments,
 )
 
 ToolRoute = Literal["local", "mcp_read", "approval"]
+ToolRisk = Literal["low", "medium", "high"]
+ApprovalPolicy = Literal["never", "always"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -23,6 +32,12 @@ class ToolSpec:
     description: str
     arguments_model: type[BaseModel]
     route: ToolRoute
+    output_model: type[BaseModel] | None = None
+    allowed_roles: frozenset[str] = frozenset({"employee", "it", "admin"})
+    risk_level: ToolRisk = "low"
+    approval_policy: ApprovalPolicy = "never"
+    timeout_seconds: float = 5.0
+    max_attempts: int = 1
 
     def input_schema(self) -> dict[str, object]:
         return self.arguments_model.model_json_schema()
@@ -47,6 +62,7 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
         description="Search approved IT documentation visible to the current user.",
         arguments_model=SearchKnowledgeArguments,
         route="local",
+        output_model=SearchKnowledgeResult,
     ),
     "get_my_profile": ToolSpec(
         name="get_my_profile",
@@ -56,18 +72,21 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
         ),
         arguments_model=EmptyArguments,
         route="mcp_read",
+        output_model=CurrentUserProfileResult,
     ),
     "check_service_status": ToolSpec(
         name="check_service_status",
         description="Read the simulated status of an allowlisted internal service.",
         arguments_model=ServiceStatusArguments,
         route="mcp_read",
+        output_model=ServiceStatusResult,
     ),
     "get_my_open_tickets": ToolSpec(
         name="get_my_open_tickets",
         description="List at most ten open tickets owned by the current user.",
         arguments_model=EmptyArguments,
         route="mcp_read",
+        output_model=OpenTicketsResult,
     ),
     "get_my_recent_tickets": ToolSpec(
         name="get_my_recent_tickets",
@@ -77,12 +96,15 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
         ),
         arguments_model=EmptyArguments,
         route="mcp_read",
+        output_model=RecentTicketsResult,
     ),
     "create_ticket": ToolSpec(
         name="create_ticket",
         description="Draft a support ticket that requires explicit user approval before creation.",
         arguments_model=CreateTicketArguments,
         route="approval",
+        risk_level="medium",
+        approval_policy="always",
     ),
 }
 

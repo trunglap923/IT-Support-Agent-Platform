@@ -12,7 +12,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.pagination import CursorPage, PageLimit, build_page, decode_cursor
 from app.auth.csrf import require_csrf
-from app.db.models import AgentRun, ApprovalRequest, ApprovalStatus, Message, RunStatus
+from app.db.models import (
+    AgentRun,
+    AgentRuntimeState,
+    ApprovalRequest,
+    ApprovalStatus,
+    Message,
+    RunStatus,
+)
 from app.dependencies import CurrentPrincipal, get_db_session
 from app.jobs.dispatch import BrokerUnavailableError, RunDispatcher
 from app.repositories.conversations import ConversationRepository
@@ -114,12 +121,20 @@ async def decide_approval(
             decision=payload.decision,
             expected_version=payload.expected_version,
         )
+        runtime_state = await session.get(AgentRuntimeState, approval.run_id)
+        resume_agent = (
+            runtime_state is not None
+            and runtime_state.runtime == "openai_agents"
+            and runtime_state.status == "paused"
+        )
         await RunStateService().transition(
             session,
             run_id=approval.run_id,
             actor_id=principal.user_id,
             target=(
-                RunStatus.RESUME_QUEUED if payload.decision == "approve" else RunStatus.COMPLETED
+                RunStatus.RESUME_QUEUED
+                if payload.decision == "approve" or resume_agent
+                else RunStatus.COMPLETED
             ),
             operation_id=f"approval-decision:{approval.id}",
             outcome="approval_rejected" if payload.decision == "reject" else None,
@@ -128,7 +143,7 @@ async def decide_approval(
                 "decision": payload.decision,
             },
         )
-        if payload.decision == "reject":
+        if payload.decision == "reject" and not resume_agent:
             run = await session.get(AgentRun, approval.run_id)
             if run is not None:
                 await ConversationRepository().touch(session, conversation_id=run.conversation_id)
@@ -154,7 +169,7 @@ async def decide_approval(
     except ApprovalConflictError as error:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
     await session.commit()
-    if payload.decision == "approve":
+    if payload.decision == "approve" or resume_agent:
         dispatcher = cast(RunDispatcher, request.app.state.run_dispatcher)
         try:
             await dispatcher.enqueue_run(approval.run_id)

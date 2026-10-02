@@ -12,18 +12,23 @@ from uuid import UUID, uuid4
 from sqlalchemy import select
 
 from app.agent.approval_checkpoint import pause_ticket_approval
+from app.agent.context import SupportContextService
 from app.agent.graph import build_support_graph, run_support_graph
+from app.agent.knowledge_tool import KnowledgeToolSearch
+from app.agent.openai_agents_runtime import (
+    OpenAIAgentsRuntimeFactory,
+    SupportSDKContext,
+)
 from app.agent.rag import RAGGraphNodes
 from app.auth.principal import Principal
 from app.db import Database
-from app.db.models import Conversation, Message, RunStatus
+from app.db.models import AgentRuntimeState, ApprovalRequest, ApprovalStatus, Message, RunStatus
 from app.diagnostics import content_log_fields, log_event
 from app.jobs.dispatch import (
     BrokerUnavailableError,
     MemoryExtractionDispatcher,
 )
 from app.memory.lifecycle import MemoryLifecycleService
-from app.memory.retrieval import MemoryContextService
 from app.observability import AIObserver, NoopAIObserver
 from app.providers.base import StructuredResponseProvider
 from app.providers.embeddings import EmbeddingProvider, FakeEmbeddingProvider
@@ -35,9 +40,9 @@ from app.repositories.runs import RunRepository
 from app.repositories.users import UserRepository
 from app.services.approvals.resume import execute_approval_resume_run
 from app.services.approvals.service import ApprovalService
+from app.services.conversations.agent_runtime_state import AgentRuntimeStateService
 from app.services.conversations.run_lease import RunLeaseService
 from app.services.conversations.run_state import RunStateService
-from app.services.documents.access import authorized_history_context
 from app.tools import ToolExecutionContext, ToolExecutor
 from app.tools.schemas import CreateTicketArguments
 
@@ -73,6 +78,7 @@ async def execute_support_run(
     lease_seconds: int = 90,
     max_attempts: int = 3,
     memory_dispatcher: MemoryExtractionDispatcher | None = None,
+    agent_runtime_factory: OpenAIAgentsRuntimeFactory | None = None,
     log_prompts: bool = False,
 ) -> WorkerResult:
     started_at = time.monotonic()
@@ -88,6 +94,9 @@ async def execute_support_run(
     state = RunStateService(repository)
     memory_job_id: UUID | None = None
     approval_pause: tuple[UUID, str, str] | None = None
+    sdk_resume = False
+    prior_tool_calls = 0
+    prior_retrieval_calls = 0
     execution_worker_id = worker_id or f"worker:{uuid4()}"
     async with database.session() as session, session.begin():
         claim = await lease.claim(
@@ -130,8 +139,33 @@ async def execute_support_run(
                 target=RunStatus.RUNNING,
                 operation_id=f"worker-claim:{run_id}",
             )
+        elif claim.previous_status in {RunStatus.RESUME_QUEUED, RunStatus.RUNNING}:
+            persisted_runtime = await session.get(AgentRuntimeState, run_id)
+            if (
+                persisted_runtime is not None
+                and persisted_runtime.runtime == "openai_agents"
+                and persisted_runtime.status == "paused"
+                and persisted_runtime.serialized_state is not None
+            ):
+                if agent_runtime_factory is None:
+                    raise RuntimeError("OpenAI Agents runtime is unavailable for a paused run")
+                if claim.previous_status is RunStatus.RESUME_QUEUED:
+                    await state.transition(
+                        session,
+                        run_id=run_id,
+                        actor_id=actor_id,
+                        target=RunStatus.RUNNING,
+                        operation_id=f"agent-sdk-resume-claim:{run_id}:{execution_version}",
+                    )
+                sdk_resume = True
+                raw_tool_calls = claim.run.counters.get("tool_calls", 0)
+                raw_retrieval_calls = claim.run.counters.get("retrieval_calls", 0)
+                prior_tool_calls = raw_tool_calls if isinstance(raw_tool_calls, int) else 0
+                prior_retrieval_calls = (
+                    raw_retrieval_calls if isinstance(raw_retrieval_calls, int) else 0
+                )
 
-    if claim.previous_status in {RunStatus.RESUME_QUEUED, RunStatus.RUNNING}:
+    if claim.previous_status in {RunStatus.RESUME_QUEUED, RunStatus.RUNNING} and not sdk_resume:
         resumed = await execute_approval_resume_run(
             database,
             run_id=run_id,
@@ -242,14 +276,6 @@ async def execute_support_run(
                 raise LookupError("Run has no user message")
             query = user_message.content
             await append_progress_event("analyze", "started")
-            conversation_device_id = await session.scalar(
-                select(Conversation.device_id).where(Conversation.id == conversation_id)
-            )
-            memory_context = await MemoryContextService().context_messages(
-                session,
-                owner_id=actor_id,
-                device_id=conversation_device_id,
-            )
             principal = Principal(
                 user_id=user.id,
                 session_id=UUID(int=0),
@@ -259,23 +285,12 @@ async def execute_support_run(
                 department_id=user.department_id,
                 department_key=user.department.key,
             )
-            recent_messages = list(
-                (
-                    await session.scalars(
-                        select(Message)
-                        .where(
-                            Message.conversation_id == conversation_id,
-                            Message.id != user_message.id,
-                        )
-                        .order_by(Message.created_at.desc(), Message.id.desc())
-                        .limit(120)
-                    )
-                ).all()
-            )
-            conversation_context = await authorized_history_context(
+            support_context = await SupportContextService().build(
                 session,
                 principal=principal,
-                messages=list(reversed(recent_messages)),
+                conversation_id=conversation_id,
+                current_message_id=user_message.id,
+                query=query,
             )
             log_event(
                 logger,
@@ -283,8 +298,8 @@ async def execute_support_run(
                 run_id=str(run_id),
                 actor_id=str(actor_id),
                 conversation_id=str(conversation_id),
-                conversation_messages=len(conversation_context),
-                memory_messages=len(memory_context),
+                conversation_messages=len(support_context.history),
+                memory_messages=len(support_context.memories),
                 **content_log_fields(
                     "user_message",
                     query,
@@ -292,45 +307,112 @@ async def execute_support_run(
                 ),
             )
 
-            async def unsupported_local_search(query: str, limit: int) -> dict[str, object]:
-                del query, limit
-                raise RuntimeError("Knowledge search is routed through the RAG graph")
+            retriever = HybridRetriever(
+                embedding_provider=embedding_provider,
+                log_prompts=log_prompts,
+            )
+            citation_store: dict[str, dict[str, object]] = {}
+            local_search = KnowledgeToolSearch(
+                session=session,
+                principal=principal,
+                retriever=retriever,
+                run_id=str(run_id),
+                citation_store=citation_store,
+            )
 
             tool_executor = ToolExecutor(
                 context=ToolExecutionContext(
                     actor_id=actor_id,
                     run_id=run_id,
                     database_url=database.engine.url.render_as_string(hide_password=False),
+                    actor_role=user.role.value,
                 ),
-                local_search=unsupported_local_search,
+                local_search=local_search,
             )
-            nodes = RAGGraphNodes(
-                session=session,
-                principal=principal,
-                retriever=HybridRetriever(
-                    embedding_provider=embedding_provider,
+            runtime_state_service = AgentRuntimeStateService()
+            persisted_runtime = await runtime_state_service.get(session, run_id=run_id)
+            if agent_runtime_factory is not None:
+                approval = await session.scalar(
+                    select(ApprovalRequest).where(
+                        ApprovalRequest.run_id == run_id,
+                        ApprovalRequest.owner_id == actor_id,
+                        ApprovalRequest.status.in_(
+                            [
+                                ApprovalStatus.APPROVED.value,
+                                ApprovalStatus.REJECTED.value,
+                                ApprovalStatus.EXECUTED.value,
+                            ]
+                        ),
+                    )
+                )
+                approval_decision = None
+                approval_id = None
+                if approval is not None:
+                    approval_id = approval.id
+                    approval_decision = (
+                        "approved"
+                        if approval.status
+                        in {ApprovalStatus.APPROVED.value, ApprovalStatus.EXECUTED.value}
+                        else "rejected"
+                    )
+                sdk_context = SupportSDKContext(
+                    support=support_context,
+                    executor=tool_executor,
+                    database=database,
+                    run_id=run_id,
+                    citation_store=citation_store,
+                    on_progress=append_progress_event,
+                    approval_id=approval_id,
+                    approval_decision=approval_decision,
+                    tool_calls=prior_tool_calls,
+                    retrieval_calls=prior_retrieval_calls,
+                )
+                runtime = agent_runtime_factory.create(
+                    context=sdk_context,
+                    operation_id=f"agent:{run_id}:sdk:{execution_version}",
+                    on_stream_started=start_response_stream,
+                    on_text_delta=stream_text_delta,
+                )
+                try:
+                    runtime_result = await runtime.run(
+                        query=query,
+                        serialized_state=(
+                            persisted_runtime.serialized_state
+                            if persisted_runtime is not None
+                            and persisted_runtime.status == "paused"
+                            else None
+                        ),
+                    )
+                finally:
+                    await runtime.close()
+                result = runtime_result.as_graph_result()
+            else:
+                nodes = RAGGraphNodes(
+                    session=session,
+                    principal=principal,
+                    retriever=retriever,
+                    provider=provider,
+                    history=support_context.model_history,
+                    observer=observer,
+                    model=model,
+                    tool_runner=tool_executor,
+                    on_stream_started=start_response_stream,
+                    on_text_delta=stream_text_delta,
+                    on_progress=append_progress_event,
                     log_prompts=log_prompts,
-                ),
-                provider=provider,
-                history=[*conversation_context, *memory_context],
-                observer=observer,
-                model=model,
-                tool_runner=tool_executor,
-                on_stream_started=start_response_stream,
-                on_text_delta=stream_text_delta,
-                on_progress=append_progress_event,
-                log_prompts=log_prompts,
-            )
-            log_event(logger, "worker.graph.started", run_id=str(run_id))
-            result = await run_support_graph(
-                build_support_graph(nodes.graph_nodes()),
-                {
-                    "run_id": str(run_id),
-                    "conversation_id": str(conversation_id),
-                    "actor_id": str(actor_id),
-                    "query": query,
-                },
-            )
+                )
+                log_event(logger, "worker.graph.started", run_id=str(run_id))
+                result = dict(
+                    await run_support_graph(
+                        build_support_graph(nodes.graph_nodes()),
+                        {
+                            "run_id": str(run_id),
+                            "conversation_id": str(conversation_id),
+                            "actor_id": str(actor_id),
+                            "query": query,
+                        },
+                    )
+                )
             log_event(
                 logger,
                 "worker.graph.completed",
@@ -396,7 +478,18 @@ async def execute_support_run(
                     approval.arguments_hash,
                     transition.run.checkpoint_thread_id,
                 )
+                serialized_state = result.get("serialized_state")
+                approval_call_id = result.get("approval_call_id")
+                if isinstance(serialized_state, str) and isinstance(approval_call_id, str):
+                    await AgentRuntimeStateService().pause(
+                        session,
+                        run_id=run_id,
+                        serialized_state=serialized_state,
+                        approval_call_id=approval_call_id,
+                    )
+                    approval_pause = None
             else:
+                await AgentRuntimeStateService().complete(session, run_id=run_id)
                 memory_job = await MemoryLifecycleService().start_extraction_job(
                     session,
                     owner_id=actor_id,
@@ -437,6 +530,7 @@ async def execute_support_run(
                 and failed_run.status is RunStatus.RUNNING
                 and failed_run.lease_owner == execution_worker_id
             ):
+                await AgentRuntimeStateService().complete(session, run_id=run_id)
                 await state.transition(
                     session,
                     run_id=run_id,

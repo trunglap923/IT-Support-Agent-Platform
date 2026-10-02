@@ -18,6 +18,12 @@ class AIProvider(StrEnum):
     OPENAI = "openai"
 
 
+class AgentRuntime(StrEnum):
+    AUTO = "auto"
+    LANGGRAPH = "langgraph"
+    OPENAI_AGENTS = "openai_agents"
+
+
 class Settings(BaseSettings):
     """Configuration read from process environment.
 
@@ -38,6 +44,7 @@ class Settings(BaseSettings):
 
     text_provider: AIProvider = AIProvider.FAKE
     embedding_provider: AIProvider = AIProvider.FAKE
+    agent_runtime: AgentRuntime = AgentRuntime.AUTO
     openai_api_key: SecretStr | None = None
     openai_model: str = "gpt-4.1-mini-2025-04-14"
     openai_input_price_per_million_usd: float = Field(default=0.40, ge=0)
@@ -108,6 +115,11 @@ class Settings(BaseSettings):
             raise ValueError(
                 "EMBEDDING_DIMENSIONS must remain 1536 for the current pgvector schema"
             )
+        if (
+            self.agent_runtime is AgentRuntime.OPENAI_AGENTS
+            and self.text_provider is not AIProvider.OPENAI
+        ):
+            raise ValueError("AGENT_RUNTIME=openai_agents requires TEXT_PROVIDER=openai")
         if self.app_env is AppEnvironment.PRODUCTION and not self.cookie_secure:
             raise ValueError("COOKIE_SECURE must be true in production")
         if self.celery_task_time_limit_seconds <= self.celery_task_soft_time_limit_seconds:
@@ -122,4 +134,5 @@ class Settings(BaseSettings):
             "demo_mode": self.demo_mode,
             "text_provider": self.text_provider.value,
             "embedding_provider": self.embedding_provider.value,
+            "agent_runtime": self.agent_runtime.value,
         }

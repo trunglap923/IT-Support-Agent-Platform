@@ -215,11 +215,15 @@ class RAGGraphNodes:
         run_id = state.get("run_id", "preview")
         started_at = time.monotonic()
         self._log("agent.plan.started", state)
-        plan, planned_steps, plan_input, plan_output, provider_request_id = (
-            await self._create_execution_plan(
-                state,
-                selected_action="auto",
-            )
+        (
+            plan,
+            planned_steps,
+            plan_input,
+            plan_output,
+            provider_request_id,
+        ) = await self._create_execution_plan(
+            state,
+            selected_action="auto",
         )
         planned_action = plan.action
         if planned_action == "direct":
@@ -315,9 +319,7 @@ class RAGGraphNodes:
         }
         service_id = raw_arguments.get("service_id")
         service_label = (
-            service_labels.get(service_id, "dịch vụ")
-            if isinstance(service_id, str)
-            else "dịch vụ"
+            service_labels.get(service_id, "dịch vụ") if isinstance(service_id, str) else "dịch vụ"
         )
         await self._progress(
             stage,

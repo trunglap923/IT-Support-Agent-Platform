@@ -8,7 +8,8 @@ from uuid import UUID
 
 from celery import shared_task  # type: ignore[import-untyped]
 
-from app.config import Settings
+from app.agent.openai_agents_runtime import OpenAIAgentsRuntimeFactory
+from app.config import AgentRuntime, AIProvider, Settings
 from app.db import Database
 from app.jobs.celery_app import celery_app
 from app.jobs.dispatch import CeleryMemoryExtractionDispatcher, CeleryRunDispatcher
@@ -17,7 +18,11 @@ from app.jobs.memory import execute_memory_extraction, reconcile_memory_extracti
 from app.jobs.reconcile import reconcile_queued_run_dispatches
 from app.jobs.worker import execute_support_run
 from app.observability import create_ai_observer
-from app.providers.factory import create_embedding_provider, create_provider
+from app.providers.factory import (
+    create_embedding_provider,
+    create_provider,
+    create_text_usage_ledger,
+)
 
 
 @shared_task(name="jobs.run_agent")  # type: ignore[untyped-decorator]
@@ -34,6 +39,20 @@ def run_agent(run_id: str) -> dict[str, str]:
         provider = create_provider(settings, database)
         embedding_provider = create_embedding_provider(settings, database)
         observer = create_ai_observer(settings)
+        use_agents_sdk = settings.agent_runtime is AgentRuntime.OPENAI_AGENTS or (
+            settings.agent_runtime is AgentRuntime.AUTO
+            and settings.text_provider is AIProvider.OPENAI
+        )
+        agent_runtime_factory = None
+        if use_agents_sdk:
+            key = settings.openai_api_key
+            if key is None:
+                raise RuntimeError("OpenAI credentials were not validated")
+            agent_runtime_factory = OpenAIAgentsRuntimeFactory(
+                api_key=key.get_secret_value(),
+                model=settings.openai_model,
+                usage_ledger=create_text_usage_ledger(settings, database),
+            )
         try:
             receipt = asdict(
                 await execute_support_run(
@@ -50,6 +69,7 @@ def run_agent(run_id: str) -> dict[str, str]:
                     lease_seconds=settings.run_lease_seconds,
                     max_attempts=settings.run_max_attempts,
                     memory_dispatcher=CeleryMemoryExtractionDispatcher(celery_app),
+                    agent_runtime_factory=agent_runtime_factory,
                     log_prompts=settings.log_prompts,
                 )
             )

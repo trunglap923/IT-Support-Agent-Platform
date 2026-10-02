@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import ApprovalRequest, ApprovalStatus, RunStatus
+from app.services.conversations.agent_runtime_state import AgentRuntimeStateService
 from app.services.conversations.run_state import RunStateService, TransitionResult
 
 
@@ -55,5 +56,6 @@ class RunCancellationService:
             for approval in pending_approvals:
                 approval.status = ApprovalStatus.EXPIRED.value
                 approval.version += 1
+            await AgentRuntimeStateService().complete(session, run_id=run_id)
             await session.flush()
         return transition

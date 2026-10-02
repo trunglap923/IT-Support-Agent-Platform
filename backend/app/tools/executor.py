@@ -12,6 +12,7 @@ from uuid import UUID
 from pydantic import ValidationError
 
 from app.mcp_server.client import call_business_tool
+from app.tools.policy import ToolPolicyEngine
 from app.tools.registry import TOOL_REGISTRY
 from app.tools.results import ToolError, ToolResult
 
@@ -23,6 +24,7 @@ class ToolExecutionContext:
     actor_id: UUID
     run_id: UUID
     database_url: str
+    actor_role: str = "employee"
 
 
 @dataclass(slots=True)
@@ -31,6 +33,7 @@ class ToolExecutor:
     local_search: LocalSearch
     timeout_seconds: float = 5.0
     max_result_bytes: int = 32_000
+    policy: ToolPolicyEngine = field(default_factory=ToolPolicyEngine)
     _executed_arguments: set[str] = field(default_factory=set, init=False)
 
     async def execute(self, *, call_id: str, name: str, arguments: dict[str, Any]) -> ToolResult:
@@ -51,10 +54,13 @@ class ToolExecutor:
             return self._failed(call_id, name, "repeated_arguments")
         self._executed_arguments.add(fingerprint)
 
-        if spec.route == "approval":
+        decision = self.policy.evaluate(spec=spec, actor_role=self.context.actor_role)
+        if decision.action == "deny":
+            return self._failed(call_id, name, decision.reason_code)
+        if decision.action == "approval":
             return self._failed(call_id, name, "approval_required")
         try:
-            async with asyncio.timeout(self.timeout_seconds):
+            async with asyncio.timeout(min(self.timeout_seconds, spec.timeout_seconds)):
                 if spec.route == "local":
                     values = validated.model_dump()
                     payload = await self.local_search(values["query"], values["limit"])
@@ -77,6 +83,11 @@ class ToolExecutor:
         if is_error:
             code = str(payload.get("error", {}).get("code", "tool_failed"))
             return self._failed(call_id, name, code)
+        if spec.output_model is not None:
+            try:
+                payload = spec.output_model.model_validate(payload).model_dump(mode="json")
+            except ValidationError:
+                return self._failed(call_id, name, "invalid_tool_output")
         if len(json.dumps(payload, ensure_ascii=False).encode()) > self.max_result_bytes:
             return self._failed(call_id, name, "result_too_large")
         return ToolResult(call_id=call_id, name=name, status="success", data=payload)

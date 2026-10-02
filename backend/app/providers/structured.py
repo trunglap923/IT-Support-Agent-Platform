@@ -94,9 +94,7 @@ class SupportExecutionPlan(BaseModel):
         if self.action == "create_ticket":
             if self.steps[-1] != "approval":
                 raise ValueError("Ticket creation plans must end with approval")
-            if not all(
-                (self.ticket_title, self.ticket_description, self.ticket_issue_type)
-            ):
+            if not all((self.ticket_title, self.ticket_description, self.ticket_issue_type)):
                 raise ValueError("Ticket creation plans require complete draft fields")
         elif self.steps[-1] != "answer":
             raise ValueError("Read and knowledge plans must end with an answer")

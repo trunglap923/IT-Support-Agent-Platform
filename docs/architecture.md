@@ -15,12 +15,19 @@ flowchart TD
     BEAT["Celery beat"] --> REDIS
     REDIS --> AW["Agent worker"]
     REDIS --> BW["Background worker"]
-    AW --> GRAPH["LangGraph · checkpoint/pause/resume"]
-    GRAPH --> RAG["Hybrid retrieval + citation allowlist"]
-    GRAPH --> EXEC["Governed tool executor"]
+    AW --> RUNTIME["Runtime selector"]
+    RUNTIME --> SDK["OpenAI Agents SDK · bounded tool loop"]
+    RUNTIME --> GRAPH["LangGraph · fake/rollback path"]
+    SDK --> CTX["Owner-scoped context service"]
+    GRAPH --> CTX
+    SDK --> RAG["Hybrid retrieval + citation allowlist"]
+    GRAPH --> RAG
+    SDK --> EXEC["Governed tool executor + policy"]
+    GRAPH --> EXEC
     EXEC --> MCP["MCP stdio subprocess"]
     MCP --> SVC
-    GRAPH --> MODEL["Fake/OpenAI provider + budget ledger"]
+    SDK --> MODEL["Fake/OpenAI provider + budget ledger"]
+    GRAPH --> MODEL
     API -. filtered telemetry .-> OBS["Langfuse/no-op observability"]
     AW -. filtered telemetry .-> OBS
 ```
@@ -34,8 +41,9 @@ Compose có đúng bảy long-running service: frontend, API, agent worker, back
 | API/auth | Session cookie, CSRF, actor, owner/role checks, SSE cursor | Không nhận actor/role từ model hoặc request payload |
 | Services | State transition, approval, ticket receipt, document/memory lifecycle | Transaction ngắn; không giữ DB transaction qua model call/approval wait |
 | Repository/DB | Scoped query, FK/unique/check constraints, durable events | PostgreSQL là nguồn sự thật |
-| LangGraph | Bounded graph, RAG flow, checkpoint, interrupt/resume | Không ghi ticket trực tiếp |
-| Tools/MCP | Strict schemas, allowlist, trusted actor/run context | MCP read tools chỉ đọc status và ticket của actor |
+| Agent runtime | Agents SDK tool loop hoặc LangGraph fallback, giới hạn turn/call | Không công khai chain of thought; không ghi ticket trực tiếp |
+| Context service | Chọn hội thoại, thiết bị và memory trong owner scope | Không tin actor/context do model cung cấp |
+| Tools/MCP | Strict input/output schemas, allowlist, policy, trusted actor/run context | MCP read tools chỉ đọc status và ticket của actor |
 | Provider | Structured generation/embedding, token/cost ledger | Không sở hữu side effect; paid call phải qua budget guard |
 | Jobs | Queue, lease, heartbeat, retry/reconcile | Redis delivery không được coi exactly-once |
 | Frontend | Hiển thị server state, citation, approval và errors | Không tự suy side effect thành công từ model text |
@@ -44,11 +52,17 @@ Compose có đúng bảy long-running service: frontend, API, agent worker, back
 
 ### Chat/RAG
 
-Message và run được commit trước khi enqueue. Worker claim run, dựng owner/device/memory context, rewrite/retrieve trong scope, chọn no-answer hoặc generate structured answer. Citation cuối chỉ được tạo từ result IDs do retrieval trả về. SSE reconnect dùng event cursor và không tạo run mới.
+Message và run được commit trước khi enqueue. Worker claim run rồi dựng owner/device/memory context.
+Trong OpenAI mode, Agents SDK tự lặp model → read tool → model với trần cố định; fake mode và đường
+rollback dùng LangGraph. Citation cuối chỉ được tạo từ source ID do retrieval của chính run trả về.
+SSE reconnect dùng event cursor và không tạo run mới.
 
 ### Approval/ticket
 
-Model hoặc form chỉ tạo approval draft. LangGraph pause; user đúng owner approve/reject trong thời hạn. Resume kiểm tra checkpoint, argument hash và actor. Ticket transaction ghi unique approval receipt nên double-click/retry/crash sau commit vẫn quy về đúng một ticket.
+Model hoặc form chỉ tạo approval draft. Runtime pause và lưu checkpoint LangGraph hoặc snapshot
+Agents SDK; user đúng owner approve/reject trong thời hạn. Resume kiểm tra state, argument hash và
+actor. Ticket transaction ghi unique approval receipt nên double-click/retry/crash sau commit vẫn
+quy về đúng một ticket.
 
 ### Document/memory
 
@@ -70,4 +84,7 @@ PDF upload có MIME/size/path guard, tạo draft version, parse/chunk/embed/stor
 - Langfuse là observability phụ trợ, không phải audit source of truth.
 - Deployment server, TLS, secrets manager, autoscaling và production monitoring chưa thuộc repository này.
 
-Các thay đổi ranh giới nền tảng cần ADR. Quyết định/runtime versions nằm tại [ADR-0002](adr/0002-runtime-and-integration.md); hướng vận hành ở [infra commands](../infra/commands.md).
+Các thay đổi ranh giới nền tảng cần ADR. Runtime nền tảng nằm tại
+[ADR-0002](adr/0002-runtime-and-integration.md); quyết định Agents SDK và resumable approval nằm tại
+[ADR-0003](adr/0003-openai-agents-orchestrator.md); hướng vận hành ở
+[infra commands](../infra/commands.md).
