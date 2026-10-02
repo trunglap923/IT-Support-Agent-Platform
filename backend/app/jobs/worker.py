@@ -12,7 +12,7 @@ from uuid import UUID, uuid4
 from sqlalchemy import select
 
 from app.agent.approval_checkpoint import pause_ticket_approval
-from app.agent.context import SupportContextService
+from app.agent.context.service import SupportContextService
 from app.agent.graph import build_support_graph, run_support_graph
 from app.agent.knowledge_tool import KnowledgeToolSearch
 from app.agent.openai_agents_runtime import (
