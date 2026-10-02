@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import math
 import os
 import subprocess
 import sys
@@ -301,10 +302,17 @@ async def evaluate(database_url: str) -> dict[str, Any]:
         scope_count = 0
         known_gap_count = 0
         known_gap_hits = 0
+        citation_relevant_hits = 0
+        citation_count_sum = 0
+        citation_context_token_sum = 0
+        citation_context_token_max = 0
+        expanded_chunk_sum = 0
         retriever = HybridRetriever(
             embedding_provider=provider,
             branch_limit=BRANCH_LIMIT,
             result_limit=RESULT_LIMIT,
+            candidate_limit=20,
+            expansion_per_hit=2,
             rrf_k=RRF_K,
         )
         async with database.session() as session:
@@ -362,6 +370,24 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                     scope_count += 1
                     scope_leaks += bool(forbidden_returned)
                 evidence = build_evidence_output(hits)
+                expanded_count = sum(hit.expansion_kind is not None for hit in hits)
+                expanded_chunk_sum += expanded_count
+                evidence_tokens = sum(
+                    max(1, math.ceil(len(item.encode("utf-8")) / 3))
+                    for item in evidence.context
+                )
+                citation_context_token_sum += evidence_tokens
+                citation_context_token_max = max(
+                    citation_context_token_max, evidence_tokens
+                )
+                citation_count_sum += len(evidence.sources)
+                relevant_citation = any(
+                    f"{source.document_key}:{source.version_label}"
+                    in {item.identifier for item in case.relevant_documents}
+                    for source in evidence.sources
+                )
+                if case.expected_outcome == "answered" and relevant_citation:
+                    citation_relevant_hits += 1
                 if (
                     case.expected_outcome == "no_answer"
                     and not case.forbidden_document_keys
@@ -379,7 +405,17 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                             else None
                         ),
                         "rank": rank,
-                        "top5": ranked,
+                        "top5": ranked[:RESULT_LIMIT],
+                        "retrieved_result_count": len(hits),
+                        "primary_result_count": len(hits) - expanded_count,
+                        "expanded_chunk_count": expanded_count,
+                        "selected_citation_count": len(evidence.sources),
+                        "selected_citation_documents": [
+                            f"{source.document_key}:{source.version_label}"
+                            for source in evidence.sources
+                        ],
+                        "citation_context_estimated_tokens": evidence_tokens,
+                        "expected_document_cited": relevant_citation,
                         "tags": case.tags,
                         "relevant_documents": sorted(relevant),
                         "duplicate_rate_at_5": case_duplicate_rate,
@@ -430,6 +466,26 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                     "strategy": "reciprocal_rank_fusion",
                     "rrf_k": RRF_K,
                 },
+                "reranker": {
+                    "strategy": "weighted_feature_v1",
+                    "candidate_limit": 20,
+                    "weights": {
+                        "query_term_coverage": 0.55,
+                        "exact_identifier_match": 0.25,
+                        "normalized_rrf": 0.15,
+                        "dense_score": 0.05,
+                    },
+                },
+                "context_expansion": {
+                    "strategy": "acl_scoped_neighbor_and_parent_section",
+                    "neighbors_per_seed_each_direction": 2,
+                },
+                "citation_selection": {
+                    "max_sources": 5,
+                    "estimated_context_token_budget": 6000,
+                    "near_duplicate_jaccard_threshold": 0.82,
+                    "near_duplicate_scope": "same_document_version",
+                },
                 "version_scope": "published_current_effective_unexpired",
                 "result_limit": RESULT_LIMIT,
             },
@@ -476,6 +532,32 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                     "denominator": scope_count,
                     "value": scope_leaks / scope_count,
                 },
+                "expected_document_citation_rate": {
+                    "numerator": citation_relevant_hits,
+                    "denominator": answerable_count,
+                    "value": citation_relevant_hits / answerable_count
+                    if answerable_count
+                    else 0.0,
+                },
+                "selected_citations_per_case": {
+                    "sum": citation_count_sum,
+                    "denominator": case_count,
+                    "mean": citation_count_sum / case_count if case_count else 0.0,
+                },
+                "citation_context_estimated_tokens": {
+                    "sum": citation_context_token_sum,
+                    "denominator": case_count,
+                    "mean": citation_context_token_sum / case_count
+                    if case_count
+                    else 0.0,
+                    "max_case": citation_context_token_max,
+                    "budget": 6000,
+                },
+                "expanded_chunks_per_case": {
+                    "sum": expanded_chunk_sum,
+                    "denominator": case_count,
+                    "mean": expanded_chunk_sum / case_count if case_count else 0.0,
+                },
                 "g04_recall_gate": {"threshold": 0.85, "passed": recall >= 0.85},
             },
             "limitations": [
@@ -483,6 +565,7 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                 "Historical version requests are measured as a known gap and excluded from the release gate.",
                 "Precision and duplicate rate are measured at document-version level.",
                 "No-answer uses the retrieval/citation threshold; claim support needs WP-06.",
+                "Citation quality is measured against expected document/version labels; chunk-level claim support is not labeled.",
                 "The dataset is development-only and must not be treated as a holdout set.",
             ],
             "cases": results,
@@ -519,6 +602,10 @@ def write_report(report: dict[str, Any]) -> None:
     historical = metrics["known_gap_historical_version"]
     no_answer = metrics["no_answer_accuracy"]
     leakage = metrics["scope_leakage"]
+    citation_rate = metrics["expected_document_citation_rate"]
+    citation_count = metrics["selected_citations_per_case"]
+    citation_tokens = metrics["citation_context_estimated_tokens"]
+    expansion = metrics["expanded_chunks_per_case"]
     recall_row = f"| Recall@5 | {recall['numerator']} | {recall['denominator']} | {recall['value']:.3f} |"
     mrr_row = (
         f"| MRR@5 (sum RR / answerable) | {mrr['numerator_reciprocal_rank_sum']:.3f} "
@@ -548,12 +635,26 @@ def write_report(report: dict[str, Any]) -> None:
         f"| Scope leakage | {leakage['leaks']} | {leakage['denominator']} "
         f"| {leakage['value']:.3f} |"
     )
-    markdown = f"""# Retrieval baseline — M2
+    citation_row = (
+        f"| Expected document cited | {citation_rate['numerator']} | "
+        f"{citation_rate['denominator']} | {citation_rate['value']:.3f} |"
+    )
+    markdown = (
+        f"""# Retrieval benchmark — Phase 3
 
 Run against an isolated, freshly migrated PostgreSQL/pgvector database at
 `{report["evaluated_at"]}` using corpus `{report["corpus_snapshot"]}`.
 
-| Metric | Numerator | Denominator | Result |
+Configuration: reranker `{report["configuration"]["reranker"]["strategy"]}`, """
+        + (
+            f"candidate pool {report['configuration']['reranker']['candidate_limit']}, "
+            f"neighbor/parent expansion up to "
+            f"{report['configuration']['context_expansion']['neighbors_per_seed_each_direction']} "
+            f"neighbors per seed, max {report['configuration']['citation_selection']['max_sources']} "
+            f"citations and {report['configuration']['citation_selection']['estimated_context_token_budget']} "
+            "estimated context tokens.\n\n"
+        )
+        + f"""| Metric | Numerator | Denominator | Result |
 |---|---:|---:|---:|
 {recall_row}
 {precision_row}
@@ -563,15 +664,23 @@ Run against an isolated, freshly migrated PostgreSQL/pgvector database at
 {historical_row}
 {no_answer_row}
 {leakage_row}
+{citation_row}
 
 G-04 (`Recall@5 >= 0.85`): **{"PASS" if metrics["g04_recall_gate"]["passed"] else "FAIL"}**.
+
+Phase 3 context: average {expansion["mean"]:.2f} expanded chunks per query; average
+{citation_count["mean"]:.2f} selected citations; average {citation_tokens["mean"]:.0f}
+estimated citation context tokens (maximum observed {citation_tokens["max_case"]}, budget
+{citation_tokens["budget"]}).
 
 Answerable misses: {", ".join(case["case_id"] for case in failed) or "none"}.
 No-answer false positives: {", ".join(case["case_id"] for case in false_answers) or "none"}.
 
 ## Limitations
 
-""" + "".join(f"- {item}\n" for item in report["limitations"])
+"""
+        + "".join(f"- {item}\n" for item in report["limitations"])
+    )
     REPORT_MARKDOWN.write_text(markdown, encoding="utf-8")
 
 

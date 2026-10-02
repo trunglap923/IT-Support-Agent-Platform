@@ -69,13 +69,15 @@ def _select_hits(
         ),
     )
     selected: list[tuple[RetrievalHit, str]] = []
-    selected_content: list[set[str]] = []
+    selected_content: list[tuple[str, set[str]]] = []
     used_tokens = 0
     for _, hit in ranked:
         terms = set(hit.content.casefold().split())
         if any(
-            terms and len(terms & prior) / max(1, len(terms | prior)) >= 0.82
-            for prior in selected_content
+            document_version == f"{hit.document_key}:{hit.version_label}"
+            and terms
+            and len(terms & prior) / max(1, len(terms | prior)) >= 0.82
+            for document_version, prior in selected_content
         ):
             continue
         excerpt = _excerpt(hit.content)
@@ -91,7 +93,7 @@ def _select_hits(
         if used_tokens + cost > context_token_budget:
             continue
         selected.append((hit, excerpt))
-        selected_content.append(terms)
+        selected_content.append((f"{hit.document_key}:{hit.version_label}", terms))
         used_tokens += cost
         if len(selected) >= max_sources:
             break

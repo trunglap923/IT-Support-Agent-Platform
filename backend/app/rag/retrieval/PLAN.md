@@ -17,7 +17,7 @@ Tìm evidence bằng vector và lexical search trong tập tài liệu user đư
 - Reranker/HNSW tắt ban đầu; model space theo mục 16 của kế hoạch tổng.
 - Retrieval reranker hiện là weighted feature baseline: term coverage, exact identifier, RRF và dense score.
 - Parent/neighbor expansion chỉ thêm leaf chunks trong cùng current-version/ACL scope; citation vẫn định danh chunk nguồn cụ thể.
-- Evidence selection mặc định tối đa 5 citations và 6.000 estimated input tokens; nội dung citation được cắt theo ngân sách.
+- Evidence selection mặc định tối đa 5 citations và 6.000 estimated input tokens; nội dung citation được cắt theo ngân sách. Chỉ khử nội dung gần trùng trong cùng document-version để không loại nguồn độc lập.
 
 ## Tệp dự kiến khi viết code
 
@@ -59,7 +59,8 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [x] Không trả title/snippet/chunk trái quyền tới context, logs hoặc UI.
 - [x] FTS và vector cùng scope; nguồn superseded không làm current evidence.
 - [x] Có baseline tái lập; G-04 đạt và report ghi rõ giới hạn fake embedding.
-- [ ] Đo tác động reranker/expansion và cập nhật retrieval evaluation report trước khi chọn trọng số cuối.
+- [x] Ghi benchmark Phase 3 đối chiếu với Phase 2 trong `reports/phase3/retrieval-benchmark.md`.
+- [ ] Chạy ablation cùng corpus cho Phase 2 RRF-only, reranker-only và full expansion; chỉ chốt trọng số sau khi ranking/citation đạt baseline.
 
 Bằng chứng: `test_hybrid_retrieval.py`, `test_demo_document_seed.py` và
 `reports/retrieval-baseline.json`.
