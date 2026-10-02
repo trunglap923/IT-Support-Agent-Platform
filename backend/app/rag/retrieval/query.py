@@ -20,8 +20,10 @@ from app.rag.retrieval.analysis import (
     meaningful_terms,
 )
 from app.rag.retrieval.dense import DenseRetriever, PostgresDenseRetriever
+from app.rag.retrieval.expansion import expand_parent_and_neighbors
 from app.rag.retrieval.fusion import FusionStrategy, ReciprocalRankFusion
 from app.rag.retrieval.models import RetrievalCandidate, RetrievalRequest
+from app.rag.retrieval.rerank import Reranker, WeightedFeatureReranker
 from app.rag.retrieval.sparse import PostgresSparseRetriever, SparseRetriever
 
 logger = logging.getLogger(__name__)
@@ -46,6 +48,10 @@ class RetrievalHit:
     lexical_coverage: float = 0.0
     rrf_score: float = 0.0
     section_path: tuple[str, ...] = ()
+    section_id: UUID | None = None
+    ordinal: int = 0
+    rerank_score: float | None = None
+    expansion_kind: str | None = None
 
 
 class HybridRetriever:
@@ -57,20 +63,26 @@ class HybridRetriever:
         dense_retriever: DenseRetriever | None = None,
         sparse_retriever: SparseRetriever | None = None,
         fusion_strategy: FusionStrategy | None = None,
+        reranker: Reranker | None = None,
         branch_limit: int = 20,
+        candidate_limit: int = 20,
         result_limit: int = 5,
+        expansion_per_hit: int = 2,
         rrf_k: int = 60,
         log_prompts: bool = False,
     ) -> None:
-        if branch_limit < 1 or result_limit < 1:
+        if branch_limit < 1 or candidate_limit < result_limit or result_limit < 1:
             raise ValueError("Retrieval limits must be positive")
         self._embedding_provider = embedding_provider
         self._query_analyzer = query_analyzer or RuleBasedQueryAnalyzer()
         self._dense_retriever = dense_retriever or PostgresDenseRetriever()
         self._sparse_retriever = sparse_retriever or PostgresSparseRetriever()
         self._fusion_strategy = fusion_strategy or ReciprocalRankFusion(k=rrf_k)
+        self._reranker = reranker or WeightedFeatureReranker()
         self._branch_limit = branch_limit
+        self._candidate_limit = candidate_limit
         self._result_limit = result_limit
+        self._expansion_per_hit = max(0, expansion_per_hit)
         self._log_prompts = log_prompts
 
     async def search(
@@ -136,16 +148,46 @@ class HybridRetriever:
 
         fusion_started = time.monotonic()
         fused = self._fusion_strategy.fuse(dense, sparse)
+        fusion_ms = (time.monotonic() - fusion_started) * 1_000
+        rerank_started = time.monotonic()
+        reranked = self._reranker.rerank(spec.raw_query, fused[: self._candidate_limit])
+        seeds = reranked[: request.result_limit]
         hits = [
             self._to_hit(
                 item,
                 raw_query=spec.raw_query,
                 semantic_query=spec.semantic_query,
             )
-            for item in fused
+            for item in seeds
         ]
-        results = hits[: request.result_limit]
-        fusion_ms = (time.monotonic() - fusion_started) * 1_000
+        rerank_ms = (time.monotonic() - rerank_started) * 1_000
+        expanded: list[RetrievalHit] = []
+        expansion_started = time.monotonic()
+        if self._expansion_per_hit:
+            expansion_candidates = await expand_parent_and_neighbors(
+                session,
+                seeds,
+                principal=principal,
+                now=selected_now,
+                max_neighbors_per_seed=self._expansion_per_hit,
+            )
+            expanded_candidates = self._reranker.rerank(
+                spec.raw_query, [item.candidate for item in expansion_candidates]
+            )
+            expansion_kind_by_id = {
+                item.candidate.chunk_id: item.expansion_kind for item in expansion_candidates
+            }
+            expanded = [
+                self._to_hit(
+                    item,
+                    raw_query=spec.raw_query,
+                    semantic_query=spec.semantic_query,
+                    expansion_kind=expansion_kind_by_id[item.chunk_id],
+                )
+                for item in expanded_candidates
+            ]
+        results = [*hits, *expanded]
+        expansion_ms = (time.monotonic() - expansion_started) * 1_000
 
         log_event(
             logger,
@@ -155,14 +197,20 @@ class HybridRetriever:
             embedding_model=query_batch.model,
             embedding_request_id=query_batch.provider_request_id,
             fusion_strategy=self._fusion_strategy.name,
+            reranker=self._reranker.name,
             dense_candidates=len(dense),
             sparse_candidates=len(sparse),
             fused_candidates=len(fused),
+            reranked_candidates=len(reranked),
+            expanded_candidates=len(expanded),
+            primary_result_count=len(hits),
             result_count=len(results),
             embedding_ms=round(embedding_ms, 2),
             dense_ms=round(dense_ms, 2),
             sparse_ms=round(sparse_ms, 2),
             fusion_ms=round(fusion_ms, 2),
+            rerank_ms=round(rerank_ms, 2),
+            expansion_ms=round(expansion_ms, 2),
             duration_ms=round((time.monotonic() - started_at) * 1_000, 2),
             results=[self._safe_result(hit) for hit in results],
         )
@@ -174,6 +222,7 @@ class HybridRetriever:
         *,
         raw_query: str,
         semantic_query: str,
+        expansion_kind: str | None = None,
     ) -> RetrievalHit:
         raw_terms = set(meaningful_terms(raw_query))
         semantic_terms = set(meaningful_terms(semantic_query))
@@ -199,6 +248,10 @@ class HybridRetriever:
             lexical_coverage=lexical_coverage,
             rrf_score=candidate.fusion_score,
             section_path=candidate.section_path,
+            section_id=candidate.section_id,
+            ordinal=candidate.ordinal,
+            rerank_score=candidate.rerank_score,
+            expansion_kind=expansion_kind,
         )
 
     def _safe_result(self, hit: RetrievalHit) -> dict[str, object]:
@@ -218,5 +271,9 @@ class HybridRetriever:
             ),
             "lexical_coverage": round(hit.lexical_coverage, 6),
             "rrf_score": round(hit.rrf_score, 6),
+            "rerank_score": (
+                round(hit.rerank_score, 6) if hit.rerank_score is not None else None
+            ),
+            "expansion_kind": hit.expansion_kind,
             **content_log_fields("content", hit.content, include_content=self._log_prompts),
         }

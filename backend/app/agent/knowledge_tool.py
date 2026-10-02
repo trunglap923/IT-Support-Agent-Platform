@@ -41,9 +41,10 @@ class KnowledgeToolSearch:
             operation_id=f"agent:{self._run_id}:knowledge:{self._call_index}",
         )
         output = build_evidence_output(
-            hits[:limit],
+            hits,
             minimum_lexical_coverage=self._minimum_lexical_coverage,
             minimum_vector_similarity=self._minimum_vector_similarity,
+            max_sources=limit,
         )
         scores = {str(hit.chunk_id): hit.score for hit in hits}
         sources: list[dict[str, object]] = []

@@ -88,12 +88,21 @@ class RetrievalCandidate:
     section_id: UUID | None = None
     section_path: tuple[str, ...] = ()
     fusion_score: float = 0.0
+    rerank_score: float | None = None
 
     def with_dense(self, *, rank: int, score: float) -> RetrievalCandidate:
         return replace(self, dense_rank=rank, dense_score=score)
 
     def with_sparse(self, *, rank: int, score: float) -> RetrievalCandidate:
         return replace(self, sparse_rank=rank, sparse_score=score)
+
+
+@dataclass(frozen=True, slots=True)
+class RetrievalContextChunk:
+    """Authorized adjacent/parent-section chunk added after seed retrieval."""
+
+    candidate: RetrievalCandidate
+    expansion_kind: Literal["neighbor", "parent_section"]
 
 
 @dataclass(frozen=True, slots=True)

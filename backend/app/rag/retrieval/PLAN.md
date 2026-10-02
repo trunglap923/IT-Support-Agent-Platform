@@ -1,6 +1,6 @@
 # Tìm kiếm hybrid có phân quyền
 
-Trạng thái: dense và sparse retrieval tách rời, dùng scoped RRF làm fusion chính.
+Trạng thái: hybrid RRF, rerank đặc trưng, mở rộng chunk lân cận có ACL và ngân sách citation đã triển khai.
 Work packages: WP-05, WP-13.
 Nguồn: [kế hoạch tổng](../../../../plan.md), mục 8.2, 19; [thứ tự triển khai](../../../../docs/implementation-roadmap.md).
 
@@ -15,6 +15,9 @@ Tìm evidence bằng vector và lexical search trong tập tài liệu user đư
 - Sparse branch luôn dùng raw query; alias expansion chỉ áp dụng cho dense semantic query.
 - PostgreSQL FTS là sparse baseline hiện tại, chưa được gọi là BM25.
 - Reranker/HNSW tắt ban đầu; model space theo mục 16 của kế hoạch tổng.
+- Retrieval reranker hiện là weighted feature baseline: term coverage, exact identifier, RRF và dense score.
+- Parent/neighbor expansion chỉ thêm leaf chunks trong cùng current-version/ACL scope; citation vẫn định danh chunk nguồn cụ thể.
+- Evidence selection mặc định tối đa 5 citations và 6.000 estimated input tokens; nội dung citation được cắt theo ngân sách.
 
 ## Tệp dự kiến khi viết code
 
@@ -47,12 +50,16 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [x] RET-06: Tách interface query analyzer, dense, sparse và fusion khỏi orchestration.
 - [x] RET-07: Raw sparse query giữ exact identifier; RRF là thứ tự xếp hạng chính.
 - [x] RET-08: Trace số candidate và latency riêng cho embedding/dense/sparse/fusion.
+- [x] RET-09: Tạo candidate pool bounded, rerank bằng score query-aware sau hybrid fusion.
+- [x] RET-10: Bổ sung neighboring và parent-section leaf expansion có chung ACL/current-version predicate.
+- [x] RET-11: Giới hạn context evidence theo estimated token budget, khử chunk trùng và chọn tối đa 5 citation.
 
 ## Điều kiện hoàn thành
 
 - [x] Không trả title/snippet/chunk trái quyền tới context, logs hoặc UI.
 - [x] FTS và vector cùng scope; nguồn superseded không làm current evidence.
 - [x] Có baseline tái lập; G-04 đạt và report ghi rõ giới hạn fake embedding.
+- [ ] Đo tác động reranker/expansion và cập nhật retrieval evaluation report trước khi chọn trọng số cuối.
 
 Bằng chứng: `test_hybrid_retrieval.py`, `test_demo_document_seed.py` và
 `reports/retrieval-baseline.json`.
