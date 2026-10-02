@@ -8,7 +8,7 @@
   "properties": {
     "outcome": {
       "type": "string",
-      "enum": ["answered", "no_answer"]
+      "enum": ["answered", "no_answer", "needs_information"]
     },
     "answer": {
       "type": "string",
@@ -34,6 +34,15 @@
     {
       "if": {"properties": {"outcome": {"const": "no_answer"}}},
       "then": {"properties": {"citations": {"maxItems": 0}}}
+    },
+    {
+      "if": {"properties": {"outcome": {"const": "needs_information"}}},
+      "then": {
+        "properties": {
+          "answer": {"pattern": "\\?"},
+          "citations": {"maxItems": 0}
+        }
+      }
     }
   ]
 }

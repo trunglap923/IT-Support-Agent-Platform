@@ -122,6 +122,18 @@ def test_support_reply_normalizes_citations_and_enforces_outcome() -> None:
         SupportReply(outcome="answered", answer="Unsupported", citations=[])
     with pytest.raises(ValidationError):
         SupportReply(outcome="no_answer", answer="Unknown", citations=["src_allowed"])
+    clarification = SupportReply(
+        outcome="needs_information",
+        answer="Bạn đang dùng hệ điều hành nào?",
+        citations=[],
+    )
+    assert clarification.outcome == "needs_information"
+    with pytest.raises(ValidationError):
+        SupportReply(
+            outcome="needs_information",
+            answer="Vui lòng cung cấp hệ điều hành.",
+            citations=[],
+        )
 
 
 def test_fake_provider_obeys_same_structured_contract() -> None:

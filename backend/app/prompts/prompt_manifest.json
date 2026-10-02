@@ -13,8 +13,8 @@
     },
     "support_reply_schema": {
       "path": "reply.schema.json",
-      "version": "support-reply-v1",
-      "sha256": "0cee585e2bf3ba733de09aab8a4f67f55673698def5ed1141a48deb0714cdbb2"
+      "version": "support-reply-v2",
+      "sha256": "499025da3ad1dfc6114e68978c99e8c99d683a11e864444b4c38810e55d3c5f8"
     }
   }
 }

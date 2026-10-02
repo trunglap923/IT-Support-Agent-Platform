@@ -25,7 +25,7 @@ class ExecutionOutput:
 
 def _outcome_matches(expected: str, actual: str) -> bool:
     if expected in {"abstain", "clarify"}:
-        return actual in {expected, "no_answer"}
+        return actual in {expected, "no_answer", "needs_information"}
     return expected == actual
 
 

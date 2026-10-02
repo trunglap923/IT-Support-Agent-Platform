@@ -133,7 +133,7 @@ class EvidenceInput(BaseModel):
 class SupportReply(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    outcome: Literal["answered", "no_answer"]
+    outcome: Literal["answered", "no_answer", "needs_information"]
     answer: str = Field(min_length=1, max_length=4_000)
     citations: list[str] = Field(default_factory=list, max_length=5)
 
@@ -158,6 +158,10 @@ class SupportReply(BaseModel):
             raise ValueError("An answered reply requires at least one citation")
         if self.outcome == "no_answer" and self.citations:
             raise ValueError("A no-answer reply cannot contain citations")
+        if self.outcome == "needs_information" and self.citations:
+            raise ValueError("A needs-information reply cannot contain citations")
+        if self.outcome == "needs_information" and "?" not in self.answer:
+            raise ValueError("A needs-information reply must ask a question")
         return self
 
 

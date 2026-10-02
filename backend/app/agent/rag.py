@@ -678,6 +678,15 @@ class RAGGraphNodes:
             await self._progress("answer", "warning", "Thiếu nguồn đủ căn cứ để trả lời.")
             self._log("agent.answer.validated", state, route="no_answer", errors=[])
             return {"route": "no_answer", "validation_errors": []}
+        if state.get("outcome") == "needs_information":
+            await self._progress("answer", "completed", "Cần thêm thông tin từ người dùng.")
+            self._log("agent.answer.validated", state, route="done", errors=[])
+            return {
+                "route": "done",
+                "outcome": "needs_information",
+                "citations": [],
+                "validation_errors": [],
+            }
         try:
             selected = build_evidence_output(
                 self._hits,
