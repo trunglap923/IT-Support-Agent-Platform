@@ -3,7 +3,12 @@ from uuid import uuid4
 
 from app.agent.context.builder import ContextMessage
 from app.agent.context.schemas import SupportContext
-from app.agent.openai_agents_runtime import build_agents_input
+from app.agent.openai_agents_runtime import (
+    SupportAgentOutput,
+    build_agents_input,
+    guard_support_output,
+)
+from app.agent.request_policy import policy_for_request
 from app.auth.principal import Principal
 from app.db.models import UserRole
 
@@ -75,3 +80,71 @@ def test_agents_input_compacts_old_history_without_losing_latest_request() -> No
         "content": "Cách cấu hình Docker Registry của công ty?",
     }
     assert len(items) < len(history) + 2
+
+
+def test_request_policy_requires_knowledge_for_internal_guidance() -> None:
+    policy = policy_for_request("Cách để truy cập VPN")
+
+    assert policy.requires_knowledge is True
+    assert policy.allows("search_knowledge_base") is True
+    assert policy.allows("get_conversation_device") is True
+    assert policy.allows("get_my_profile") is False
+    assert policy.allows("check_service_status") is False
+    assert policy_for_request("Xin chào, cách để truy cập VPN?").requires_knowledge is True
+
+
+def test_request_policy_keeps_operational_reads_narrow() -> None:
+    profile = policy_for_request("Tên tôi là gì?")
+    service = policy_for_request("VPN đang hoạt động không?")
+    ticket = policy_for_request("Tạo ticket VPN giúp tôi")
+
+    assert profile.requires_knowledge is False
+    assert profile.allowed_tools == frozenset({"get_my_profile"})
+    assert service.requires_knowledge is False
+    assert service.allowed_tools == frozenset({"check_service_status"})
+    assert ticket.requires_knowledge is False
+    assert ticket.allowed_tools == frozenset({"create_ticket", "get_conversation_device"})
+
+
+def test_request_policy_allows_evidence_and_service_for_incident() -> None:
+    policy = policy_for_request("Tôi không kết nối được VPN")
+
+    assert policy.requires_knowledge is True
+    assert policy.allowed_tools == frozenset(
+        {
+            "search_knowledge_base",
+            "get_conversation_device",
+            "check_service_status",
+        }
+    )
+
+
+def test_output_guard_blocks_unsupported_internal_answer() -> None:
+    guarded = guard_support_output(
+        SupportAgentOutput(
+            outcome="answered",
+            answer="Hãy cài một VPN client bất kỳ.",
+            citations=[],
+        ),
+        policy=policy_for_request("Cách để truy cập VPN"),
+        retrieval_calls=1,
+    )
+
+    assert guarded.outcome == "no_answer"
+    assert guarded.citations == []
+    assert "Không tìm thấy tài liệu nội bộ" in guarded.answer
+
+
+def test_output_guard_requires_a_clarifying_question() -> None:
+    guarded = guard_support_output(
+        SupportAgentOutput(
+            outcome="needs_information",
+            answer="Vui lòng cung cấp thêm thông tin.",
+            citations=[],
+        ),
+        policy=policy_for_request("Cách để truy cập VPN"),
+        retrieval_calls=1,
+    )
+
+    assert guarded.outcome == "needs_information"
+    assert guarded.answer.endswith("?")

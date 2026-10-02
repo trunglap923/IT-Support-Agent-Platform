@@ -19,6 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.agent.context.builder import build_agent_context
 from app.agent.context.schemas import SupportContext
+from app.agent.request_policy import AgentRequestPolicy, policy_for_request
 from app.agent.runtime import AgentRuntimeResult
 from app.db import Database
 from app.prompts import SUPPORT_INSTRUCTIONS
@@ -42,6 +43,46 @@ class SupportAgentOutput(BaseModel):
     outcome: str = Field(pattern="^(answered|no_answer|needs_information)$")
     answer: str = Field(min_length=1, max_length=4_000)
     citations: list[str] = Field(default_factory=list, max_length=5)
+
+
+def guard_support_output(
+    output: SupportAgentOutput,
+    *,
+    policy: AgentRequestPolicy,
+    retrieval_calls: int,
+) -> SupportAgentOutput:
+    """Apply application-owned evidence and outcome invariants to final model output."""
+
+    if policy.requires_knowledge and retrieval_calls == 0:
+        return SupportAgentOutput(
+            outcome="no_answer",
+            answer=(
+                "Tôi chưa thể tra cứu kho tri thức nội bộ cho yêu cầu này, nên chưa có đủ "
+                "căn cứ để hướng dẫn. Vui lòng thử lại hoặc liên hệ IT."
+            ),
+            citations=[],
+        )
+    if policy.requires_knowledge and output.outcome == "answered" and not output.citations:
+        return SupportAgentOutput(
+            outcome="no_answer",
+            answer=(
+                "Không tìm thấy tài liệu nội bộ đủ căn cứ để trả lời yêu cầu này. "
+                "Vui lòng cung cấp thêm chi tiết hoặc liên hệ IT."
+            ),
+            citations=[],
+        )
+    if output.outcome == "needs_information" and "?" not in output.answer:
+        return SupportAgentOutput(
+            outcome="needs_information",
+            answer=(
+                "Mình cần thêm thông tin để trả lời chính xác. Bạn có thể cung cấp chi tiết "
+                "còn thiếu về yêu cầu hiện tại không?"
+            ),
+            citations=[],
+        )
+    if output.outcome == "no_answer" and output.citations:
+        return output.model_copy(update={"citations": []})
+    return output
 
 
 def build_agents_input(
@@ -111,6 +152,10 @@ class SupportSDKContext:
     ticket_display_key: str | None = None
     completed_stages: set[str] = field(default_factory=set)
 
+    @property
+    def request_policy(self) -> AgentRequestPolicy:
+        return policy_for_request(self.support.query)
+
     async def progress(
         self,
         stage: str,
@@ -128,6 +173,11 @@ class SupportSDKContext:
                 ensure_ascii=False,
             )
         self.tool_calls += 1
+        if not self.request_policy.allows(name):
+            return json.dumps(
+                {"ok": False, "error": {"code": "tool_not_relevant_to_current_request"}},
+                ensure_ascii=False,
+            )
         if name == "search_knowledge_base":
             self.retrieval_calls += 1
         result = await self.executor.execute(
@@ -145,6 +195,8 @@ def _tools() -> list[Any]:
         call_id: str,
     ) -> bool:
         del parameters, call_id
+        if not ctx.context.request_policy.allows("create_ticket"):
+            return False
         decision = ctx.context.executor.policy.evaluate(
             spec=TOOL_REGISTRY["create_ticket"],
             actor_role=ctx.context.executor.context.actor_role,
@@ -167,6 +219,11 @@ def _tools() -> list[Any]:
         if context.tool_calls >= MAX_READ_TOOL_CALLS:
             return json.dumps({"ok": False, "error": {"code": "tool_call_limit"}})
         context.tool_calls += 1
+        if not context.request_policy.allows("get_conversation_device"):
+            return json.dumps(
+                {"ok": False, "error": {"code": "tool_not_relevant_to_current_request"}},
+                ensure_ascii=False,
+            )
         device = context.support.device
         if device is None:
             return json.dumps({"ok": True, "device": None}, ensure_ascii=False)
@@ -241,6 +298,11 @@ def _tools() -> list[Any]:
         device_id: str | None = None,
     ) -> str:
         context = ctx.context
+        if not context.request_policy.allows("create_ticket"):
+            return json.dumps(
+                {"ok": False, "error": {"code": "tool_not_relevant_to_current_request"}},
+                ensure_ascii=False,
+            )
         policy_decision = context.executor.policy.evaluate(
             spec=TOOL_REGISTRY["create_ticket"],
             actor_role=context.executor.context.actor_role,
@@ -346,7 +408,9 @@ class SupportRunHooks(RunHooksBase[SupportSDKContext, Agent[SupportSDKContext]])
                 payload = json.loads(result)
             except json.JSONDecodeError:
                 payload = None
-            if isinstance(payload, dict) and payload.get("status") in {"failed", "unknown"}:
+            if isinstance(payload, dict) and (
+                payload.get("status") in {"failed", "unknown"} or payload.get("ok") is False
+            ):
                 event_status = "warning"
                 completed_detail = "Tool chưa trả về kết quả sử dụng được; Agent đang xử lý tiếp."
         if event_status == "completed":
@@ -373,12 +437,16 @@ class OpenAIAgentsRuntime:
         self._usage_ledger = usage_ledger
         self._on_stream_started = on_stream_started
         self._on_text_delta = on_text_delta
+        self._request_policy = policy_for_request(context.support.query)
         self._agent = Agent[SupportSDKContext](
             name="IT Support Orchestrator",
             instructions=SUPPORT_INSTRUCTIONS,
             model=model,
             model_settings=ModelSettings(
                 parallel_tool_calls=False,
+                tool_choice=(
+                    "search_knowledge_base" if self._request_policy.requires_knowledge else "auto"
+                ),
                 max_tokens=800,
                 store=False,
             ),
@@ -531,6 +599,11 @@ class OpenAIAgentsRuntime:
         unknown = set(output.citations) - set(self._context.citation_store)
         if unknown:
             raise RuntimeError("Agent returned citations outside retrieved evidence")
+        output = guard_support_output(
+            output,
+            policy=self._request_policy,
+            retrieval_calls=self._context.retrieval_calls,
+        )
         citations = [self._context.citation_store[source_id] for source_id in output.citations]
         answer = output.answer.strip()
         outcome = output.outcome
