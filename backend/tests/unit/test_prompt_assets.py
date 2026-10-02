@@ -22,12 +22,12 @@ def test_prompt_assets_are_checksum_verified_and_versioned() -> None:
     assert "Never print source IDs" in SUPPORT_INSTRUCTIONS
     assert "do not fill the gap" in SUPPORT_INSTRUCTIONS
     assert "proposed troubleshooting steps" in MEMORY_EXTRACTION_PROMPT.read_text()
-    assert SUPPORT_PROMPT_VERSION == "support-agent-v11"
+    assert SUPPORT_PROMPT_VERSION == "support-agent-v12"
     assert REPLY_SCHEMA_VERSION == "support-reply-v2"
     assert "Markdown numbered" in SUPPORT_INSTRUCTIONS
     assert "do not paste long document" in SUPPORT_INSTRUCTIONS
     assert prompt_versions() == {
-        "support_agent": "support-agent-v11",
+        "support_agent": "support-agent-v12",
         "memory_extraction": "memory-extraction-v1",
         "support_reply_schema": "support-reply-v2",
     }

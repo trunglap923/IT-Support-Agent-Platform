@@ -50,10 +50,19 @@ _SERVICE_MARKERS = (
 _IDENTITY_MARKERS = (
     "tên tôi",
     "ten toi",
+    "họ của tôi",
+    "ho cua toi",
+    "tên đệm của tôi",
+    "ten dem cua toi",
+    "tên đầy đủ của tôi",
+    "ten day du cua toi",
     "tôi là ai",
     "toi la ai",
     "who am i",
     "my name",
+    "my surname",
+    "my middle name",
+    "my full name",
     "tài khoản của tôi",
     "tai khoan cua toi",
 )
@@ -104,7 +113,14 @@ _SELF_INTRODUCTION_MARKERS = (
     "toi ten la",
     "tên tôi là",
     "ten toi la",
+    "tên đầy đủ là",
+    "ten day du la",
+    "tên đầy đủ của tôi là",
+    "ten day du cua toi la",
+    "họ tên là",
+    "ho ten la",
     "my name is",
+    "my full name is",
     "i am ",
     "i'm ",
 )
@@ -202,15 +218,16 @@ def policy_for_request(query: str) -> AgentRequestPolicy:
     asks_ticket_read = _contains_any(normalized, _TICKET_READ_MARKERS)
     asks_ticket_create = _contains_any(normalized, _TICKET_CREATE_MARKERS)
     is_memory_request = _contains_any(normalized, _MEMORY_MARKERS)
+    asks_for_support = has_incident or _contains_any(normalized, _SUPPORT_REQUEST_MARKERS)
 
     requires_knowledge = (
-        not asks_identity
+        asks_for_support
+        and not asks_identity
         and not asks_service
         and not asks_ticket_read
         and not asks_ticket_create
         and not is_conversational
         and not is_memory_request
-        and bool(normalized)
     )
     allowed: set[str] = set()
     if requires_knowledge:

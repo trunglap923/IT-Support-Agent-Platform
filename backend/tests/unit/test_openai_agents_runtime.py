@@ -118,6 +118,19 @@ def test_request_policy_treats_self_introduction_as_social_without_hiding_it_req
     assert introduction_with_support.allows("search_knowledge_base") is True
 
 
+def test_request_policy_does_not_force_knowledge_for_personal_conversation() -> None:
+    full_name_statement = policy_for_request("Tên đầy đủ của tôi là Vũ Trung Lập")
+    surname_follow_up = policy_for_request("Họ của tôi là gì?")
+    middle_name_follow_up = policy_for_request("Tên đệm của tôi là gì?")
+
+    assert full_name_statement.requires_knowledge is False
+    assert full_name_statement.allowed_tools == frozenset()
+    assert surname_follow_up.requires_knowledge is False
+    assert surname_follow_up.allowed_tools == frozenset({"get_my_profile"})
+    assert middle_name_follow_up.requires_knowledge is False
+    assert middle_name_follow_up.allowed_tools == frozenset({"get_my_profile"})
+
+
 def test_request_policy_allows_evidence_and_service_for_incident() -> None:
     policy = policy_for_request("Tôi không kết nối được VPN")
 
