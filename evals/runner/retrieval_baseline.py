@@ -427,7 +427,7 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                     "preserves_original_query": True,
                 },
                 "fusion": {
-                    "strategy": "max_confidence_with_rrf_tiebreak",
+                    "strategy": "reciprocal_rank_fusion",
                     "rrf_k": RRF_K,
                 },
                 "version_scope": "published_current_effective_unexpired",

@@ -1,164 +1,31 @@
-"""Exact vector + PostgreSQL FTS retrieval fused with reciprocal rank fusion."""
+"""Orchestrate scoped dense and sparse retrieval with pluggable fusion."""
 
 from __future__ import annotations
 
 import logging
-import re
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
 from uuid import UUID
 
-from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.principal import Principal
-from app.db.models import Document, DocumentChunk, DocumentVersion
 from app.diagnostics import content_log_fields, log_event
 from app.providers.embeddings import EmbeddingProvider
-from app.rag.retrieval.filters import readable_current_document
+from app.rag.retrieval.analysis import (
+    QueryAnalyzer,
+    RuleBasedQueryAnalyzer,
+    expand_query_for_retrieval,
+    meaningful_terms,
+)
+from app.rag.retrieval.dense import DenseRetriever, PostgresDenseRetriever
+from app.rag.retrieval.fusion import FusionStrategy, ReciprocalRankFusion
+from app.rag.retrieval.models import RetrievalCandidate, RetrievalRequest
+from app.rag.retrieval.sparse import PostgresSparseRetriever, SparseRetriever
 
-_TERM_PATTERN = re.compile(r"[^\W_]+", re.UNICODE)
 logger = logging.getLogger(__name__)
-_QUERY_STOP_WORDS = frozenset(
-    {
-        "a",
-        "an",
-        "and",
-        "are",
-        "can",
-        "company",
-        "demo",
-        "does",
-        "for",
-        "from",
-        "how",
-        "i",
-        "is",
-        "of",
-        "on",
-        "the",
-        "to",
-        "use",
-        "what",
-        "which",
-        "with",
-        "báo",
-        "bao",
-        "bị",
-        "bi",
-        "cách",
-        "cach",
-        "cần",
-        "cho",
-        "có",
-        "co",
-        "dùng",
-        "dung",
-        "gì",
-        "gi",
-        "không",
-        "khong",
-        "là",
-        "la",
-        "lý",
-        "ly",
-        "nào",
-        "nao",
-        "như",
-        "nhu",
-        "thế",
-        "thì",
-        "thi",
-        "tôi",
-        "toi",
-        "trên",
-        "tren",
-        "và",
-        "va",
-        "xử",
-        "xu",
-        "được",
-        "duoc",
-    }
-)
-
-_SUPPORTED_DOMAIN_PATTERN = re.compile(r"\b(?:vpn|docker|registry|gitlab)\b")
-_VIETNAMESE_QUERY_EXPANSIONS: tuple[tuple[re.Pattern[str], tuple[str, ...]], ...] = (
-    (
-        re.compile(
-            r"\b(?:cấu\s+hình|cau\s+hinh|thiết\s+lập|thiet\s+lap|cài(?:\s+đặt)?|cai(?:\s+dat)?)\b"
-        ),
-        ("thiết lập", "cài", "setup", "configure", "install"),
-    ),
-    (
-        re.compile(r"\b(?:kết\s+nối|ket\s+noi)\b"),
-        ("connect", "connection", "reconnect"),
-    ),
-    (
-        re.compile(r"\b(?:đăng\s+nhập|dang\s+nhap|xác\s+thực|xac\s+thuc)\b"),
-        ("authenticate", "authentication", "login", "sso"),
-    ),
-    (
-        re.compile(r"\b(?:chứng\s+chỉ|chung\s+chi)\b"),
-        ("certificate", "ca", "bundle"),
-    ),
-    (
-        re.compile(r"\b(?:mã\s+truy\s+cập|ma\s+truy\s+cap|token)\b"),
-        ("access", "token"),
-    ),
-    (
-        re.compile(r"\b(?:kho\s+docker|kho\s+chứa|kho\s+chua)\b"),
-        ("docker", "registry"),
-    ),
-    (
-        re.compile(r"\b(?:xin\s+quyền|xin\s+quyen|yêu\s+cầu\s+quyền|yeu\s+cau\s+quyen)\b"),
-        ("access", "permission", "role"),
-    ),
-    (
-        re.compile(r"\b(?:dự\s+án|du\s+an)\b"),
-        ("project",),
-    ),
-    (
-        re.compile(r"\b(?:lỗi|loi)\b"),
-        ("error", "troubleshooting"),
-    ),
-)
-
-
-def expand_query_for_retrieval(value: str) -> str:
-    """Add bounded English aliases for supported-domain Vietnamese queries."""
-
-    normalized = " ".join(value.casefold().split())
-    if not _SUPPORTED_DOMAIN_PATTERN.search(normalized):
-        return value.strip()
-
-    additions: list[str] = []
-    seen = set(_TERM_PATTERN.findall(normalized))
-    for pattern, aliases in _VIETNAMESE_QUERY_EXPANSIONS:
-        if not pattern.search(normalized):
-            continue
-        for alias in aliases:
-            if alias not in seen:
-                additions.append(alias)
-                seen.add(alias)
-    return " ".join((value.strip(), *additions))
-
-
-def meaningful_terms(value: str, *, limit: int = 24) -> tuple[str, ...]:
-    """Return stable Unicode search terms without natural-language filler words."""
-
-    terms: list[str] = []
-    seen: set[str] = set()
-    for token in _TERM_PATTERN.findall(value.casefold()):
-        if len(token) < 2 or token in _QUERY_STOP_WORDS or token in seen:
-            continue
-        seen.add(token)
-        terms.append(token)
-        if len(terms) == limit:
-            break
-    return tuple(terms)
+__all__ = ["HybridRetriever", "RetrievalHit", "expand_query_for_retrieval", "meaningful_terms"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -181,73 +48,29 @@ class RetrievalHit:
     section_path: tuple[str, ...] = ()
 
 
-@dataclass(frozen=True, slots=True)
-class _Candidate:
-    chunk_id: UUID
-    document_id: UUID
-    version_id: UUID
-    document_key: str
-    version_label: str
-    title: str
-    page_number: int | None
-    section: str | None
-    content: str
-    ordinal: int
-    section_path: tuple[str, ...]
-
-
-def _base_query(principal: Principal, *, now: datetime) -> Select[Any]:
-    return (
-        select(
-            DocumentChunk.id.label("chunk_id"),
-            Document.id.label("document_id"),
-            DocumentVersion.id.label("version_id"),
-            Document.document_key,
-            DocumentVersion.version_label,
-            Document.title,
-            DocumentChunk.page_number,
-            DocumentChunk.section,
-            DocumentChunk.content,
-            DocumentChunk.ordinal,
-            DocumentChunk.section_path,
-        )
-        .join(DocumentVersion, DocumentChunk.version_id == DocumentVersion.id)
-        .join(Document, DocumentVersion.document_id == Document.id)
-        .where(readable_current_document(principal, now=now))
-    )
-
-
-def _candidate(row: object) -> _Candidate:
-    mapping = row._mapping  # type: ignore[attr-defined]
-    return _Candidate(
-        chunk_id=mapping["chunk_id"],
-        document_id=mapping["document_id"],
-        version_id=mapping["version_id"],
-        document_key=mapping["document_key"],
-        version_label=mapping["version_label"],
-        title=mapping["title"],
-        page_number=mapping["page_number"],
-        section=mapping["section"],
-        content=mapping["content"],
-        ordinal=mapping["ordinal"],
-        section_path=tuple(mapping["section_path"] or ()),
-    )
-
-
 class HybridRetriever:
     def __init__(
         self,
         *,
         embedding_provider: EmbeddingProvider,
+        query_analyzer: QueryAnalyzer | None = None,
+        dense_retriever: DenseRetriever | None = None,
+        sparse_retriever: SparseRetriever | None = None,
+        fusion_strategy: FusionStrategy | None = None,
         branch_limit: int = 20,
         result_limit: int = 5,
         rrf_k: int = 60,
         log_prompts: bool = False,
     ) -> None:
+        if branch_limit < 1 or result_limit < 1:
+            raise ValueError("Retrieval limits must be positive")
         self._embedding_provider = embedding_provider
+        self._query_analyzer = query_analyzer or RuleBasedQueryAnalyzer()
+        self._dense_retriever = dense_retriever or PostgresDenseRetriever()
+        self._sparse_retriever = sparse_retriever or PostgresSparseRetriever()
+        self._fusion_strategy = fusion_strategy or ReciprocalRankFusion(k=rrf_k)
         self._branch_limit = branch_limit
         self._result_limit = result_limit
-        self._rrf_k = rrf_k
         self._log_prompts = log_prompts
 
     async def search(
@@ -259,10 +82,9 @@ class HybridRetriever:
         operation_id: str,
         now: datetime | None = None,
     ) -> list[RetrievalHit]:
-        if not query.strip():
-            raise ValueError("Retrieval query cannot be empty")
         started_at = time.monotonic()
-        expanded_query = expand_query_for_retrieval(query)
+        request = RetrievalRequest(raw_query=query, result_limit=self._result_limit)
+        spec = self._query_analyzer.analyze(request)
         run_id = (
             operation_id.removeprefix("rag:").removesuffix(":retrieve")
             if operation_id.startswith("rag:")
@@ -270,131 +92,61 @@ class HybridRetriever:
         )
         log_event(
             logger,
-            "retrieval.embedding.started",
+            "retrieval.analysis.completed",
             run_id=run_id,
             operation_id=operation_id,
             actor_id=str(principal.user_id),
-            query_expanded=expanded_query != query.strip(),
+            semantic_query_expanded=spec.semantic_query != spec.raw_query,
+            exact_identifier_count=len(spec.exact_terms),
+            version_scope=spec.filters.version_scope,
+            **content_log_fields("query", spec.raw_query, include_content=self._log_prompts),
             **content_log_fields(
-                "query",
-                query,
-                include_content=self._log_prompts,
-            ),
-            **content_log_fields(
-                "expanded_query",
-                expanded_query,
-                include_content=self._log_prompts,
+                "semantic_query", spec.semantic_query, include_content=self._log_prompts
             ),
         )
+
+        embedding_started = time.monotonic()
         query_batch = await self._embedding_provider.embed(
-            [expanded_query],
-            operation_id=operation_id,
+            [spec.semantic_query], operation_id=operation_id
         )
+        embedding_ms = (time.monotonic() - embedding_started) * 1_000
         if query_batch.dimensions != 1536:
             raise ValueError("Query embedding dimensions do not match the corpus")
-        query_vector = list(query_batch.vectors[0])
+
         selected_now = now or datetime.now(UTC)
-        base = _base_query(principal, now=selected_now)
-        original_query_terms = meaningful_terms(query)
-        query_terms = meaningful_terms(expanded_query)
+        dense_started = time.monotonic()
+        dense = await self._dense_retriever.retrieve(
+            session,
+            query_vector=list(query_batch.vectors[0]),
+            principal=principal,
+            now=selected_now,
+            limit=self._branch_limit,
+        )
+        dense_ms = (time.monotonic() - dense_started) * 1_000
 
-        distance = DocumentChunk.embedding.cosine_distance(query_vector)
-        vector_rows = (
-            await session.execute(
-                base.add_columns(distance.label("vector_distance"))
-                .order_by(
-                    distance,
-                    Document.document_key,
-                    DocumentVersion.version_label,
-                    DocumentChunk.ordinal,
-                )
-                .limit(self._branch_limit)
-            )
-        ).all()
+        sparse_started = time.monotonic()
+        sparse = await self._sparse_retriever.retrieve(
+            session,
+            raw_query=spec.sparse_query,
+            principal=principal,
+            now=selected_now,
+            limit=self._branch_limit,
+        )
+        sparse_ms = (time.monotonic() - sparse_started) * 1_000
 
-        lexical_rows: list[Any] = []
-        if query_terms:
-            ts_query = func.to_tsquery("simple", " | ".join(query_terms))
-            lexical_score = func.ts_rank_cd(DocumentChunk.search_vector, ts_query)
-            lexical_rows = list(
-                (
-                    await session.execute(
-                        base.add_columns(lexical_score.label("lexical_score"))
-                        .where(DocumentChunk.search_vector.op("@@")(ts_query))
-                        .order_by(
-                            lexical_score.desc(),
-                            Document.document_key,
-                            DocumentVersion.version_label,
-                            DocumentChunk.ordinal,
-                        )
-                        .limit(self._branch_limit)
-                    )
-                ).all()
+        fusion_started = time.monotonic()
+        fused = self._fusion_strategy.fuse(dense, sparse)
+        hits = [
+            self._to_hit(
+                item,
+                raw_query=spec.raw_query,
+                semantic_query=spec.semantic_query,
             )
+            for item in fused
+        ]
+        results = hits[: request.result_limit]
+        fusion_ms = (time.monotonic() - fusion_started) * 1_000
 
-        candidates: dict[UUID, _Candidate] = {}
-        vector_ranks: dict[UUID, int] = {}
-        vector_similarities: dict[UUID, float] = {}
-        lexical_ranks: dict[UUID, int] = {}
-        for rank, row in enumerate(vector_rows, start=1):
-            item = _candidate(row)
-            candidates[item.chunk_id] = item
-            vector_ranks[item.chunk_id] = rank
-            distance_value = float(row._mapping["vector_distance"])
-            vector_similarities[item.chunk_id] = max(0.0, min(1.0, 1.0 - distance_value))
-        for rank, lexical_row in enumerate(lexical_rows, start=1):
-            item = _candidate(lexical_row)
-            candidates[item.chunk_id] = item
-            lexical_ranks[item.chunk_id] = rank
-
-        scored: list[RetrievalHit] = []
-        for chunk_id, item in candidates.items():
-            vector_rank = vector_ranks.get(chunk_id)
-            lexical_rank = lexical_ranks.get(chunk_id)
-            rrf_score = sum(
-                1 / (self._rrf_k + rank) for rank in (vector_rank, lexical_rank) if rank is not None
-            )
-            content_terms = set(meaningful_terms(item.content, limit=800))
-            coverage_denominator = len(original_query_terms) or len(query_terms)
-            lexical_coverage = (
-                min(1.0, len(set(query_terms) & content_terms) / coverage_denominator)
-                if coverage_denominator
-                else 0.0
-            )
-            vector_similarity = vector_similarities.get(chunk_id)
-            score = max(vector_similarity or 0.0, lexical_coverage)
-            scored.append(
-                RetrievalHit(
-                    chunk_id=item.chunk_id,
-                    document_id=item.document_id,
-                    version_id=item.version_id,
-                    document_key=item.document_key,
-                    version_label=item.version_label,
-                    title=item.title,
-                    page_number=item.page_number,
-                    section=item.section,
-                    content=item.content,
-                    score=score,
-                    vector_rank=vector_rank,
-                    lexical_rank=lexical_rank,
-                    vector_similarity=vector_similarity,
-                    lexical_coverage=lexical_coverage,
-                    rrf_score=rrf_score,
-                    section_path=item.section_path,
-                )
-            )
-        stable_order = {
-            candidate.chunk_id: (
-                candidate.document_key,
-                candidate.version_label,
-                candidate.ordinal,
-            )
-            for candidate in candidates.values()
-        }
-        results = sorted(
-            scored,
-            key=lambda hit: (-hit.score, -hit.rrf_score, stable_order[hit.chunk_id]),
-        )[: self._result_limit]
         log_event(
             logger,
             "retrieval.search.completed",
@@ -402,35 +154,69 @@ class HybridRetriever:
             operation_id=operation_id,
             embedding_model=query_batch.model,
             embedding_request_id=query_batch.provider_request_id,
-            vector_candidates=len(vector_rows),
-            lexical_candidates=len(lexical_rows),
+            fusion_strategy=self._fusion_strategy.name,
+            dense_candidates=len(dense),
+            sparse_candidates=len(sparse),
+            fused_candidates=len(fused),
             result_count=len(results),
+            embedding_ms=round(embedding_ms, 2),
+            dense_ms=round(dense_ms, 2),
+            sparse_ms=round(sparse_ms, 2),
+            fusion_ms=round(fusion_ms, 2),
             duration_ms=round((time.monotonic() - started_at) * 1_000, 2),
-            results=[
-                {
-                    "chunk_id": str(hit.chunk_id),
-                    "document_key": hit.document_key,
-                    "version_label": hit.version_label,
-                    "title": hit.title,
-                    "page_number": hit.page_number,
-                    "section": hit.section,
-                    "score": round(hit.score, 6),
-                    "vector_rank": hit.vector_rank,
-                    "lexical_rank": hit.lexical_rank,
-                    "vector_similarity": (
-                        round(hit.vector_similarity, 6)
-                        if hit.vector_similarity is not None
-                        else None
-                    ),
-                    "lexical_coverage": round(hit.lexical_coverage, 6),
-                    "rrf_score": round(hit.rrf_score, 6),
-                    **content_log_fields(
-                        "content",
-                        hit.content,
-                        include_content=self._log_prompts,
-                    ),
-                }
-                for hit in results
-            ],
+            results=[self._safe_result(hit) for hit in results],
         )
         return results
+
+    def _to_hit(
+        self,
+        candidate: RetrievalCandidate,
+        *,
+        raw_query: str,
+        semantic_query: str,
+    ) -> RetrievalHit:
+        raw_terms = set(meaningful_terms(raw_query))
+        semantic_terms = set(meaningful_terms(semantic_query))
+        content_terms = set(meaningful_terms(candidate.content, limit=800))
+        lexical_coverage = (
+            min(1.0, len(semantic_terms & content_terms) / len(raw_terms)) if raw_terms else 0.0
+        )
+        confidence = max(candidate.dense_score or 0.0, lexical_coverage)
+        return RetrievalHit(
+            chunk_id=candidate.chunk_id,
+            document_id=candidate.document_id,
+            version_id=candidate.version_id,
+            document_key=candidate.document_key,
+            version_label=candidate.version_label,
+            title=candidate.title,
+            page_number=candidate.page_number,
+            section=candidate.section,
+            content=candidate.content,
+            score=confidence,
+            vector_rank=candidate.dense_rank,
+            lexical_rank=candidate.sparse_rank,
+            vector_similarity=candidate.dense_score,
+            lexical_coverage=lexical_coverage,
+            rrf_score=candidate.fusion_score,
+            section_path=candidate.section_path,
+        )
+
+    def _safe_result(self, hit: RetrievalHit) -> dict[str, object]:
+        return {
+            "chunk_id": str(hit.chunk_id),
+            "document_key": hit.document_key,
+            "version_label": hit.version_label,
+            "title": hit.title,
+            "page_number": hit.page_number,
+            "section": hit.section,
+            "section_path": list(hit.section_path),
+            "score": round(hit.score, 6),
+            "dense_rank": hit.vector_rank,
+            "sparse_rank": hit.lexical_rank,
+            "vector_similarity": (
+                round(hit.vector_similarity, 6) if hit.vector_similarity is not None else None
+            ),
+            "lexical_coverage": round(hit.lexical_coverage, 6),
+            "rrf_score": round(hit.rrf_score, 6),
+            **content_log_fields("content", hit.content, include_content=self._log_prompts),
+        }

@@ -15,7 +15,7 @@
 - **Scope leakage**: scope cases where any `forbidden_document_keys` appears in any returned
   hit. The required result is zero leaks; filtered hits must never reach citation building.
 
-This M2 baseline uses deterministic fake embeddings and PostgreSQL full-text search. It
+This baseline uses deterministic fake embeddings, PostgreSQL full-text search and RRF. It
 validates retrieval wiring, version filtering, ACL behavior and reproducibility; it is not a
 claim about semantic quality of the paid OpenAI embedding model. Historical-version queries
 are recorded as a known gap and excluded from the release recall gate.

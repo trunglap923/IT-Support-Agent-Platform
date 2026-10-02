@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Literal
 from uuid import UUID
 
@@ -77,12 +77,23 @@ class RetrievalCandidate:
     document_key: str
     version_label: str
     content: str
+    title: str = ""
+    page_number: int | None = None
+    section: str | None = None
+    ordinal: int = 0
     dense_rank: int | None = None
     sparse_rank: int | None = None
     dense_score: float | None = None
     sparse_score: float | None = None
     section_id: UUID | None = None
     section_path: tuple[str, ...] = ()
+    fusion_score: float = 0.0
+
+    def with_dense(self, *, rank: int, score: float) -> RetrievalCandidate:
+        return replace(self, dense_rank=rank, dense_score=score)
+
+    def with_sparse(self, *, rank: int, score: float) -> RetrievalCandidate:
+        return replace(self, sparse_rank=rank, sparse_score=score)
 
 
 @dataclass(frozen=True, slots=True)

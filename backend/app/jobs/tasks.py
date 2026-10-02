@@ -71,6 +71,9 @@ def run_agent(run_id: str) -> dict[str, str]:
                     memory_dispatcher=CeleryMemoryExtractionDispatcher(celery_app),
                     agent_runtime_factory=agent_runtime_factory,
                     log_prompts=settings.log_prompts,
+                    retrieval_branch_limit=settings.retrieval_branch_limit,
+                    retrieval_result_limit=settings.retrieval_result_limit,
+                    retrieval_rrf_k=settings.retrieval_rrf_k,
                 )
             )
             return {key: str(value) for key, value in receipt.items()}

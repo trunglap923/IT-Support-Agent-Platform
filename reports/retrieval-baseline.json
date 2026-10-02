@@ -51,7 +51,7 @@
       "preserves_original_query": true
     },
     "fusion": {
-      "strategy": "max_confidence_with_rrf_tiebreak",
+      "strategy": "reciprocal_rank_fusion",
       "rrf_k": 60
     },
     "version_scope": "published_current_effective_unexpired",
@@ -120,9 +120,9 @@
       "top5": [
         "vpn-setup:v2",
         "vpn-setup:v2",
-        "vpn-setup:v2",
-        "docker-registry:v1",
-        "docker-registry-token-policy:v2"
+        "vpn-troubleshooting:v1",
+        "it-escalation:v1",
+        "vpn-setup:v2"
       ],
       "tags": [
         "semantic_vi",
@@ -145,7 +145,7 @@
         "vpn-setup:v2",
         "it-escalation:v1",
         "vpn-troubleshooting:v1",
-        "vpn-troubleshooting:v1"
+        "vpn-setup:v2"
       ],
       "tags": [
         "semantic_en",
@@ -166,8 +166,8 @@
       "top5": [
         "docker-registry:v1",
         "it-escalation:v1",
-        "docker-troubleshooting:v1",
         "docker-registry:v1",
+        "docker-troubleshooting:v1",
         "docker-registry-token-policy:v2"
       ],
       "tags": [
@@ -188,8 +188,8 @@
       "rank": 1,
       "top5": [
         "docker-troubleshooting:v1",
-        "docker-troubleshooting:v1",
         "docker-registry:v1",
+        "docker-troubleshooting:v1",
         "docker-registry:v1",
         "docker-troubleshooting:v1"
       ],
@@ -237,7 +237,7 @@
         "vpn-troubleshooting:v1",
         "docker-registry:v1",
         "engineering-oncall:v1",
-        "it-escalation:v1"
+        "vpn-troubleshooting:v1"
       ],
       "tags": [
         "semantic_en",
@@ -259,7 +259,7 @@
         "docker-registry-token-policy:v2",
         "docker-registry-token-policy:v2",
         "docker-registry:v1",
-        "docker-troubleshooting:v1",
+        "docker-registry:v1",
         "docker-troubleshooting:v1"
       ],
       "tags": [
@@ -304,9 +304,9 @@
       "top5": [
         "it-service-recovery:v1",
         "it-service-recovery:v1",
-        "docker-troubleshooting:v1",
+        "vpn-troubleshooting:v1",
         "docker-registry:v1",
-        "it-escalation:v1"
+        "docker-troubleshooting:v1"
       ],
       "tags": [
         "semantic_en",
@@ -389,8 +389,8 @@
       "rank": null,
       "top5": [
         "gitlab-access:v3",
-        "docker-registry:v1",
         "it-escalation:v1",
+        "docker-registry:v1",
         "vpn-setup:v2",
         "docker-registry:v1"
       ],
@@ -411,8 +411,8 @@
       "top5": [
         "docker-registry:v1",
         "docker-registry:v1",
-        "vpn-troubleshooting:v1",
         "engineering-oncall:v1",
+        "it-escalation:v1",
         "it-escalation:v1"
       ],
       "tags": [
@@ -420,7 +420,7 @@
         "no_answer"
       ],
       "relevant_documents": [],
-      "duplicate_rate_at_5": 0.2,
+      "duplicate_rate_at_5": 0.4,
       "forbidden_returned": []
     },
     {
@@ -454,8 +454,8 @@
         "docker-registry:v1",
         "vpn-troubleshooting:v1",
         "it-escalation:v1",
-        "vpn-troubleshooting:v1",
-        "vpn-setup:v2"
+        "docker-registry-token-policy:v2",
+        "docker-registry:v1"
       ],
       "tags": [
         "semantic_en",
@@ -473,9 +473,9 @@
       "rank": 1,
       "top5": [
         "vpn-troubleshooting:v1",
+        "vpn-setup:v2",
+        "vpn-setup:v2",
         "vpn-troubleshooting:v1",
-        "vpn-setup:v2",
-        "vpn-setup:v2",
         "docker-troubleshooting:v1"
       ],
       "tags": [
@@ -497,9 +497,9 @@
       "top5": [
         "engineering-oncall:v1",
         "docker-registry:v1",
-        "engineering-oncall:v1",
+        "docker-registry-token-policy:v2",
         "docker-registry:v1",
-        "docker-registry-token-policy:v2"
+        "engineering-oncall:v1"
       ],
       "tags": [
         "exact_identifier",
@@ -522,8 +522,8 @@
         "docker-troubleshooting:v1",
         "docker-registry:v1",
         "docker-registry:v1",
-        "docker-troubleshooting:v1",
-        "it-escalation:v1"
+        "it-escalation:v1",
+        "docker-registry-token-policy:v2"
       ],
       "tags": [
         "exact_identifier",
@@ -535,7 +535,7 @@
         "docker-registry:v1",
         "docker-troubleshooting:v1"
       ],
-      "duplicate_rate_at_5": 0.4,
+      "duplicate_rate_at_5": 0.2,
       "forbidden_returned": []
     },
     {
@@ -570,8 +570,8 @@
       "rank": null,
       "top5": [
         "docker-registry-token-policy:v2",
-        "docker-registry:v1",
         "docker-registry-token-policy:v2",
+        "docker-registry:v1",
         "docker-troubleshooting:v1",
         "docker-troubleshooting:v1"
       ],
@@ -594,9 +594,9 @@
       "rank": 2,
       "top5": [
         "vpn-setup:v2",
-        "vpn-troubleshooting:v1",
         "vpn-setup:v2",
         "vpn-troubleshooting:v1",
+        "vpn-setup:v2",
         "it-escalation:v1"
       ],
       "tags": [

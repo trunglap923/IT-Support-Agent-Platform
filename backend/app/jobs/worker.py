@@ -80,6 +80,9 @@ async def execute_support_run(
     memory_dispatcher: MemoryExtractionDispatcher | None = None,
     agent_runtime_factory: OpenAIAgentsRuntimeFactory | None = None,
     log_prompts: bool = False,
+    retrieval_branch_limit: int = 20,
+    retrieval_result_limit: int = 5,
+    retrieval_rrf_k: int = 60,
 ) -> WorkerResult:
     started_at = time.monotonic()
     log_event(
@@ -309,6 +312,9 @@ async def execute_support_run(
 
             retriever = HybridRetriever(
                 embedding_provider=embedding_provider,
+                branch_limit=retrieval_branch_limit,
+                result_limit=retrieval_result_limit,
+                rrf_k=retrieval_rrf_k,
                 log_prompts=log_prompts,
             )
             citation_store: dict[str, dict[str, object]] = {}

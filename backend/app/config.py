@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     embedding_dimensions: int = Field(default=1536, gt=0)
     embedding_input_price_per_million_usd: float = Field(default=0.02, ge=0)
     embedding_price_version: str = "2026-09-plan-v1"
+    retrieval_branch_limit: int = Field(default=20, ge=5, le=100)
+    retrieval_result_limit: int = Field(default=5, ge=1, le=20)
+    retrieval_rrf_k: int = Field(default=60, ge=1, le=1000)
 
     database_url: SecretStr | None = None
     migration_database_url: SecretStr | None = None

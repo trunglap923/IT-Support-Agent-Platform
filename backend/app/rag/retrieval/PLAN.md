@@ -1,6 +1,6 @@
 # Tìm kiếm hybrid có phân quyền
 
-Trạng thái: exact vector + FTS + scoped RRF baseline đã triển khai.
+Trạng thái: dense và sparse retrieval tách rời, dùng scoped RRF làm fusion chính.
 Work packages: WP-05, WP-13.
 Nguồn: [kế hoạch tổng](../../../../plan.md), mục 8.2, 19; [thứ tự triển khai](../../../../docs/implementation-roadmap.md).
 
@@ -11,7 +11,9 @@ Tìm evidence bằng vector và lexical search trong tập tài liệu user đư
 ## Hợp đồng và trách nhiệm
 
 - Input query + server principal; model không truyền SQL/ACL filters.
-- Cosine exact top 20 + FTS ts_rank_cd top 20 → dedupe/RRF(k=60) → top 5.
+- Cosine exact top 20 + PostgreSQL FTS `ts_rank_cd` top 20 → RRF(k=60) → top 5.
+- Sparse branch luôn dùng raw query; alias expansion chỉ áp dụng cho dense semantic query.
+- PostgreSQL FTS là sparse baseline hiện tại, chưa được gọi là BM25.
 - Reranker/HNSW tắt ban đầu; model space theo mục 16 của kế hoạch tổng.
 
 ## Tệp dự kiến khi viết code
@@ -20,9 +22,11 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 - `query.py`
 - `filters.py`
-- `vector.py`
-- `lexical.py`
+- `analysis.py`
+- `dense.py`
+- `sparse.py`
 - `fusion.py`
+- `store.py`
 
 ## Phụ thuộc và phối hợp
 
@@ -40,6 +44,9 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [x] RET-03: Fuse ranks bằng RRF thay vì cộng score khác thang đo.
 - [x] RET-04: Đo Recall@5 trên cases answerable, tách no-answer cases.
 - [x] RET-05: Retrieval artifact lưu corpus manifest hash, parser/chunker/embedding và threshold versions.
+- [x] RET-06: Tách interface query analyzer, dense, sparse và fusion khỏi orchestration.
+- [x] RET-07: Raw sparse query giữ exact identifier; RRF là thứ tự xếp hạng chính.
+- [x] RET-08: Trace số candidate và latency riêng cho embedding/dense/sparse/fusion.
 
 ## Điều kiện hoàn thành
 
