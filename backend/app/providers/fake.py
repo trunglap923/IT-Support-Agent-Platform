@@ -9,6 +9,8 @@ from app.providers.base import GeneratedText, TextDeltaCallback
 from app.providers.structured import (
     EvidenceInput,
     ExecutionPlanResponse,
+    QueryAnalysisOutput,
+    QueryAnalysisResponse,
     StructuredModelResponse,
     SupportExecutionPlan,
     SupportReply,
@@ -72,6 +74,35 @@ class FakeTextProvider:
 
     async def close(self) -> None:
         return None
+
+    async def analyze_query(
+        self,
+        query: str,
+        *,
+        deterministic: object,
+        max_output_tokens: int = 180,
+        operation_id: str | None = None,
+    ) -> QueryAnalysisResponse:
+        del max_output_tokens, operation_id
+        filters = getattr(deterministic, "filters", None)
+        analysis = QueryAnalysisOutput(
+            intent=getattr(deterministic, "intent", "unknown"),
+            semantic_query=getattr(deterministic, "semantic_query", query.strip()),
+            exact_terms=list(getattr(deterministic, "exact_terms", ())),
+            services=list(getattr(filters, "services", ())),
+            products=list(getattr(filters, "products", ())),
+            operating_systems=list(getattr(filters, "operating_systems", ())),
+            error_codes=list(getattr(filters, "error_codes", ())),
+            versions=list(getattr(filters, "version_labels", ())),
+            version_scope=getattr(filters, "version_scope", "current"),
+            confidence=getattr(deterministic, "confidence", 0.0),
+        )
+        return QueryAnalysisResponse(
+            analysis=analysis,
+            provider_request_id="fake-query-analysis",
+            input_tokens=0,
+            output_tokens=0,
+        )
 
     async def choose_support_tool(
         self,
@@ -213,6 +244,10 @@ class FakeTextProvider:
                     or any(phrase in normalized for phrase in direct_phrases)
                     else "knowledge"
                 )
+        elif selected_action != "direct":
+            decision = await self.choose_support_tool(query, history=history)
+            if decision.call is not None and decision.call.name == selected_action:
+                tool_arguments = decision.call.arguments
         device_markers = ("ubuntu", "windows", "macos", "laptop", "máy", "thiết bị")
         if selected_action in {"knowledge", "check_service_status"} and any(
             marker in normalized for marker in device_markers

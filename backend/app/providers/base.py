@@ -7,6 +7,7 @@ from typing import Protocol
 from app.providers.structured import (
     EvidenceInput,
     ExecutionPlanResponse,
+    QueryAnalysisResponse,
     StructuredModelResponse,
     ToolDecisionResponse,
 )
@@ -36,6 +37,16 @@ class TextGenerationProvider(Protocol):
 
 
 class StructuredResponseProvider(TextGenerationProvider, Protocol):
+    async def analyze_query(
+        self,
+        query: str,
+        *,
+        deterministic: object,
+        max_output_tokens: int = 180,
+        operation_id: str | None = None,
+    ) -> QueryAnalysisResponse:
+        """Analyze a low-confidence current query without using conversation history."""
+
     async def choose_support_tool(
         self,
         query: str,

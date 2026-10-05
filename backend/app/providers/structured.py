@@ -130,6 +130,50 @@ class EvidenceInput(BaseModel):
         return value.strip()
 
 
+class QueryAnalysisOutput(BaseModel):
+    """Bounded model contribution to query analysis; deterministic fields are merged later."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    intent: Literal[
+        "knowledge",
+        "incident",
+        "service_status",
+        "identity",
+        "ticket_read",
+        "ticket_create",
+        "social",
+        "memory",
+        "unknown",
+    ]
+    semantic_query: str = Field(min_length=1, max_length=1_000)
+    exact_terms: list[str] = Field(default_factory=list, max_length=20)
+    services: list[str] = Field(default_factory=list, max_length=5)
+    products: list[str] = Field(default_factory=list, max_length=5)
+    operating_systems: list[str] = Field(default_factory=list, max_length=5)
+    error_codes: list[str] = Field(default_factory=list, max_length=20)
+    versions: list[str] = Field(default_factory=list, max_length=10)
+    version_scope: Literal["current", "specific", "historical"] = "current"
+    confidence: float = Field(ge=0, le=1)
+
+    @field_validator(
+        "semantic_query",
+        "exact_terms",
+        "services",
+        "products",
+        "operating_systems",
+        "error_codes",
+        "versions",
+    )
+    @classmethod
+    def normalize_query_fields(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            return value.strip()
+        if isinstance(value, list):
+            return list(dict.fromkeys(str(item).strip() for item in value if str(item).strip()))
+        return value
+
+
 class SupportReply(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -184,6 +228,14 @@ class ToolDecisionResponse:
 @dataclass(frozen=True, slots=True)
 class ExecutionPlanResponse:
     plan: SupportExecutionPlan
+    provider_request_id: str
+    input_tokens: int
+    output_tokens: int
+
+
+@dataclass(frozen=True, slots=True)
+class QueryAnalysisResponse:
+    analysis: QueryAnalysisOutput
     provider_request_id: str
     input_tokens: int
     output_tokens: int

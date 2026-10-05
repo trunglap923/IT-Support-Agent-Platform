@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.context.builder import ContextMessage, build_agent_context
 from app.agent.graph import SupportGraphNodes
+from app.agent.request_policy import policy_for_request
 from app.agent.state import EvidenceState, SupportAgentState
 from app.auth.principal import Principal
 from app.db.models import Conversation, UserDevice
@@ -215,6 +216,8 @@ class RAGGraphNodes:
         run_id = state.get("run_id", "preview")
         started_at = time.monotonic()
         self._log("agent.plan.started", state)
+        request_policy = policy_for_request(state["query"])
+        selected_action = request_policy.preferred_action
         (
             plan,
             planned_steps,
@@ -223,7 +226,7 @@ class RAGGraphNodes:
             provider_request_id,
         ) = await self._create_execution_plan(
             state,
-            selected_action="auto",
+            selected_action=selected_action,
         )
         planned_action = plan.action
         if planned_action == "direct":
@@ -250,6 +253,8 @@ class RAGGraphNodes:
             tool_name=tool_call.name if tool_call is not None else None,
             tool_call_id=tool_call.call_id if tool_call is not None else None,
             provider_request_id=provider_request_id,
+            query_intent=request_policy.analysis.intent,
+            query_confidence=round(request_policy.analysis.confidence, 4),
             input_tokens=plan_input,
             output_tokens=plan_output,
             duration_ms=round((time.monotonic() - started_at) * 1_000, 2),

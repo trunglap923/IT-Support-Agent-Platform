@@ -151,10 +151,13 @@ class SupportSDKContext:
     retrieval_calls: int = 0
     ticket_display_key: str | None = None
     completed_stages: set[str] = field(default_factory=set)
+    policy: AgentRequestPolicy | None = None
 
     @property
     def request_policy(self) -> AgentRequestPolicy:
-        return policy_for_request(self.support.query)
+        if self.policy is None:
+            self.policy = policy_for_request(self.support.query)
+        return self.policy
 
     async def progress(
         self,
@@ -438,6 +441,7 @@ class OpenAIAgentsRuntime:
         self._on_stream_started = on_stream_started
         self._on_text_delta = on_text_delta
         self._request_policy = policy_for_request(context.support.query)
+        self._context.policy = self._request_policy
         self._agent = Agent[SupportSDKContext](
             name="IT Support Orchestrator",
             instructions=SUPPORT_INSTRUCTIONS,

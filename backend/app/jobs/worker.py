@@ -34,6 +34,7 @@ from app.providers.base import StructuredResponseProvider
 from app.providers.embeddings import EmbeddingProvider, FakeEmbeddingProvider
 from app.providers.fake import FakeTextProvider
 from app.providers.structured import IncompleteStructuredResponseError
+from app.rag.retrieval.analysis import ModelQueryAnalyzer
 from app.rag.retrieval.query import HybridRetriever
 from app.repositories.conversations import ConversationRepository
 from app.repositories.runs import RunRepository
@@ -312,6 +313,7 @@ async def execute_support_run(
 
             retriever = HybridRetriever(
                 embedding_provider=embedding_provider,
+                model_query_analyzer=ModelQueryAnalyzer(provider),
                 branch_limit=retrieval_branch_limit,
                 result_limit=retrieval_result_limit,
                 rrf_k=retrieval_rrf_k,
@@ -324,6 +326,7 @@ async def execute_support_run(
                 retriever=retriever,
                 run_id=str(run_id),
                 citation_store=citation_store,
+                current_query=query,
             )
 
             tool_executor = ToolExecutor(

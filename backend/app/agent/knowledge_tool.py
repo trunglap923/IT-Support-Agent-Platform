@@ -20,6 +20,7 @@ class KnowledgeToolSearch:
         retriever: HybridRetriever,
         run_id: str,
         citation_store: dict[str, dict[str, Any]],
+        current_query: str,
         minimum_lexical_coverage: float = 0.5,
         minimum_vector_similarity: float = 0.75,
     ) -> None:
@@ -28,15 +29,17 @@ class KnowledgeToolSearch:
         self._retriever = retriever
         self._run_id = run_id
         self._citation_store = citation_store
+        self._current_query = current_query.strip()
         self._minimum_lexical_coverage = minimum_lexical_coverage
         self._minimum_vector_similarity = minimum_vector_similarity
         self._call_index = 0
 
     async def __call__(self, query: str, limit: int) -> dict[str, object]:
+        del query  # Tool arguments cannot replace the latest user request.
         self._call_index += 1
         hits = await self._retriever.search(
             self._session,
-            query=query,
+            query=self._current_query,
             principal=self._principal,
             operation_id=f"agent:{self._run_id}:knowledge:{self._call_index}",
         )
@@ -72,4 +75,21 @@ class KnowledgeToolSearch:
                     "page_number": source.page_number,
                 }
             )
-        return {"sources": sources}
+        analysis = self._retriever.last_analysis
+        return {
+            "sources": sources,
+            "query_analysis": (
+                {
+                    "intent": analysis.intent,
+                    "confidence": analysis.confidence,
+                    "service": list(analysis.filters.services),
+                    "product": list(analysis.filters.products),
+                    "operating_system": list(analysis.filters.operating_systems),
+                    "error_codes": list(analysis.filters.error_codes),
+                    "versions": list(analysis.filters.version_labels),
+                    "version_scope": analysis.filters.version_scope,
+                }
+                if analysis is not None
+                else None
+            ),
+        }

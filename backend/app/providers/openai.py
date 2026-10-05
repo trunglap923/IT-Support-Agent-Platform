@@ -18,6 +18,8 @@ from app.providers.structured import (
     IncompleteStructuredResponseError,
     InvalidStructuredResponseError,
     ProviderContractError,
+    QueryAnalysisOutput,
+    QueryAnalysisResponse,
     StructuredModelResponse,
     SupportExecutionPlan,
     SupportReply,
@@ -150,6 +152,78 @@ class OpenAITextProvider:
 
     async def close(self) -> None:
         await self._client.close()
+
+    async def analyze_query(
+        self,
+        query: str,
+        *,
+        deterministic: object,
+        max_output_tokens: int = 180,
+        operation_id: str | None = None,
+    ) -> QueryAnalysisResponse:
+        """Analyze only the latest query when deterministic confidence is low."""
+        payload = {
+            "current_query": query.strip(),
+            "deterministic_analysis": {
+                "intent": getattr(deterministic, "intent", "unknown"),
+                "confidence": getattr(deterministic, "confidence", 0.0),
+                "semantic_query": getattr(deterministic, "semantic_query", query.strip()),
+                "exact_terms": list(getattr(deterministic, "exact_terms", ())),
+            },
+        }
+        serialized = json.dumps(payload, ensure_ascii=False)
+        if self._usage_ledger is not None:
+            if not operation_id:
+                raise ValueError("operation_id is required for paid query analysis")
+            await self._usage_ledger.reserve(
+                operation_id=operation_id,
+                provider="openai",
+                model=self._model,
+                estimated_input_tokens=max(1, len(serialized.encode("utf-8")) // 3),
+                estimated_output_tokens=max_output_tokens,
+                kind="chat",
+            )
+        try:
+            response = await self._client.responses.parse(
+                model=self._model,
+                instructions=(
+                    "Analyze only current_query for IT support retrieval. Do not use or infer "
+                    "conversation history. Preserve every deterministic exact term verbatim in "
+                    "semantic_query and exact_terms. Extract only entities explicitly present in "
+                    "the query. Use metadata conservatively because incorrect filters can "
+                    "reduce recall."
+                ),
+                input=serialized,
+                text_format=QueryAnalysisOutput,
+                max_output_tokens=max_output_tokens,
+                store=False,
+            )
+        except Exception:
+            if self._usage_ledger is not None and operation_id:
+                await self._usage_ledger.mark_unknown(operation_id=operation_id)
+            raise
+        parsed = response.output_parsed
+        if parsed is None:
+            if self._usage_ledger is not None and operation_id:
+                await self._usage_ledger.mark_unknown(operation_id=operation_id)
+            raise ProviderContractError("OpenAI returned no parsed query analysis")
+        analysis = QueryAnalysisOutput.model_validate(parsed)
+        usage = response.usage
+        input_tokens = usage.input_tokens if usage is not None else 0
+        output_tokens = usage.output_tokens if usage is not None else 0
+        if self._usage_ledger is not None and operation_id:
+            await self._usage_ledger.complete(
+                operation_id=operation_id,
+                actual_input_tokens=input_tokens,
+                actual_output_tokens=output_tokens,
+                provider_request_id=response.id,
+            )
+        return QueryAnalysisResponse(
+            analysis=analysis,
+            provider_request_id=response.id,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+        )
 
     async def choose_support_tool(
         self,

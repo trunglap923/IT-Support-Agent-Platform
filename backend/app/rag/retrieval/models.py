@@ -7,6 +7,17 @@ from typing import Literal
 from uuid import UUID
 
 VersionScope = Literal["current", "specific", "historical"]
+QueryIntent = Literal[
+    "knowledge",
+    "incident",
+    "service_status",
+    "identity",
+    "ticket_read",
+    "ticket_create",
+    "social",
+    "memory",
+    "unknown",
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -14,6 +25,7 @@ class RetrievalFilters:
     """Structured constraints extracted from a request before retrieval."""
 
     services: tuple[str, ...] = ()
+    products: tuple[str, ...] = ()
     operating_systems: tuple[str, ...] = ()
     error_codes: tuple[str, ...] = ()
     version_labels: tuple[str, ...] = ()
@@ -44,10 +56,14 @@ class QuerySpec:
     """
 
     raw_query: str
+    intent: QueryIntent
+    confidence: float
     semantic_query: str
     sparse_query: str
     exact_terms: tuple[str, ...]
     filters: RetrievalFilters
+    metadata_filters: tuple[tuple[str, str], ...] = ()
+    analyzer: str = "deterministic"
 
     @classmethod
     def from_request(
@@ -56,14 +72,23 @@ class QuerySpec:
         *,
         semantic_query: str | None = None,
         exact_terms: tuple[str, ...] = (),
+        intent: QueryIntent = "unknown",
+        confidence: float = 0.0,
+        filters: RetrievalFilters | None = None,
+        metadata_filters: tuple[tuple[str, str], ...] = (),
+        analyzer: str = "deterministic",
     ) -> QuerySpec:
         raw_query = request.raw_query.strip()
         return cls(
             raw_query=raw_query,
+            intent=intent,
+            confidence=max(0.0, min(1.0, confidence)),
             semantic_query=(semantic_query or raw_query).strip(),
             sparse_query=raw_query,
             exact_terms=exact_terms,
-            filters=request.filters,
+            filters=filters or request.filters,
+            metadata_filters=metadata_filters,
+            analyzer=analyzer,
         )
 
 

@@ -53,6 +53,10 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [x] RET-09: Tạo candidate pool bounded, rerank bằng score query-aware sau hybrid fusion.
 - [x] RET-10: Bổ sung neighboring và parent-section leaf expansion có chung ACL/current-version predicate.
 - [x] RET-11: Giới hạn context evidence theo estimated token budget, khử chunk trùng và chọn tối đa 5 citation.
+- [x] RET-12: Chuẩn hóa query-analysis contract gồm intent, confidence, exact terms, service/product/OS/error/version và metadata filters.
+- [x] RET-13: Chạy deterministic extraction trước; model analyzer chỉ được gọi một lần khi confidence thấp và có usage budget.
+- [x] RET-14: Multi-query fallback chỉ chạy theo policy confidence, tối đa hai semantic queries và luôn giữ raw sparse query/exact tokens.
+- [x] RET-15: Request policy ánh xạ structured intent sang tool; knowledge tool khóa retrieval vào current user request.
 
 ## Điều kiện hoàn thành
 

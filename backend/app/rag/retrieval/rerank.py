@@ -29,9 +29,7 @@ class WeightedFeatureReranker:
     def name(self) -> str:
         return "weighted_feature_v1"
 
-    def rerank(
-        self, query: str, candidates: list[RetrievalCandidate]
-    ) -> list[RetrievalCandidate]:
+    def rerank(self, query: str, candidates: list[RetrievalCandidate]) -> list[RetrievalCandidate]:
         query_terms = tuple(dict.fromkeys(meaningful_terms(query)))
         exact_terms = tuple(
             term.casefold()
@@ -42,10 +40,17 @@ class WeightedFeatureReranker:
         ranked: list[RetrievalCandidate] = []
         for candidate in candidates:
             searchable = " ".join(
-                (candidate.title, candidate.section or "", " ".join(candidate.section_path), candidate.content)
+                (
+                    candidate.title,
+                    candidate.section or "",
+                    " ".join(candidate.section_path),
+                    candidate.content,
+                )
             ).casefold()
             content_terms = set(meaningful_terms(searchable, limit=1_000))
-            coverage = len(set(query_terms) & content_terms) / len(query_terms) if query_terms else 0.0
+            coverage = (
+                len(set(query_terms) & content_terms) / len(query_terms) if query_terms else 0.0
+            )
             identifier_match = (
                 sum(term in searchable for term in exact_terms) / len(exact_terms)
                 if exact_terms
