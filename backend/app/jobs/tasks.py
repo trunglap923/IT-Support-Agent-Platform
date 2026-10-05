@@ -74,6 +74,9 @@ def run_agent(run_id: str) -> dict[str, str]:
                     retrieval_branch_limit=settings.retrieval_branch_limit,
                     retrieval_result_limit=settings.retrieval_result_limit,
                     retrieval_rrf_k=settings.retrieval_rrf_k,
+                    retrieval_max_primary_chunks_per_document=(
+                        settings.retrieval_max_primary_chunks_per_document
+                    ),
                 )
             )
             return {key: str(value) for key, value in receipt.items()}

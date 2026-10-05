@@ -84,6 +84,7 @@ async def execute_support_run(
     retrieval_branch_limit: int = 20,
     retrieval_result_limit: int = 5,
     retrieval_rrf_k: int = 60,
+    retrieval_max_primary_chunks_per_document: int = 1,
 ) -> WorkerResult:
     started_at = time.monotonic()
     log_event(
@@ -331,6 +332,9 @@ async def execute_support_run(
                 branch_limit=retrieval_branch_limit,
                 result_limit=retrieval_result_limit,
                 rrf_k=retrieval_rrf_k,
+                max_primary_chunks_per_document=(
+                    retrieval_max_primary_chunks_per_document
+                ),
                 log_prompts=log_prompts,
             )
             citation_store: dict[str, dict[str, object]] = {}

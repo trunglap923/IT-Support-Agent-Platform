@@ -57,6 +57,7 @@ class Settings(BaseSettings):
     retrieval_branch_limit: int = Field(default=20, ge=5, le=100)
     retrieval_result_limit: int = Field(default=5, ge=1, le=20)
     retrieval_rrf_k: int = Field(default=60, ge=1, le=1000)
+    retrieval_max_primary_chunks_per_document: int = Field(default=1, ge=1, le=5)
 
     database_url: SecretStr | None = None
     migration_database_url: SecretStr | None = None

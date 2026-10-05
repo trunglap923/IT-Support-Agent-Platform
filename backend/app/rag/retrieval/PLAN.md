@@ -59,6 +59,7 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [x] RET-15: Request policy ánh xạ structured intent sang tool; knowledge tool khóa retrieval vào current user request.
 - [x] RET-16: Resolve low-confidence intent trước runtime và dùng chung một QuerySpec cho policy, LangGraph, OpenAI Agents và retrieval.
 - [x] RET-17: Mở rộng Phase 5.0 evaluation lên 42 cases với nhãn section/required terms và metrics chunk/citation.
+- [x] RET-18: Giới hạn primary chunks theo document version; đo Phase 5.1 trên cùng dataset và giữ nguyên recall/citation gates.
 
 ## Điều kiện hoàn thành
 

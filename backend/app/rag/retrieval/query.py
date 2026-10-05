@@ -23,6 +23,7 @@ from app.rag.retrieval.analysis import (
     meaningful_terms,
 )
 from app.rag.retrieval.dense import DenseRetriever, PostgresDenseRetriever
+from app.rag.retrieval.diversity import DocumentDiversitySelector
 from app.rag.retrieval.expansion import expand_parent_and_neighbors
 from app.rag.retrieval.fusion import FusionStrategy, ReciprocalRankFusion
 from app.rag.retrieval.models import QuerySpec, RetrievalCandidate, RetrievalRequest
@@ -67,6 +68,7 @@ class HybridRetriever:
         model_query_analyzer: ModelQueryAnalyzer | None = None,
         query_rewrite_policy: QueryRewritePolicy | None = None,
         low_confidence_retry: LowConfidenceRetry | None = None,
+        diversity_selector: DocumentDiversitySelector | None = None,
         dense_retriever: DenseRetriever | None = None,
         sparse_retriever: SparseRetriever | None = None,
         fusion_strategy: FusionStrategy | None = None,
@@ -75,6 +77,7 @@ class HybridRetriever:
         candidate_limit: int = 20,
         result_limit: int = 5,
         expansion_per_hit: int = 2,
+        max_primary_chunks_per_document: int = 1,
         rrf_k: int = 60,
         log_prompts: bool = False,
     ) -> None:
@@ -86,6 +89,9 @@ class HybridRetriever:
         self._model_query_analyzer = model_query_analyzer
         self._query_rewrite_policy = query_rewrite_policy or QueryRewritePolicy()
         self._low_confidence_retry = low_confidence_retry or LowConfidenceRetry()
+        self._diversity_selector = diversity_selector or DocumentDiversitySelector(
+            max_chunks_per_document=max_primary_chunks_per_document
+        )
         self._dense_retriever = dense_retriever or PostgresDenseRetriever()
         self._sparse_retriever = sparse_retriever or PostgresSparseRetriever()
         self._fusion_strategy = fusion_strategy or ReciprocalRankFusion(k=rrf_k)
@@ -238,7 +244,15 @@ class HybridRetriever:
         fusion_ms = (time.monotonic() - fusion_started) * 1_000
         rerank_started = time.monotonic()
         reranked = self._reranker.rerank(spec.raw_query, fused[: self._candidate_limit])
-        seeds = reranked[: request.result_limit]
+        seeds = self._diversity_selector.select(
+            reranked,
+            limit=request.result_limit,
+        )
+        selected_seed_ids = {candidate.chunk_id for candidate in seeds}
+        diversity_dropped = sum(
+            candidate.chunk_id not in selected_seed_ids
+            for candidate in reranked[: request.result_limit]
+        )
         hits = [
             self._to_hit(
                 item,
@@ -293,6 +307,7 @@ class HybridRetriever:
             sparse_candidates=len(sparse),
             fused_candidates=len(fused),
             reranked_candidates=len(reranked),
+            diversity_dropped_candidates=max(0, diversity_dropped),
             expanded_candidates=len(expanded),
             primary_result_count=len(hits),
             result_count=len(results),

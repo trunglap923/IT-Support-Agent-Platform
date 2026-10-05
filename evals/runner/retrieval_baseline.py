@@ -556,6 +556,10 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                         "dense_score": 0.05,
                     },
                 },
+                "primary_diversity": {
+                    "strategy": "document_version_cap",
+                    "max_chunks_per_document": 1,
+                },
                 "context_expansion": {
                     "strategy": "acl_scoped_neighbor_and_parent_section",
                     "neighbors_per_seed_each_direction": 2,
