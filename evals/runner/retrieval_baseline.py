@@ -79,6 +79,30 @@ class RelevantDocument:
 
 
 @dataclass(frozen=True, slots=True)
+class RelevantChunk:
+    document_key: str
+    version_label: str
+    section: str
+    required_terms: list[str]
+
+    def matches(
+        self,
+        *,
+        document_key: str,
+        version_label: str,
+        section: str | None,
+        content: str,
+    ) -> bool:
+        normalized_content = content.casefold()
+        return (
+            document_key == self.document_key
+            and version_label == self.version_label
+            and (section or "").casefold() == self.section.casefold()
+            and all(term.casefold() in normalized_content for term in self.required_terms)
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class RetrievalCase:
     case_id: str
     query: str
@@ -89,6 +113,7 @@ class RetrievalCase:
     expected_version_label: str | None
     forbidden_document_keys: list[str]
     relevant_documents: list[RelevantDocument]
+    relevant_chunks: list[RelevantChunk]
     tags: list[str]
 
 
@@ -108,7 +133,12 @@ def load_cases() -> list[RetrievalCase]:
             details = "; ".join(error.message for error in errors)
             raise ValueError(f"{CASES_PATH}:{line_number}: {details}")
         relevant = [RelevantDocument(**item) for item in raw.pop("relevant_documents")]
-        case = RetrievalCase(relevant_documents=relevant, **raw)
+        relevant_chunks = [RelevantChunk(**item) for item in raw.pop("relevant_chunks")]
+        case = RetrievalCase(
+            relevant_documents=relevant,
+            relevant_chunks=relevant_chunks,
+            **raw,
+        )
         expected = (
             f"{case.expected_document_key}:{case.expected_version_label}"
             if case.expected_document_key
@@ -119,6 +149,10 @@ def load_cases() -> list[RetrievalCase]:
         }:
             raise ValueError(
                 f"{CASES_PATH}:{line_number}: expected document is not relevant"
+            )
+        if case.expected_outcome == "answered" and not case.relevant_chunks:
+            raise ValueError(
+                f"{CASES_PATH}:{line_number}: answerable cases require chunk labels"
             )
         cases.append(case)
     if len({case.case_id for case in cases}) != len(cases):
@@ -303,6 +337,10 @@ async def evaluate(database_url: str) -> dict[str, Any]:
         known_gap_count = 0
         known_gap_hits = 0
         citation_relevant_hits = 0
+        chunk_retrieval_hits = 0
+        chunk_citation_hits = 0
+        relevant_citation_count = 0
+        answerable_citation_count = 0
         citation_count_sum = 0
         citation_context_token_sum = 0
         citation_context_token_max = 0
@@ -371,6 +409,8 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                     scope_leaks += bool(forbidden_returned)
                 evidence = build_evidence_output(hits)
                 expanded_count = sum(hit.expansion_kind is not None for hit in hits)
+                primary_result_count = len(hits) - expanded_count
+                primary_hits = hits[:primary_result_count]
                 expanded_chunk_sum += expanded_count
                 evidence_tokens = sum(
                     max(1, math.ceil(len(item.encode("utf-8")) / 3))
@@ -388,6 +428,35 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                 )
                 if case.expected_outcome == "answered" and relevant_citation:
                     citation_relevant_hits += 1
+                chunk_retrieved = any(
+                    label.matches(
+                        document_key=hit.document_key,
+                        version_label=hit.version_label,
+                        section=hit.section,
+                        content=hit.content,
+                    )
+                    for label in case.relevant_chunks
+                    for hit in primary_hits
+                )
+                hit_by_id = {hit.chunk_id: hit for hit in hits}
+                relevant_selected_citations = sum(
+                    any(
+                        label.matches(
+                            document_key=source.document_key,
+                            version_label=source.version_label,
+                            section=source.section,
+                            content=hit_by_id[source.chunk_id].content,
+                        )
+                        for label in case.relevant_chunks
+                    )
+                    for source in evidence.sources
+                )
+                chunk_cited = relevant_selected_citations > 0
+                if case.expected_outcome == "answered":
+                    chunk_retrieval_hits += chunk_retrieved
+                    chunk_citation_hits += chunk_cited
+                    relevant_citation_count += relevant_selected_citations
+                    answerable_citation_count += len(evidence.sources)
                 if (
                     case.expected_outcome == "no_answer"
                     and not case.forbidden_document_keys
@@ -407,7 +476,7 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                         "rank": rank,
                         "top5": ranked[:RESULT_LIMIT],
                         "retrieved_result_count": len(hits),
-                        "primary_result_count": len(hits) - expanded_count,
+                        "primary_result_count": primary_result_count,
                         "expanded_chunk_count": expanded_count,
                         "selected_citation_count": len(evidence.sources),
                         "selected_citation_documents": [
@@ -416,6 +485,17 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                         ],
                         "citation_context_estimated_tokens": evidence_tokens,
                         "expected_document_cited": relevant_citation,
+                        "expected_chunk_retrieved": chunk_retrieved,
+                        "expected_chunk_cited": chunk_cited,
+                        "relevant_selected_citations": relevant_selected_citations,
+                        "top5_chunks": [
+                            {
+                                "document": f"{hit.document_key}:{hit.version_label}",
+                                "section": hit.section,
+                                "ordinal": hit.ordinal,
+                            }
+                            for hit in primary_hits[:RESULT_LIMIT]
+                        ],
                         "tags": case.tags,
                         "relevant_documents": sorted(relevant),
                         "duplicate_rate_at_5": case_duplicate_rate,
@@ -425,7 +505,7 @@ async def evaluate(database_url: str) -> dict[str, Any]:
         recall = recall_sum / answerable_count
         case_count = len(cases)
         return {
-            "report_version": "retrieval-baseline-v2",
+            "report_version": "retrieval-baseline-v3",
             "evaluated_at": EVALUATION_TIME.isoformat(),
             "corpus_snapshot": "m2-corpus-v1",
             "corpus_manifest_sha256": hashlib.sha256(
@@ -539,6 +619,27 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                     if answerable_count
                     else 0.0,
                 },
+                "expected_chunk_recall_at_5": {
+                    "numerator": chunk_retrieval_hits,
+                    "denominator": answerable_count,
+                    "value": chunk_retrieval_hits / answerable_count
+                    if answerable_count
+                    else 0.0,
+                },
+                "expected_chunk_citation_rate": {
+                    "numerator": chunk_citation_hits,
+                    "denominator": answerable_count,
+                    "value": chunk_citation_hits / answerable_count
+                    if answerable_count
+                    else 0.0,
+                },
+                "citation_precision": {
+                    "numerator": relevant_citation_count,
+                    "denominator": answerable_citation_count,
+                    "value": relevant_citation_count / answerable_citation_count
+                    if answerable_citation_count
+                    else 0.0,
+                },
                 "selected_citations_per_case": {
                     "sum": citation_count_sum,
                     "denominator": case_count,
@@ -565,7 +666,7 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                 "Historical version requests are measured as a known gap and excluded from the release gate.",
                 "Precision and duplicate rate are measured at document-version level.",
                 "No-answer uses the retrieval/citation threshold; claim support needs WP-06.",
-                "Citation quality is measured against expected document/version labels; chunk-level claim support is not labeled.",
+                "Chunk labels match section plus required terms and do not provide claim-level entailment judgments.",
                 "The dataset is development-only and must not be treated as a holdout set.",
             ],
             "cases": results,
@@ -603,6 +704,9 @@ def write_report(report: dict[str, Any]) -> None:
     no_answer = metrics["no_answer_accuracy"]
     leakage = metrics["scope_leakage"]
     citation_rate = metrics["expected_document_citation_rate"]
+    chunk_recall = metrics["expected_chunk_recall_at_5"]
+    chunk_citation = metrics["expected_chunk_citation_rate"]
+    citation_precision = metrics["citation_precision"]
     citation_count = metrics["selected_citations_per_case"]
     citation_tokens = metrics["citation_context_estimated_tokens"]
     expansion = metrics["expanded_chunks_per_case"]
@@ -639,8 +743,20 @@ def write_report(report: dict[str, Any]) -> None:
         f"| Expected document cited | {citation_rate['numerator']} | "
         f"{citation_rate['denominator']} | {citation_rate['value']:.3f} |"
     )
+    chunk_recall_row = (
+        f"| Expected chunk recall@5 | {chunk_recall['numerator']} | "
+        f"{chunk_recall['denominator']} | {chunk_recall['value']:.3f} |"
+    )
+    chunk_citation_row = (
+        f"| Expected chunk cited | {chunk_citation['numerator']} | "
+        f"{chunk_citation['denominator']} | {chunk_citation['value']:.3f} |"
+    )
+    citation_precision_row = (
+        f"| Citation precision | {citation_precision['numerator']} | "
+        f"{citation_precision['denominator']} | {citation_precision['value']:.3f} |"
+    )
     markdown = (
-        f"""# Retrieval benchmark — Phase 3
+        f"""# Retrieval benchmark — Phase 5.0 evaluation
 
 Run against an isolated, freshly migrated PostgreSQL/pgvector database at
 `{report["evaluated_at"]}` using corpus `{report["corpus_snapshot"]}`.
@@ -665,10 +781,13 @@ Configuration: reranker `{report["configuration"]["reranker"]["strategy"]}`, """
 {no_answer_row}
 {leakage_row}
 {citation_row}
+{chunk_recall_row}
+{chunk_citation_row}
+{citation_precision_row}
 
 G-04 (`Recall@5 >= 0.85`): **{"PASS" if metrics["g04_recall_gate"]["passed"] else "FAIL"}**.
 
-Phase 3 context: average {expansion["mean"]:.2f} expanded chunks per query; average
+Context: average {expansion["mean"]:.2f} expanded chunks per query; average
 {citation_count["mean"]:.2f} selected citations; average {citation_tokens["mean"]:.0f}
 estimated citation context tokens (maximum observed {citation_tokens["max_case"]}, budget
 {citation_tokens["budget"]}).

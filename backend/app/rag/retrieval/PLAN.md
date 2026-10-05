@@ -58,6 +58,7 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [x] RET-14: Multi-query fallback chỉ chạy theo policy confidence, tối đa hai semantic queries và luôn giữ raw sparse query/exact tokens.
 - [x] RET-15: Request policy ánh xạ structured intent sang tool; knowledge tool khóa retrieval vào current user request.
 - [x] RET-16: Resolve low-confidence intent trước runtime và dùng chung một QuerySpec cho policy, LangGraph, OpenAI Agents và retrieval.
+- [x] RET-17: Mở rộng Phase 5.0 evaluation lên 42 cases với nhãn section/required terms và metrics chunk/citation.
 
 ## Điều kiện hoàn thành
 
