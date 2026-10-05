@@ -20,6 +20,7 @@ from app.agent.openai_agents_runtime import (
     SupportSDKContext,
 )
 from app.agent.rag import RAGGraphNodes
+from app.agent.request_policy import resolve_request_policy
 from app.auth.principal import Principal
 from app.db import Database
 from app.db.models import AgentRuntimeState, ApprovalRequest, ApprovalStatus, Message, RunStatus
@@ -34,7 +35,6 @@ from app.providers.base import StructuredResponseProvider
 from app.providers.embeddings import EmbeddingProvider, FakeEmbeddingProvider
 from app.providers.fake import FakeTextProvider
 from app.providers.structured import IncompleteStructuredResponseError
-from app.rag.retrieval.analysis import ModelQueryAnalyzer
 from app.rag.retrieval.query import HybridRetriever
 from app.repositories.conversations import ConversationRepository
 from app.repositories.runs import RunRepository
@@ -311,9 +311,23 @@ async def execute_support_run(
                 ),
             )
 
+            request_policy = await resolve_request_policy(
+                query,
+                model=provider,
+                operation_id=f"agent:{run_id}:query-analysis",
+            )
+            log_event(
+                logger,
+                "worker.query_analysis.resolved",
+                run_id=str(run_id),
+                intent=request_policy.analysis.intent,
+                confidence=round(request_policy.analysis.confidence, 4),
+                analyzer=request_policy.analysis.analyzer,
+                model_calls=request_policy.analysis_model_calls,
+            )
             retriever = HybridRetriever(
                 embedding_provider=embedding_provider,
-                model_query_analyzer=ModelQueryAnalyzer(provider),
+                query_analysis=request_policy.analysis,
                 branch_limit=retrieval_branch_limit,
                 result_limit=retrieval_result_limit,
                 rrf_k=retrieval_rrf_k,
@@ -375,6 +389,7 @@ async def execute_support_run(
                     approval_decision=approval_decision,
                     tool_calls=prior_tool_calls,
                     retrieval_calls=prior_retrieval_calls,
+                    policy=request_policy,
                 )
                 runtime = agent_runtime_factory.create(
                     context=sdk_context,
@@ -401,6 +416,7 @@ async def execute_support_run(
                     principal=principal,
                     retriever=retriever,
                     provider=provider,
+                    request_policy=request_policy,
                     history=support_context.model_history,
                     observer=observer,
                     model=model,
@@ -422,6 +438,18 @@ async def execute_support_run(
                         },
                     )
                 )
+            result["model_calls"] = (
+                int(result.get("model_calls", 0)) + request_policy.analysis_model_calls
+            )
+            result["step_count"] = (
+                int(result.get("step_count", 0)) + request_policy.analysis_model_calls
+            )
+            result["input_tokens"] = (
+                int(result.get("input_tokens", 0)) + request_policy.analysis_input_tokens
+            )
+            result["output_tokens"] = (
+                int(result.get("output_tokens", 0)) + request_policy.analysis_output_tokens
+            )
             log_event(
                 logger,
                 "worker.graph.completed",

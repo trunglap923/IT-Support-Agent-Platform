@@ -440,7 +440,7 @@ class OpenAIAgentsRuntime:
         self._usage_ledger = usage_ledger
         self._on_stream_started = on_stream_started
         self._on_text_delta = on_text_delta
-        self._request_policy = policy_for_request(context.support.query)
+        self._request_policy = context.request_policy
         self._context.policy = self._request_policy
         self._agent = Agent[SupportSDKContext](
             name="IT Support Orchestrator",

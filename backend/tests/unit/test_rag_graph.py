@@ -5,6 +5,7 @@ from uuid import uuid4
 
 from app.agent.graph import build_support_graph, run_support_graph
 from app.agent.rag import RAGGraphNodes
+from app.agent.request_policy import policy_for_analysis
 from app.auth.principal import Principal
 from app.db.models import UserRole
 from app.providers.fake import FakeTextProvider
@@ -12,6 +13,7 @@ from app.providers.structured import (
     IncompleteStructuredResponseError,
     InvalidStructuredResponseError,
 )
+from app.rag.retrieval.models import QuerySpec, RetrievalRequest
 from app.rag.retrieval.query import RetrievalHit
 from app.tools.results import ToolResult
 
@@ -131,6 +133,40 @@ def test_rag_graph_returns_server_owned_citation() -> None:
         assert result["citation_ids"] == [result["citations"][0]["source_id"]]
         assert result["citations"][0]["title"] == "VPN guide"
         assert retriever.queries == ["How do I use VPN?"]
+
+    asyncio.run(scenario())
+
+
+def test_rag_graph_uses_pre_resolved_low_confidence_policy() -> None:
+    async def scenario() -> None:
+        query = "Portal Alpha-42 dành cho máy mới"
+        request_policy = policy_for_analysis(
+            QuerySpec.from_request(
+                RetrievalRequest(raw_query=query),
+                intent="knowledge",
+                confidence=0.91,
+                semantic_query="internal onboarding portal Alpha-42",
+                exact_terms=("Alpha-42",),
+                analyzer="deterministic+model",
+            )
+        )
+        retriever = StubRetriever([hit()])
+        nodes = RAGGraphNodes(
+            session=SimpleNamespace(),  # type: ignore[arg-type]
+            principal=principal(),
+            retriever=retriever,  # type: ignore[arg-type]
+            provider=FakeTextProvider(),
+            request_policy=request_policy,
+        )
+
+        result = await run_support_graph(
+            build_support_graph(nodes.graph_nodes()),
+            {"query": query, "run_id": "run-resolved-policy"},
+        )
+
+        assert result["outcome"] == "answered"
+        assert result["retrieval_calls"] == 1
+        assert retriever.queries == [query]
 
     asyncio.run(scenario())
 

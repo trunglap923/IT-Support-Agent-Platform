@@ -1,3 +1,4 @@
+import asyncio
 from typing import Any, cast
 from uuid import uuid4
 
@@ -8,9 +9,10 @@ from app.agent.openai_agents_runtime import (
     build_agents_input,
     guard_support_output,
 )
-from app.agent.request_policy import policy_for_request
+from app.agent.request_policy import policy_for_request, resolve_request_policy
 from app.auth.principal import Principal
 from app.db.models import UserRole
+from app.providers.structured import QueryAnalysisOutput, QueryAnalysisResponse
 
 
 def _support_context(
@@ -142,6 +144,118 @@ def test_request_policy_allows_evidence_and_service_for_incident() -> None:
             "check_service_status",
         }
     )
+
+
+def test_low_confidence_request_uses_model_before_tool_policy() -> None:
+    class KnowledgeModel:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def analyze_query(self, query: str, **kwargs: object) -> QueryAnalysisResponse:
+            del query, kwargs
+            self.calls += 1
+            return QueryAnalysisResponse(
+                analysis=QueryAnalysisOutput(
+                    intent="knowledge",
+                    semantic_query="internal onboarding portal",
+                    exact_terms=["KB1234"],
+                    products=["internal-portal"],
+                    confidence=0.91,
+                ),
+                provider_request_id="query-analysis-1",
+                input_tokens=12,
+                output_tokens=7,
+            )
+
+    async def scenario() -> None:
+        model = KnowledgeModel()
+        policy = await resolve_request_policy(
+            "Portal KB1234 dành cho máy mới",
+            model=model,
+            operation_id="test:query-analysis",
+        )
+
+        assert model.calls == 1
+        assert policy.analysis.intent == "knowledge"
+        assert policy.requires_knowledge is True
+        assert policy.preferred_action == "knowledge"
+        assert policy.allows("search_knowledge_base") is True
+        assert policy.analysis.exact_terms == ("KB1234",)
+        assert "KB1234" in policy.analysis.semantic_query
+        assert policy.analysis_model_calls == 1
+        assert policy.analysis_input_tokens == 12
+        assert policy.analysis_output_tokens == 7
+
+    asyncio.run(scenario())
+
+
+def test_high_confidence_request_skips_model_analysis() -> None:
+    class UnexpectedModel:
+        async def analyze_query(self, query: str, **kwargs: object) -> QueryAnalysisResponse:
+            del query, kwargs
+            raise AssertionError("High-confidence requests must not call the model analyzer")
+
+    policy = asyncio.run(
+        resolve_request_policy(
+            "Cách cấu hình VPN trên Ubuntu?",
+            model=UnexpectedModel(),
+            operation_id="test:query-analysis-skipped",
+        )
+    )
+
+    assert policy.analysis.intent == "knowledge"
+    assert policy.analysis.analyzer == "deterministic"
+    assert policy.analysis_model_calls == 0
+
+
+def test_low_confidence_model_failure_falls_back_to_deterministic_policy() -> None:
+    class FailingModel:
+        async def analyze_query(self, query: str, **kwargs: object) -> QueryAnalysisResponse:
+            del query, kwargs
+            raise RuntimeError("provider unavailable")
+
+    policy = asyncio.run(
+        resolve_request_policy(
+            "Portal nội bộ dành cho máy mới",
+            model=FailingModel(),
+            operation_id="test:query-analysis-fallback",
+        )
+    )
+
+    assert policy.analysis.intent == "unknown"
+    assert policy.preferred_action == "direct"
+    assert policy.analysis.analyzer == "deterministic"
+    assert policy.analysis_model_calls == 1
+    assert policy.analysis_input_tokens == 0
+    assert policy.analysis_output_tokens == 0
+
+
+def test_low_confidence_model_result_cannot_expand_tool_permissions() -> None:
+    class UncertainModel:
+        async def analyze_query(self, query: str, **kwargs: object) -> QueryAnalysisResponse:
+            del query, kwargs
+            return QueryAnalysisResponse(
+                analysis=QueryAnalysisOutput(
+                    intent="ticket_create",
+                    semantic_query="create internal support ticket",
+                    confidence=0.49,
+                ),
+                provider_request_id="uncertain-query-analysis",
+                input_tokens=9,
+                output_tokens=4,
+            )
+
+    policy = asyncio.run(
+        resolve_request_policy(
+            "Bạn xử lý giúp việc này",
+            model=UncertainModel(),
+            operation_id="test:uncertain-query-analysis",
+        )
+    )
+
+    assert policy.analysis.intent == "unknown"
+    assert policy.allowed_tools == frozenset()
+    assert policy.analysis_model_calls == 1
 
 
 def test_output_guard_blocks_unsupported_internal_answer() -> None:

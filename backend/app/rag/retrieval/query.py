@@ -62,6 +62,7 @@ class HybridRetriever:
         self,
         *,
         embedding_provider: EmbeddingProvider,
+        query_analysis: QuerySpec | None = None,
         query_analyzer: QueryAnalyzer | None = None,
         model_query_analyzer: ModelQueryAnalyzer | None = None,
         query_rewrite_policy: QueryRewritePolicy | None = None,
@@ -80,6 +81,7 @@ class HybridRetriever:
         if branch_limit < 1 or candidate_limit < result_limit or result_limit < 1:
             raise ValueError("Retrieval limits must be positive")
         self._embedding_provider = embedding_provider
+        self._query_analysis = query_analysis
         self._query_analyzer = query_analyzer or DeterministicQueryAnalyzer()
         self._model_query_analyzer = model_query_analyzer
         self._query_rewrite_policy = query_rewrite_policy or QueryRewritePolicy()
@@ -110,22 +112,38 @@ class HybridRetriever:
     ) -> list[RetrievalHit]:
         started_at = time.monotonic()
         request = RetrievalRequest(raw_query=query, result_limit=self._result_limit)
-        spec = self._query_analyzer.analyze(request)
+        normalized_raw_query = request.raw_query.strip()
+        if (
+            self._query_analysis is not None
+            and " ".join(self._query_analysis.raw_query.split())
+            == " ".join(normalized_raw_query.split())
+        ):
+            spec = self._query_analysis
+            analysis_precomputed = True
+        else:
+            spec = self._query_analyzer.analyze(request)
+            analysis_precomputed = False
         run_id = (
             operation_id.removeprefix("rag:").removesuffix(":retrieve")
             if operation_id.startswith("rag:")
             else None
         )
-        model_analysis_used = False
-        if self._model_query_analyzer is not None and self._query_rewrite_policy.use_model(spec):
+        model_analysis_used = spec.analyzer == "deterministic+model"
+        if (
+            not analysis_precomputed
+            and self._model_query_analyzer is not None
+            and self._query_rewrite_policy.use_model(spec)
+        ):
             try:
                 calls_before = self._model_query_analyzer.calls_used
-                spec = await self._model_query_analyzer.analyze(
+                modeled_spec = await self._model_query_analyzer.analyze(
                     request,
                     spec,
                     operation_id=f"{operation_id}:query-analysis",
                 )
                 model_analysis_used = self._model_query_analyzer.calls_used > calls_before
+                if self._query_rewrite_policy.accept_model(modeled_spec):
+                    spec = modeled_spec
             except Exception as error:
                 log_event(
                     logger,
@@ -146,6 +164,7 @@ class HybridRetriever:
             actor_id=str(principal.user_id),
             semantic_query_expanded=spec.semantic_query != spec.raw_query,
             analyzer=spec.analyzer,
+            analysis_precomputed=analysis_precomputed,
             analysis_confidence=round(spec.confidence, 4),
             intent=spec.intent,
             model_analysis_used=model_analysis_used,

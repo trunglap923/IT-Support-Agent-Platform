@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.context.builder import ContextMessage, build_agent_context
 from app.agent.graph import SupportGraphNodes
-from app.agent.request_policy import policy_for_request
+from app.agent.request_policy import AgentRequestPolicy, policy_for_request
 from app.agent.state import EvidenceState, SupportAgentState
 from app.auth.principal import Principal
 from app.db.models import Conversation, UserDevice
@@ -79,6 +79,7 @@ class RAGGraphNodes:
         principal: Principal,
         retriever: Retriever,
         provider: StructuredResponseProvider,
+        request_policy: AgentRequestPolicy | None = None,
         history: Sequence[ContextMessage] = (),
         minimum_lexical_coverage: float = 0.5,
         minimum_vector_similarity: float = 0.75,
@@ -94,6 +95,7 @@ class RAGGraphNodes:
         self._principal = principal
         self._retriever = retriever
         self._provider = provider
+        self._request_policy = request_policy
         self._history = list(history)
         self._minimum_lexical_coverage = minimum_lexical_coverage
         self._minimum_vector_similarity = minimum_vector_similarity
@@ -216,7 +218,7 @@ class RAGGraphNodes:
         run_id = state.get("run_id", "preview")
         started_at = time.monotonic()
         self._log("agent.plan.started", state)
-        request_policy = policy_for_request(state["query"])
+        request_policy = self._request_policy or policy_for_request(state["query"])
         selected_action = request_policy.preferred_action
         (
             plan,

@@ -482,6 +482,9 @@ class QueryRewritePolicy:
     def allow_retry(self, spec: QuerySpec) -> bool:
         return self.max_semantic_queries > 1 and spec.confidence < self.retry_confidence_threshold
 
+    def accept_model(self, spec: QuerySpec) -> bool:
+        return spec.confidence >= self.model_confidence_threshold
+
 
 class ModelQueryAnalyzer:
     """Apply at most one bounded model analysis and preserve deterministic exact terms."""
@@ -499,10 +502,19 @@ class ModelQueryAnalyzer:
         self._max_output_tokens = max_output_tokens
         self._max_calls = max_calls
         self._calls_used = 0
+        self._last_response: QueryAnalysisResponse | None = None
 
     @property
     def calls_used(self) -> int:
         return self._calls_used
+
+    @property
+    def input_tokens(self) -> int:
+        return self._last_response.input_tokens if self._last_response is not None else 0
+
+    @property
+    def output_tokens(self) -> int:
+        return self._last_response.output_tokens if self._last_response is not None else 0
 
     async def analyze(
         self, request: RetrievalRequest, deterministic: QuerySpec, *, operation_id: str
@@ -516,6 +528,7 @@ class ModelQueryAnalyzer:
             max_output_tokens=self._max_output_tokens,
             operation_id=operation_id,
         )
+        self._last_response = response
         output = response.analysis
         raw_query_folded = request.raw_query.casefold()
         model_exact_terms = tuple(
@@ -527,10 +540,9 @@ class ModelQueryAnalyzer:
         model_versions = tuple(
             version for version in output.versions if version.casefold() in raw_query_folded
         )
+        exact_terms = tuple(dict.fromkeys((*deterministic.exact_terms, *model_exact_terms)))
         semantic_query = output.semantic_query.strip() or deterministic.semantic_query
-        missing_exact = [
-            token for token in deterministic.exact_terms if token not in semantic_query
-        ]
+        missing_exact = [token for token in exact_terms if token not in semantic_query]
         if missing_exact:
             semantic_query = " ".join((semantic_query, *missing_exact))
         filters = RetrievalFilters(
@@ -567,7 +579,7 @@ class ModelQueryAnalyzer:
             intent=output.intent,
             confidence=max(deterministic.confidence, output.confidence),
             semantic_query=semantic_query,
-            exact_terms=tuple(dict.fromkeys((*deterministic.exact_terms, *model_exact_terms))),
+            exact_terms=exact_terms,
             filters=filters,
             metadata_filters=metadata_filters,
             analyzer="deterministic+model",

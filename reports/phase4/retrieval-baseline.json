@@ -1,0 +1,835 @@
+{
+  "report_version": "retrieval-baseline-v2",
+  "evaluated_at": "2026-09-16T00:00:00+00:00",
+  "corpus_snapshot": "m2-corpus-v1",
+  "corpus_manifest_sha256": "d83d8e921252349b45f6a247dc7a7106fa8b5687b73089e26c6d4d44e60faf19",
+  "dataset": {
+    "path": "evals/cases/retrieval-baseline.jsonl",
+    "sha256": "72a2fdf7cb816b149ba7e80d998609c4ddc72ebeeb04331662b5eaf49947a3a7",
+    "case_count": 22,
+    "tags": [
+      "acl",
+      "current_version",
+      "exact_identifier",
+      "historical_version",
+      "known_gap",
+      "multi_relevant",
+      "no_answer",
+      "semantic_en",
+      "semantic_vi"
+    ]
+  },
+  "configuration": {
+    "schema_version": "retrieval-config-v1",
+    "embedding": {
+      "provider": "fake",
+      "model": "fake-embedding-v2",
+      "dimensions": 1536
+    },
+    "parser": {
+      "name": "markdown",
+      "version": "markdown-structure-v2"
+    },
+    "chunking": {
+      "version": "hierarchical-window-v3",
+      "target_tokens": 120,
+      "overlap_tokens": 20
+    },
+    "structure": {
+      "parent_store": "document_sections",
+      "leaf_store": "document_chunks",
+      "section_path_preserved": true,
+      "content_types_preserved": true
+    },
+    "dense": {
+      "strategy": "exact_cosine",
+      "candidate_limit": 20
+    },
+    "sparse": {
+      "strategy": "postgres_simple_fts_or_terms",
+      "candidate_limit": 20,
+      "preserves_original_query": true
+    },
+    "fusion": {
+      "strategy": "reciprocal_rank_fusion",
+      "rrf_k": 60
+    },
+    "reranker": {
+      "strategy": "weighted_feature_v1",
+      "candidate_limit": 20,
+      "weights": {
+        "query_term_coverage": 0.55,
+        "exact_identifier_match": 0.25,
+        "normalized_rrf": 0.15,
+        "dense_score": 0.05
+      }
+    },
+    "context_expansion": {
+      "strategy": "acl_scoped_neighbor_and_parent_section",
+      "neighbors_per_seed_each_direction": 2
+    },
+    "citation_selection": {
+      "max_sources": 5,
+      "estimated_context_token_budget": 6000,
+      "near_duplicate_jaccard_threshold": 0.82,
+      "near_duplicate_scope": "same_document_version"
+    },
+    "version_scope": "published_current_effective_unexpired",
+    "result_limit": 5
+  },
+  "metrics": {
+    "recall_at_5": {
+      "numerator": 13.0,
+      "denominator": 13,
+      "value": 1.0
+    },
+    "precision_at_5": {
+      "numerator_sum": 2.8,
+      "denominator": 13,
+      "value": 0.21538461538461537
+    },
+    "mrr_at_5": {
+      "numerator_reciprocal_rank_sum": 12.0,
+      "denominator": 13,
+      "value": 0.9230769230769231
+    },
+    "ndcg_at_5": {
+      "numerator_sum": 12.261859507142916,
+      "denominator": 13,
+      "value": 0.9432199620879166
+    },
+    "duplicate_rate_at_5": {
+      "numerator_sum": 8.200000000000005,
+      "denominator": 22,
+      "value": 0.37272727272727296
+    },
+    "known_gap_historical_version": {
+      "retrieved": 0,
+      "denominator": 2,
+      "value": 0.0
+    },
+    "no_answer_accuracy": {
+      "numerator": 5,
+      "denominator": 5,
+      "value": 1.0
+    },
+    "scope_leakage": {
+      "leaks": 0,
+      "denominator": 2,
+      "value": 0.0
+    },
+    "expected_document_citation_rate": {
+      "numerator": 9,
+      "denominator": 13,
+      "value": 0.6923076923076923
+    },
+    "selected_citations_per_case": {
+      "sum": 15,
+      "denominator": 22,
+      "mean": 0.6818181818181818
+    },
+    "citation_context_estimated_tokens": {
+      "sum": 1455,
+      "denominator": 22,
+      "mean": 66.13636363636364,
+      "max_case": 310,
+      "budget": 6000
+    },
+    "expanded_chunks_per_case": {
+      "sum": 158,
+      "denominator": 22,
+      "mean": 7.181818181818182
+    },
+    "g04_recall_gate": {
+      "threshold": 0.85,
+      "passed": true
+    }
+  },
+  "limitations": [
+    "Fake hash embeddings validate wiring and reproducibility, not semantic quality.",
+    "Historical version requests are measured as a known gap and excluded from the release gate.",
+    "Precision and duplicate rate are measured at document-version level.",
+    "No-answer uses the retrieval/citation threshold; claim support needs WP-06.",
+    "Citation quality is measured against expected document/version labels; chunk-level claim support is not labeled.",
+    "The dataset is development-only and must not be treated as a holdout set."
+  ],
+  "cases": [
+    {
+      "case_id": "ret-001",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "answered",
+      "expected_document": "vpn-setup:v2",
+      "rank": 1,
+      "top5": [
+        "vpn-setup:v2",
+        "vpn-setup:v2",
+        "vpn-setup:v2",
+        "vpn-troubleshooting:v1",
+        "vpn-troubleshooting:v1"
+      ],
+      "retrieved_result_count": 8,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 3,
+      "selected_citation_count": 3,
+      "selected_citation_documents": [
+        "vpn-setup:v2",
+        "vpn-setup:v2",
+        "vpn-setup:v2"
+      ],
+      "citation_context_estimated_tokens": 232,
+      "expected_document_cited": true,
+      "tags": [
+        "semantic_vi",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "vpn-setup:v2"
+      ],
+      "duplicate_rate_at_5": 0.6,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-002",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "answered",
+      "expected_document": "vpn-setup:v2",
+      "rank": 1,
+      "top5": [
+        "vpn-setup:v2",
+        "vpn-setup:v2",
+        "vpn-troubleshooting:v1",
+        "it-escalation:v1",
+        "vpn-troubleshooting:v1"
+      ],
+      "retrieved_result_count": 12,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 7,
+      "selected_citation_count": 1,
+      "selected_citation_documents": [
+        "vpn-setup:v2"
+      ],
+      "citation_context_estimated_tokens": 89,
+      "expected_document_cited": true,
+      "tags": [
+        "semantic_en",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "vpn-setup:v2"
+      ],
+      "duplicate_rate_at_5": 0.4,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-003",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "answered",
+      "expected_document": "docker-registry:v1",
+      "rank": 1,
+      "top5": [
+        "docker-registry:v1",
+        "it-escalation:v1",
+        "docker-troubleshooting:v1",
+        "docker-troubleshooting:v1",
+        "docker-registry:v1"
+      ],
+      "retrieved_result_count": 12,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 7,
+      "selected_citation_count": 3,
+      "selected_citation_documents": [
+        "docker-registry:v1",
+        "it-escalation:v1",
+        "docker-troubleshooting:v1"
+      ],
+      "citation_context_estimated_tokens": 310,
+      "expected_document_cited": true,
+      "tags": [
+        "semantic_en",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "docker-registry:v1"
+      ],
+      "duplicate_rate_at_5": 0.4,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-004",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "answered",
+      "expected_document": "docker-troubleshooting:v1",
+      "rank": 1,
+      "top5": [
+        "docker-troubleshooting:v1",
+        "docker-registry:v1",
+        "docker-troubleshooting:v1",
+        "docker-registry:v1",
+        "docker-troubleshooting:v1"
+      ],
+      "retrieved_result_count": 8,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 3,
+      "selected_citation_count": 1,
+      "selected_citation_documents": [
+        "docker-troubleshooting:v1"
+      ],
+      "citation_context_estimated_tokens": 110,
+      "expected_document_cited": true,
+      "tags": [
+        "semantic_en",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "docker-troubleshooting:v1"
+      ],
+      "duplicate_rate_at_5": 0.6,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-005",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "answered",
+      "expected_document": "gitlab-access:v3",
+      "rank": 2,
+      "top5": [
+        "it-escalation:v1",
+        "gitlab-access:v3",
+        "gitlab-access:v3",
+        "gitlab-access:v3",
+        "gitlab-access:v3"
+      ],
+      "retrieved_result_count": 8,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 3,
+      "selected_citation_count": 1,
+      "selected_citation_documents": [
+        "it-escalation:v1"
+      ],
+      "citation_context_estimated_tokens": 102,
+      "expected_document_cited": false,
+      "tags": [
+        "semantic_en",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "gitlab-access:v3"
+      ],
+      "duplicate_rate_at_5": 0.6,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-006",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "answered",
+      "expected_document": "it-escalation:v1",
+      "rank": 1,
+      "top5": [
+        "it-escalation:v1",
+        "vpn-troubleshooting:v1",
+        "docker-registry:v1",
+        "engineering-oncall:v1",
+        "it-escalation:v1"
+      ],
+      "retrieved_result_count": 15,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 10,
+      "selected_citation_count": 2,
+      "selected_citation_documents": [
+        "it-escalation:v1",
+        "vpn-troubleshooting:v1"
+      ],
+      "citation_context_estimated_tokens": 186,
+      "expected_document_cited": true,
+      "tags": [
+        "semantic_en",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "it-escalation:v1"
+      ],
+      "duplicate_rate_at_5": 0.2,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-007",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "answered",
+      "expected_document": "docker-registry-token-policy:v2",
+      "rank": 1,
+      "top5": [
+        "docker-registry-token-policy:v2",
+        "docker-registry-token-policy:v2",
+        "docker-registry:v1",
+        "docker-troubleshooting:v1",
+        "it-escalation:v1"
+      ],
+      "retrieved_result_count": 16,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 11,
+      "selected_citation_count": 1,
+      "selected_citation_documents": [
+        "docker-registry-token-policy:v2"
+      ],
+      "citation_context_estimated_tokens": 102,
+      "expected_document_cited": true,
+      "tags": [
+        "semantic_vi",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "docker-registry-token-policy:v2"
+      ],
+      "duplicate_rate_at_5": 0.2,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-008",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "answered",
+      "expected_document": "engineering-oncall:v1",
+      "rank": 1,
+      "top5": [
+        "engineering-oncall:v1",
+        "engineering-oncall:v1",
+        "engineering-oncall:v1",
+        "gitlab-access:v3",
+        "docker-registry:v1"
+      ],
+      "retrieved_result_count": 10,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 5,
+      "selected_citation_count": 1,
+      "selected_citation_documents": [
+        "engineering-oncall:v1"
+      ],
+      "citation_context_estimated_tokens": 96,
+      "expected_document_cited": true,
+      "tags": [
+        "semantic_en",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "engineering-oncall:v1"
+      ],
+      "duplicate_rate_at_5": 0.4,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-009",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "answered",
+      "expected_document": "it-service-recovery:v1",
+      "rank": 1,
+      "top5": [
+        "it-service-recovery:v1",
+        "it-escalation:v1",
+        "docker-registry:v1",
+        "it-service-recovery:v1",
+        "docker-troubleshooting:v1"
+      ],
+      "retrieved_result_count": 15,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 10,
+      "selected_citation_count": 1,
+      "selected_citation_documents": [
+        "it-service-recovery:v1"
+      ],
+      "citation_context_estimated_tokens": 112,
+      "expected_document_cited": true,
+      "tags": [
+        "semantic_en",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "it-service-recovery:v1"
+      ],
+      "duplicate_rate_at_5": 0.2,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-010",
+      "expected_outcome": "no_answer",
+      "retrieval_outcome": "no_answer",
+      "expected_document": null,
+      "rank": null,
+      "top5": [
+        "docker-registry-token-policy:v2",
+        "docker-registry-token-policy:v2",
+        "gitlab-access:v3",
+        "docker-registry:v1",
+        "docker-registry-token-policy:v2"
+      ],
+      "retrieved_result_count": 12,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 7,
+      "selected_citation_count": 0,
+      "selected_citation_documents": [],
+      "citation_context_estimated_tokens": 0,
+      "expected_document_cited": false,
+      "tags": [
+        "semantic_en",
+        "no_answer"
+      ],
+      "relevant_documents": [],
+      "duplicate_rate_at_5": 0.4,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-011",
+      "expected_outcome": "no_answer",
+      "retrieval_outcome": "no_answer",
+      "expected_document": null,
+      "rank": null,
+      "top5": [
+        "docker-registry:v1",
+        "docker-registry:v1",
+        "vpn-setup:v2",
+        "vpn-troubleshooting:v1",
+        "vpn-troubleshooting:v1"
+      ],
+      "retrieved_result_count": 12,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 7,
+      "selected_citation_count": 0,
+      "selected_citation_documents": [],
+      "citation_context_estimated_tokens": 0,
+      "expected_document_cited": false,
+      "tags": [
+        "semantic_en",
+        "no_answer"
+      ],
+      "relevant_documents": [],
+      "duplicate_rate_at_5": 0.4,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-012",
+      "expected_outcome": "no_answer",
+      "retrieval_outcome": "no_answer",
+      "expected_document": null,
+      "rank": null,
+      "top5": [
+        "it-escalation:v1",
+        "it-escalation:v1",
+        "docker-registry:v1",
+        "docker-troubleshooting:v1",
+        "vpn-setup:v2"
+      ],
+      "retrieved_result_count": 16,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 11,
+      "selected_citation_count": 0,
+      "selected_citation_documents": [],
+      "citation_context_estimated_tokens": 0,
+      "expected_document_cited": false,
+      "tags": [
+        "semantic_en",
+        "no_answer"
+      ],
+      "relevant_documents": [],
+      "duplicate_rate_at_5": 0.2,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-013",
+      "expected_outcome": "no_answer",
+      "retrieval_outcome": "no_answer",
+      "expected_document": null,
+      "rank": null,
+      "top5": [
+        "gitlab-access:v3",
+        "it-escalation:v1",
+        "gitlab-access:v3",
+        "docker-registry:v1",
+        "vpn-setup:v2"
+      ],
+      "retrieved_result_count": 16,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 11,
+      "selected_citation_count": 0,
+      "selected_citation_documents": [],
+      "citation_context_estimated_tokens": 0,
+      "expected_document_cited": false,
+      "tags": [
+        "semantic_en",
+        "no_answer"
+      ],
+      "relevant_documents": [],
+      "duplicate_rate_at_5": 0.2,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-014",
+      "expected_outcome": "no_answer",
+      "retrieval_outcome": "no_answer",
+      "expected_document": null,
+      "rank": null,
+      "top5": [
+        "docker-registry:v1",
+        "docker-registry:v1",
+        "it-escalation:v1",
+        "engineering-oncall:v1",
+        "it-escalation:v1"
+      ],
+      "retrieved_result_count": 11,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 6,
+      "selected_citation_count": 0,
+      "selected_citation_documents": [],
+      "citation_context_estimated_tokens": 0,
+      "expected_document_cited": false,
+      "tags": [
+        "semantic_en",
+        "no_answer"
+      ],
+      "relevant_documents": [],
+      "duplicate_rate_at_5": 0.4,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-015",
+      "expected_outcome": "no_answer",
+      "retrieval_outcome": "no_answer",
+      "expected_document": null,
+      "rank": null,
+      "top5": [
+        "gitlab-access:v3",
+        "vpn-troubleshooting:v1",
+        "gitlab-access:v3",
+        "docker-registry:v1",
+        "docker-registry:v1"
+      ],
+      "retrieved_result_count": 12,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 7,
+      "selected_citation_count": 0,
+      "selected_citation_documents": [],
+      "citation_context_estimated_tokens": 0,
+      "expected_document_cited": false,
+      "tags": [
+        "semantic_en",
+        "acl"
+      ],
+      "relevant_documents": [],
+      "duplicate_rate_at_5": 0.4,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-016",
+      "expected_outcome": "no_answer",
+      "retrieval_outcome": "no_answer",
+      "expected_document": null,
+      "rank": null,
+      "top5": [
+        "vpn-troubleshooting:v1",
+        "docker-registry:v1",
+        "it-escalation:v1",
+        "it-escalation:v1",
+        "vpn-troubleshooting:v1"
+      ],
+      "retrieved_result_count": 12,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 7,
+      "selected_citation_count": 0,
+      "selected_citation_documents": [],
+      "citation_context_estimated_tokens": 0,
+      "expected_document_cited": false,
+      "tags": [
+        "semantic_en",
+        "acl"
+      ],
+      "relevant_documents": [],
+      "duplicate_rate_at_5": 0.4,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-017",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "answered",
+      "expected_document": "vpn-troubleshooting:v1",
+      "rank": 1,
+      "top5": [
+        "vpn-troubleshooting:v1",
+        "vpn-setup:v2",
+        "vpn-troubleshooting:v1",
+        "vpn-setup:v2",
+        "docker-troubleshooting:v1"
+      ],
+      "retrieved_result_count": 12,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 7,
+      "selected_citation_count": 1,
+      "selected_citation_documents": [
+        "vpn-troubleshooting:v1"
+      ],
+      "citation_context_estimated_tokens": 116,
+      "expected_document_cited": true,
+      "tags": [
+        "semantic_vi",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "vpn-troubleshooting:v1"
+      ],
+      "duplicate_rate_at_5": 0.4,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-018",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "no_answer",
+      "expected_document": "engineering-oncall:v1",
+      "rank": 1,
+      "top5": [
+        "engineering-oncall:v1",
+        "engineering-oncall:v1",
+        "docker-registry:v1",
+        "docker-registry-token-policy:v2",
+        "docker-registry-token-policy:v2"
+      ],
+      "retrieved_result_count": 11,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 6,
+      "selected_citation_count": 0,
+      "selected_citation_documents": [],
+      "citation_context_estimated_tokens": 0,
+      "expected_document_cited": false,
+      "tags": [
+        "exact_identifier",
+        "semantic_vi",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "engineering-oncall:v1"
+      ],
+      "duplicate_rate_at_5": 0.4,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-019",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "no_answer",
+      "expected_document": "docker-troubleshooting:v1",
+      "rank": 1,
+      "top5": [
+        "docker-troubleshooting:v1",
+        "docker-registry:v1",
+        "docker-troubleshooting:v1",
+        "docker-registry:v1",
+        "it-escalation:v1"
+      ],
+      "retrieved_result_count": 12,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 7,
+      "selected_citation_count": 0,
+      "selected_citation_documents": [],
+      "citation_context_estimated_tokens": 0,
+      "expected_document_cited": false,
+      "tags": [
+        "exact_identifier",
+        "semantic_vi",
+        "multi_relevant",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "docker-registry:v1",
+        "docker-troubleshooting:v1"
+      ],
+      "duplicate_rate_at_5": 0.4,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-020",
+      "expected_outcome": "known_gap",
+      "retrieval_outcome": "no_answer",
+      "expected_document": "vpn-setup:v1",
+      "rank": null,
+      "top5": [
+        "vpn-troubleshooting:v1",
+        "vpn-setup:v2",
+        "it-escalation:v1",
+        "docker-registry:v1",
+        "vpn-troubleshooting:v1"
+      ],
+      "retrieved_result_count": 15,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 10,
+      "selected_citation_count": 0,
+      "selected_citation_documents": [],
+      "citation_context_estimated_tokens": 0,
+      "expected_document_cited": false,
+      "tags": [
+        "exact_identifier",
+        "historical_version",
+        "known_gap"
+      ],
+      "relevant_documents": [
+        "vpn-setup:v1"
+      ],
+      "duplicate_rate_at_5": 0.2,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-021",
+      "expected_outcome": "known_gap",
+      "retrieval_outcome": "no_answer",
+      "expected_document": "docker-registry-token-policy:v1",
+      "rank": null,
+      "top5": [
+        "docker-registry-token-policy:v2",
+        "docker-registry:v1",
+        "docker-registry-token-policy:v2",
+        "docker-troubleshooting:v1",
+        "docker-registry-token-policy:v2"
+      ],
+      "retrieved_result_count": 12,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 7,
+      "selected_citation_count": 0,
+      "selected_citation_documents": [],
+      "citation_context_estimated_tokens": 0,
+      "expected_document_cited": false,
+      "tags": [
+        "exact_identifier",
+        "historical_version",
+        "known_gap"
+      ],
+      "relevant_documents": [
+        "docker-registry-token-policy:v1"
+      ],
+      "duplicate_rate_at_5": 0.4,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-022",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "no_answer",
+      "expected_document": "vpn-troubleshooting:v1",
+      "rank": 2,
+      "top5": [
+        "vpn-setup:v2",
+        "vpn-setup:v2",
+        "vpn-troubleshooting:v1",
+        "vpn-setup:v2",
+        "it-escalation:v1"
+      ],
+      "retrieved_result_count": 11,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 6,
+      "selected_citation_count": 0,
+      "selected_citation_documents": [],
+      "citation_context_estimated_tokens": 0,
+      "expected_document_cited": false,
+      "tags": [
+        "semantic_vi",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "vpn-troubleshooting:v1"
+      ],
+      "duplicate_rate_at_5": 0.4,
+      "forbidden_returned": []
+    }
+  ]
+}

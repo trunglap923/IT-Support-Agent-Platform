@@ -57,6 +57,7 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [x] RET-13: Chạy deterministic extraction trước; model analyzer chỉ được gọi một lần khi confidence thấp và có usage budget.
 - [x] RET-14: Multi-query fallback chỉ chạy theo policy confidence, tối đa hai semantic queries và luôn giữ raw sparse query/exact tokens.
 - [x] RET-15: Request policy ánh xạ structured intent sang tool; knowledge tool khóa retrieval vào current user request.
+- [x] RET-16: Resolve low-confidence intent trước runtime và dùng chung một QuerySpec cho policy, LangGraph, OpenAI Agents và retrieval.
 
 ## Điều kiện hoàn thành
 
@@ -64,7 +65,9 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [x] FTS và vector cùng scope; nguồn superseded không làm current evidence.
 - [x] Có baseline tái lập; G-04 đạt và report ghi rõ giới hạn fake embedding.
 - [x] Ghi benchmark Phase 3 đối chiếu với Phase 2 trong `reports/phase3/retrieval-benchmark.md`.
+- [x] Ghi benchmark Phase 4 và regression tests cho model-call limit, fallback, exact-token preservation và current-query isolation.
 - [ ] Chạy ablation cùng corpus cho Phase 2 RRF-only, reranker-only và full expansion; chỉ chốt trọng số sau khi ranking/citation đạt baseline.
 
-Bằng chứng: `test_hybrid_retrieval.py`, `test_demo_document_seed.py` và
-`reports/retrieval-baseline.json`.
+Bằng chứng: `test_hybrid_retrieval.py`, `test_demo_document_seed.py`,
+`test_openai_agents_runtime.py`, `test_retrieval_orchestration.py` và
+`reports/phase4/query-intelligence-benchmark.md`.
