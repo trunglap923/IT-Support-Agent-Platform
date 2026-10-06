@@ -26,6 +26,29 @@ for describing model-backed retrieval performance. These scores measure SciFact 
 claim retrieval and must not be presented as IT support domain accuracy. Internal IT support
 quality remains covered separately by the versioned regression suite under `evals/cases`.
 
+## Production embedding ablation
+
+The full OpenAI run uses `text-embedding-3-small` and evaluates every branch on the same 300
+queries and 5,263 production chunks:
+
+| Variant | nDCG@10 | Recall@10 | MRR@10 |
+|---|---:|---:|---:|
+| OpenAI dense only | **0.7111** | **0.8526** | **0.6736** |
+| Runtime BM25 only | 0.6795 | 0.8030 | 0.6452 |
+| PostgreSQL hybrid RRF | 0.6000 | 0.7328 | 0.5648 |
+| PostgreSQL hybrid weighted | 0.5584 | 0.7128 | 0.5134 |
+| BM25 hybrid RRF | 0.6837 | 0.8177 | 0.6473 |
+| BM25 hybrid weighted | 0.5856 | 0.7428 | 0.5403 |
+
+Replacing PostgreSQL FTS with BM25 raises hybrid RRF nDCG@10 by `0.0837` and raises the
+current weighted pipeline by `0.0272`. Dense retrieval alone remains `0.0275` above BM25 hybrid
+RRF and `0.1527` above the current PostgreSQL weighted pipeline. The weighted feature reranker
+reduces BM25 RRF by `0.0981`, so its weights do not transfer to the stronger sparse branch.
+
+These results identify fusion and reranking as the next measured bottleneck. Fusion parameters
+must be selected on the SciFact train split or an internal IT support development set, then
+reported once on the held-out test set. The test result must not be used to tune weights.
+
 ## Candidate and ranking ablation
 
 The full fake-embedding run isolates the retrieval branches without another paid API call.
@@ -47,11 +70,11 @@ whole-document BM25 anchor by `0.4039`, identifying lexical candidate quality as
 measured bottleneck. Runtime BM25 is within `0.0006` of the independently published Anserini
 anchor and improves nDCG@10 by `0.4071` over PostgreSQL FTS on this split.
 
-The fake dense branch pulls both BM25 hybrid variants below BM25 alone, so this benchmark does
-not justify changing the production default or fusion weights. The production ablation must be
-rerun after configuring a valid API key; the previous key was rejected before corpus indexing,
-so no partial production result is used. BM25 remains an explicit runtime option while
-PostgreSQL FTS remains the default.
+The fake dense branch pulls both BM25 hybrid variants below BM25 alone. It remains useful as a
+deterministic regression baseline, while the production embedding ablation above is the source
+for model-backed comparisons. BM25 remains an explicit runtime option while PostgreSQL FTS
+remains the default until fusion is selected on development data and checked against internal
+IT support regressions.
 
 ## Chunking isolation
 
@@ -68,6 +91,6 @@ required to choose the hybrid fusion policy.
 
 Detailed provenance, configuration, per-query rankings, relevance labels, metrics, and latency
 are recorded in `fake-test-retrieval.json`, `openai-test-retrieval.json`, and
-`bm25-test-retrieval.json`. The original and BM25 candidate-level ablations are in
-`fake-test-ablation.json` and `fake-test-ablation-bm25.json`; the controlled chunking run is in
-`bm25-chunked-test-retrieval.json`.
+`bm25-test-retrieval.json`. Candidate-level ablations are in `fake-test-ablation.json`,
+`fake-test-ablation-bm25.json`, and `openai-test-ablation-bm25.json`; the controlled chunking
+run is in `bm25-chunked-test-retrieval.json`.
