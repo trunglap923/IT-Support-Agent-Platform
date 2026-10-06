@@ -1,7 +1,9 @@
 # BEIR SciFact BM25 anchor
 
 - Split: `test`
-- Corpus: 5183 whole documents
+- Corpus: 5183 documents
+- Indexed units: 5183
+- Granularity: `whole_document`
 - Queries: 300
 - Full official split: `true`
 

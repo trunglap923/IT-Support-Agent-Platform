@@ -42,7 +42,20 @@ whole-document BM25 anchor by `0.4039`, identifying lexical candidate quality as
 measured bottleneck. The production ablation must be rerun after configuring a valid API key;
 the previous key was rejected before corpus indexing, so no partial production result is used.
 
+## Chunking isolation
+
+| BM25 granularity | Indexed units | nDCG@10 | Recall@10 |
+|---|---:|---:|---:|
+| Whole document | 5,183 | 0.676188 | 0.8013 |
+| Production chunks (`500/60`) | 5,263 | 0.676131 | 0.8013 |
+
+Holding tokenization and BM25 scoring constant, production chunking changes nDCG@10 by only
+`-0.000057` and leaves Recall@10 unchanged. Chunking is therefore not the measured cause of the
+hybrid gap on SciFact. The next retrieval change should replace or supplement PostgreSQL
+`ts_rank_cd` with a true BM25 sparse backend.
+
 Detailed provenance, configuration, per-query rankings, relevance labels, metrics, and latency
 are recorded in `fake-test-retrieval.json`, `openai-test-retrieval.json`, and
 `bm25-test-retrieval.json`. Candidate-level ablation results are in
-`fake-test-ablation.json`.
+`fake-test-ablation.json`; the controlled chunking run is in
+`bm25-chunked-test-retrieval.json`.

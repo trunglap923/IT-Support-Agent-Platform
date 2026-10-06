@@ -9,10 +9,12 @@ import time
 from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
+from uuid import UUID, uuid5
 
 import bm25s  # type: ignore[import-untyped]
 import Stemmer  # type: ignore[import-not-found]
+from app.rag.chunking.splitter import ChunkingConfig, SourceBlock, chunk_blocks
 
 from evals.public.adapters.beir import BEIR_DATASETS, load_beir_dataset
 from evals.public.contracts import PublicBenchmark
@@ -22,8 +24,10 @@ ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CACHE_DIR = ROOT / ".cache" / "public-benchmarks"
 DEFAULT_REPORT_DIR = ROOT / "reports" / "public"
 RESULT_LIMIT = 10
+CANDIDATE_LIMIT = 100
 DEFAULT_K1 = 0.9
 DEFAULT_B = 0.4
+PUBLIC_CHUNK_NAMESPACE = UUID("77d19c80-2d7d-4f91-8ccb-70c886a62df2")
 SCIFACT_ANSERINI_FLAT_NDCG_AT_10 = 0.6789
 SCIFACT_ANSERINI_REFERENCE = (
     "https://github.com/castorini/anserini/blob/master/docs/reproduce/"
@@ -36,10 +40,33 @@ def run_bm25(
     *,
     k1: float = DEFAULT_K1,
     b: float = DEFAULT_B,
+    document_granularity: Literal["whole_document", "chunks"] = "whole_document",
+    chunking: ChunkingConfig | None = None,
 ) -> dict[str, Any]:
     started_at = time.monotonic()
-    corpus = [document.retrieval_text for document in benchmark.documents]
-    document_ids = [document.document_id for document in benchmark.documents]
+    selected_chunking = chunking or ChunkingConfig()
+    corpus: list[str] = []
+    unit_document_ids: list[str] = []
+    for document in benchmark.documents:
+        if document_granularity == "whole_document":
+            corpus.append(document.retrieval_text)
+            unit_document_ids.append(document.document_id)
+            continue
+        version_id = uuid5(PUBLIC_CHUNK_NAMESPACE, document.document_id)
+        chunks = chunk_blocks(
+            version_id=version_id,
+            blocks=[
+                SourceBlock(
+                    text=document.retrieval_text,
+                    page_number=None,
+                    section=document.title or None,
+                    source_path=document.document_id,
+                )
+            ],
+            config=selected_chunking,
+        )
+        corpus.extend(chunk.content for chunk in chunks)
+        unit_document_ids.extend(document.document_id for _ in chunks)
     queries = [query.text for query in benchmark.queries]
     stemmer = Stemmer.Stemmer("english")
 
@@ -63,8 +90,13 @@ def run_bm25(
     retrieval_started_at = time.monotonic()
     retrieved = retriever.retrieve(
         query_tokens,
-        corpus=document_ids,
-        k=min(RESULT_LIMIT, len(document_ids)),
+        corpus=unit_document_ids,
+        k=min(
+            RESULT_LIMIT
+            if document_granularity == "whole_document"
+            else CANDIDATE_LIMIT,
+            len(unit_document_ids),
+        ),
         show_progress=False,
     )
     retrieval_seconds = time.monotonic() - retrieval_started_at
@@ -73,8 +105,20 @@ def run_bm25(
     results: list[dict[str, Any]] = []
     per_query_latency_ms = retrieval_seconds * 1_000 / len(benchmark.queries)
     for query_index, query in enumerate(benchmark.queries):
-        ranking = [str(item) for item in retrieved.documents[query_index].tolist()]
-        scores = [float(item) for item in retrieved.scores[query_index].tolist()]
+        ranking: list[str] = []
+        scores: list[float] = []
+        for item, score in zip(
+            retrieved.documents[query_index].tolist(),
+            retrieved.scores[query_index].tolist(),
+            strict=True,
+        ):
+            document_id = str(item)
+            if document_id in ranking:
+                continue
+            ranking.append(document_id)
+            scores.append(float(score))
+            if len(ranking) == RESULT_LIMIT:
+                break
         rankings[query.query_id] = ranking
         results.append(
             {
@@ -122,8 +166,22 @@ def run_bm25(
             "k1": k1,
             "b": b,
             "tokenization": "english stopwords + PyStemmer english",
-            "document_granularity": "whole_document",
+            "document_granularity": document_granularity,
+            "indexed_units": len(corpus),
+            "chunk_target_tokens": (
+                selected_chunking.target_tokens
+                if document_granularity == "chunks"
+                else None
+            ),
+            "chunk_overlap_tokens": (
+                selected_chunking.overlap_tokens
+                if document_granularity == "chunks"
+                else None
+            ),
             "result_limit": RESULT_LIMIT,
+            "candidate_limit": (
+                CANDIDATE_LIMIT if document_granularity == "chunks" else RESULT_LIMIT
+            ),
         },
         "metrics": metrics,
         "reference": {
@@ -157,13 +215,16 @@ def write_report(report: dict[str, Any], output: Path) -> None:
     dataset = report["dataset"]
     metrics = report["metrics"]
     reference = report["reference"]
+    system = report["system"]
     output.with_suffix(".md").write_text(
         "\n".join(
             (
                 f"# {dataset['name']} BM25 anchor",
                 "",
                 f"- Split: `{dataset['split']}`",
-                f"- Corpus: {dataset['corpus_documents']} whole documents",
+                f"- Corpus: {dataset['corpus_documents']} documents",
+                f"- Indexed units: {system['indexed_units']}",
+                f"- Granularity: `{system['document_granularity']}`",
                 f"- Queries: {dataset['evaluated_queries']}",
                 f"- Full official split: `{str(dataset['full_official_split']).lower()}`",
                 "",
@@ -198,6 +259,13 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--no-download", action="store_true")
     parser.add_argument("--k1", type=float, default=DEFAULT_K1)
     parser.add_argument("--b", type=float, default=DEFAULT_B)
+    parser.add_argument(
+        "--document-granularity",
+        choices=("whole_document", "chunks"),
+        default="whole_document",
+    )
+    parser.add_argument("--chunk-target-tokens", type=int, default=500)
+    parser.add_argument("--chunk-overlap-tokens", type=int, default=60)
     parser.add_argument("--output", type=Path)
     return parser.parse_args()
 
@@ -212,9 +280,21 @@ def main() -> None:
         cache_dir=args.cache_dir,
         allow_download=not args.no_download,
     )
-    report = run_bm25(benchmark, k1=args.k1, b=args.b)
+    report = run_bm25(
+        benchmark,
+        k1=args.k1,
+        b=args.b,
+        document_granularity=args.document_granularity,
+        chunking=ChunkingConfig(
+            target_tokens=args.chunk_target_tokens,
+            overlap_tokens=args.chunk_overlap_tokens,
+        ),
+    )
+    granularity_label = "chunked-" if args.document_granularity == "chunks" else ""
     output = args.output or (
-        DEFAULT_REPORT_DIR / args.dataset / f"bm25-{args.split}-retrieval.json"
+        DEFAULT_REPORT_DIR
+        / args.dataset
+        / f"bm25-{granularity_label}{args.split}-retrieval.json"
     )
     write_report(report, output)
     print(json.dumps(report["metrics"], indent=2))

@@ -1,6 +1,6 @@
 {
   "schema_version": "public-retrieval-report-v1",
-  "generated_at": "2026-10-06T08:14:06.742048+00:00",
+  "generated_at": "2026-10-06T08:39:14.614086+00:00",
   "dataset": {
     "id": "scifact",
     "name": "BEIR SciFact",
@@ -23,7 +23,11 @@
     "b": 0.4,
     "tokenization": "english stopwords + PyStemmer english",
     "document_granularity": "whole_document",
-    "result_limit": 10
+    "indexed_units": 5183,
+    "chunk_target_tokens": null,
+    "chunk_overlap_tokens": null,
+    "result_limit": 10,
+    "candidate_limit": 10
   },
   "metrics": {
     "ndcg_at_10": 0.6761883106409642,
@@ -40,12 +44,12 @@
     "url": "https://github.com/castorini/anserini/blob/master/docs/reproduce/from-document-collection/beir-v1.0.0-scifact.flat.md"
   },
   "timing": {
-    "indexing_seconds": 1.3177966459988966,
-    "evaluation_seconds": 0.053498525001486996,
-    "total_seconds": 1.4196737269994628,
-    "mean_query_latency_ms": 0.17832841667162333,
-    "median_query_latency_ms": 0.17832841667162333,
-    "p95_query_latency_ms": 0.17832841667162333
+    "indexing_seconds": 1.214783653998893,
+    "evaluation_seconds": 0.0478212390007684,
+    "total_seconds": 1.3009583130005922,
+    "mean_query_latency_ms": 0.15940413000256135,
+    "median_query_latency_ms": 0.15940413000256135,
+    "p95_query_latency_ms": 0.15940413000256135
   },
   "results": [
     {

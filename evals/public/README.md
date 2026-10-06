@@ -30,6 +30,7 @@ Run the whole-document BM25 anchor:
 
 ```bash
 make public-retrieval-bm25
+make public-retrieval-bm25-chunked
 ```
 
 Run dense, PostgreSQL FTS, RRF, and weighted reranker ablations in one shared index:
