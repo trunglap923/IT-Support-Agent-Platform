@@ -119,11 +119,9 @@ class HybridRetriever:
         started_at = time.monotonic()
         request = RetrievalRequest(raw_query=query, result_limit=self._result_limit)
         normalized_raw_query = request.raw_query.strip()
-        if (
-            self._query_analysis is not None
-            and " ".join(self._query_analysis.raw_query.split())
-            == " ".join(normalized_raw_query.split())
-        ):
+        if self._query_analysis is not None and " ".join(
+            self._query_analysis.raw_query.split()
+        ) == " ".join(normalized_raw_query.split()):
             spec = self._query_analysis
             analysis_precomputed = True
         else:
@@ -243,7 +241,7 @@ class HybridRetriever:
         fused = self._fusion_strategy.fuse(dense, sparse)
         fusion_ms = (time.monotonic() - fusion_started) * 1_000
         rerank_started = time.monotonic()
-        reranked = self._reranker.rerank(spec.raw_query, fused[: self._candidate_limit])
+        reranked = await self._reranker.rerank(spec.raw_query, fused[: self._candidate_limit])
         seeds = self._diversity_selector.select(
             reranked,
             limit=request.result_limit,
@@ -272,7 +270,7 @@ class HybridRetriever:
                 now=selected_now,
                 max_neighbors_per_seed=self._expansion_per_hit,
             )
-            expanded_candidates = self._reranker.rerank(
+            expanded_candidates = await WeightedFeatureReranker().rerank(
                 spec.raw_query, [item.candidate for item in expansion_candidates]
             )
             expansion_kind_by_id = {

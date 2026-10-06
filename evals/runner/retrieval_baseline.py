@@ -38,6 +38,7 @@ from app.rag.chunking.splitter import (
 from app.rag.citations.sources import build_evidence_output
 from app.rag.ingestion.markdown_parser import MARKDOWN_PARSER_VERSION, MarkdownParser
 from app.rag.retrieval.query import HybridRetriever
+from app.rag.retrieval.rerank import CrossEncoderReranker, create_reranker
 from jsonschema import Draft202012Validator  # type: ignore[import-untyped]
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
@@ -65,6 +66,17 @@ BRANCH_LIMIT = 20
 RRF_K = 60
 CHUNK_TARGET_TOKENS = 120
 CHUNK_OVERLAP_TOKENS = 20
+RERANKER_STRATEGY = os.getenv("RETRIEVAL_BENCHMARK_RERANKER", "weighted")
+CROSS_ENCODER_MODEL = os.getenv(
+    "RETRIEVAL_CROSS_ENCODER_MODEL",
+    "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1",
+)
+CROSS_ENCODER_MODEL_FILE = os.getenv(
+    "RETRIEVAL_CROSS_ENCODER_MODEL_FILE", "onnx/model_quint8_avx2.onnx"
+)
+CROSS_ENCODER_TIMEOUT_SECONDS = float(
+    os.getenv("RETRIEVAL_CROSS_ENCODER_TIMEOUT_SECONDS", "300")
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -98,7 +110,9 @@ class RelevantChunk:
             document_key == self.document_key
             and version_label == self.version_label
             and (section or "").casefold() == self.section.casefold()
-            and all(term.casefold() in normalized_content for term in self.required_terms)
+            and all(
+                term.casefold() in normalized_content for term in self.required_terms
+            )
         )
 
 
@@ -345,6 +359,13 @@ async def evaluate(database_url: str) -> dict[str, Any]:
         citation_context_token_sum = 0
         citation_context_token_max = 0
         expanded_chunk_sum = 0
+        reranker = create_reranker(
+            strategy=RERANKER_STRATEGY,
+            model=CROSS_ENCODER_MODEL,
+            model_file=CROSS_ENCODER_MODEL_FILE,
+            max_candidates=20,
+            timeout_seconds=CROSS_ENCODER_TIMEOUT_SECONDS,
+        )
         retriever = HybridRetriever(
             embedding_provider=provider,
             branch_limit=BRANCH_LIMIT,
@@ -352,6 +373,7 @@ async def evaluate(database_url: str) -> dict[str, Any]:
             candidate_limit=20,
             expansion_per_hit=2,
             rrf_k=RRF_K,
+            reranker=reranker,
         )
         async with database.session() as session:
             for case in cases:
@@ -504,6 +526,36 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                 )
         recall = recall_sum / answerable_count
         case_count = len(cases)
+        reranker_runtime: dict[str, Any] = {
+            "attempt_count": 0,
+            "fallback_count": 0,
+            "mean_duration_ms": 0.0,
+            "cold_start_duration_ms": 0.0,
+            "p95_duration_ms": 0.0,
+        }
+        if isinstance(reranker, CrossEncoderReranker) and reranker.durations_ms:
+            durations = sorted(reranker.durations_ms)
+            p95_index = max(0, math.ceil(len(durations) * 0.95) - 1)
+            reranker_runtime = {
+                "attempt_count": reranker.attempt_count,
+                "fallback_count": reranker.fallback_count,
+                "mean_duration_ms": reranker.total_duration_ms / reranker.attempt_count,
+                "cold_start_duration_ms": reranker.durations_ms[0],
+                "p95_duration_ms": durations[p95_index],
+            }
+        reranker_configuration: dict[str, Any] = {
+            "strategy": reranker.name,
+            "candidate_limit": 20,
+        }
+        if isinstance(reranker, CrossEncoderReranker):
+            reranker_configuration["runtime"] = reranker_runtime
+        else:
+            reranker_configuration["weights"] = {
+                "query_term_coverage": 0.55,
+                "exact_identifier_match": 0.25,
+                "normalized_rrf": 0.15,
+                "dense_score": 0.05,
+            }
         return {
             "report_version": "retrieval-baseline-v3",
             "evaluated_at": EVALUATION_TIME.isoformat(),
@@ -546,16 +598,7 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                     "strategy": "reciprocal_rank_fusion",
                     "rrf_k": RRF_K,
                 },
-                "reranker": {
-                    "strategy": "weighted_feature_v1",
-                    "candidate_limit": 20,
-                    "weights": {
-                        "query_term_coverage": 0.55,
-                        "exact_identifier_match": 0.25,
-                        "normalized_rrf": 0.15,
-                        "dense_score": 0.05,
-                    },
-                },
+                "reranker": reranker_configuration,
                 "primary_diversity": {
                     "strategy": "document_version_cap",
                     "max_chunks_per_document": 1,
@@ -667,10 +710,16 @@ async def evaluate(database_url: str) -> dict[str, Any]:
             },
             "limitations": [
                 "Fake hash embeddings validate wiring and reproducibility, not semantic quality.",
-                "Historical version requests are measured as a known gap and excluded from the release gate.",
+                (
+                    "Historical version requests are measured as a known gap and excluded "
+                    "from the release gate."
+                ),
                 "Precision and duplicate rate are measured at document-version level.",
                 "No-answer uses the retrieval/citation threshold; claim support needs WP-06.",
-                "Chunk labels match section plus required terms and do not provide claim-level entailment judgments.",
+                (
+                    "Chunk labels match section plus required terms and do not provide "
+                    "claim-level entailment judgments."
+                ),
                 "The dataset is development-only and must not be treated as a holdout set.",
             ],
             "cases": results,
@@ -714,7 +763,16 @@ def write_report(report: dict[str, Any]) -> None:
     citation_count = metrics["selected_citations_per_case"]
     citation_tokens = metrics["citation_context_estimated_tokens"]
     expansion = metrics["expanded_chunks_per_case"]
-    recall_row = f"| Recall@5 | {recall['numerator']} | {recall['denominator']} | {recall['value']:.3f} |"
+    reranker_strategy = report["configuration"]["reranker"]["strategy"]
+    report_title = (
+        "Retrieval benchmark — Phase 5 cross-encoder experiment"
+        if reranker_strategy.startswith("cross_encoder:")
+        else "Retrieval benchmark — weighted reranker"
+    )
+    recall_row = (
+        f"| Recall@5 | {recall['numerator']} | {recall['denominator']} | "
+        f"{recall['value']:.3f} |"
+    )
     mrr_row = (
         f"| MRR@5 (sum RR / answerable) | {mrr['numerator_reciprocal_rank_sum']:.3f} "
         f"| {mrr['denominator']} | {mrr['value']:.3f} |"
@@ -760,18 +818,19 @@ def write_report(report: dict[str, Any]) -> None:
         f"{citation_precision['denominator']} | {citation_precision['value']:.3f} |"
     )
     markdown = (
-        f"""# Retrieval benchmark — Phase 5.0 evaluation
+        f"""# {report_title}
 
 Run against an isolated, freshly migrated PostgreSQL/pgvector database at
 `{report["evaluated_at"]}` using corpus `{report["corpus_snapshot"]}`.
 
-Configuration: reranker `{report["configuration"]["reranker"]["strategy"]}`, """
+Configuration: reranker `{reranker_strategy}`, """
         + (
             f"candidate pool {report['configuration']['reranker']['candidate_limit']}, "
             f"neighbor/parent expansion up to "
             f"{report['configuration']['context_expansion']['neighbors_per_seed_each_direction']} "
-            f"neighbors per seed, max {report['configuration']['citation_selection']['max_sources']} "
-            f"citations and {report['configuration']['citation_selection']['estimated_context_token_budget']} "
+            "neighbors per seed, max "
+            f"{report['configuration']['citation_selection']['max_sources']} citations and "
+            f"{report['configuration']['citation_selection']['estimated_context_token_budget']} "
             "estimated context tokens.\n\n"
         )
         + f"""| Metric | Numerator | Denominator | Result |

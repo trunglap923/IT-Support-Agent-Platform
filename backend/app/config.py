@@ -24,6 +24,11 @@ class AgentRuntime(StrEnum):
     OPENAI_AGENTS = "openai_agents"
 
 
+class RetrievalReranker(StrEnum):
+    WEIGHTED = "weighted"
+    CROSS_ENCODER = "cross_encoder"
+
+
 class Settings(BaseSettings):
     """Configuration read from process environment.
 
@@ -58,6 +63,11 @@ class Settings(BaseSettings):
     retrieval_result_limit: int = Field(default=5, ge=1, le=20)
     retrieval_rrf_k: int = Field(default=60, ge=1, le=1000)
     retrieval_max_primary_chunks_per_document: int = Field(default=1, ge=1, le=5)
+    retrieval_reranker: RetrievalReranker = RetrievalReranker.WEIGHTED
+    retrieval_cross_encoder_model: str = "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"
+    retrieval_cross_encoder_model_file: str = "onnx/model_quint8_avx2.onnx"
+    retrieval_cross_encoder_candidate_limit: int = Field(default=20, ge=1, le=100)
+    retrieval_cross_encoder_timeout_seconds: float = Field(default=10.0, gt=0, le=300)
 
     database_url: SecretStr | None = None
     migration_database_url: SecretStr | None = None

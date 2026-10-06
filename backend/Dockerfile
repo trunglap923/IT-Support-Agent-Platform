@@ -3,6 +3,7 @@ FROM python:3.12-slim-bookworm@sha256:782412e85d0f0984994c290652577d4018aff08145
 
 ARG APP_UID=10001
 ARG APP_GID=10001
+ARG INSTALL_CROSS_ENCODER=false
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -30,8 +31,10 @@ COPY backend/pyproject.toml backend/uv.lock backend/README.md ./
 RUN --mount=type=secret,id=host_ca_bundle,required=false \
     --mount=type=cache,target=/root/.cache/uv \
     if [ -f /run/secrets/host_ca_bundle ]; then \
-        SSL_CERT_FILE=/run/secrets/host_ca_bundle \
-            uv sync --system-certs --frozen --no-dev --no-install-project; \
+        export SSL_CERT_FILE=/run/secrets/host_ca_bundle; \
+    fi \
+    && if [ "${INSTALL_CROSS_ENCODER}" = "true" ]; then \
+        uv sync --system-certs --frozen --no-dev --no-install-project --extra cross-encoder; \
     else \
         uv sync --system-certs --frozen --no-dev --no-install-project; \
     fi
@@ -55,11 +58,14 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-
 FROM runtime AS test
 
 USER root
+ARG INSTALL_CROSS_ENCODER=false
 RUN --mount=type=secret,id=host_ca_bundle,required=false \
     --mount=type=cache,target=/root/.cache/uv \
     if [ -f /run/secrets/host_ca_bundle ]; then \
-        SSL_CERT_FILE=/run/secrets/host_ca_bundle \
-            uv sync --system-certs --frozen --all-groups --no-editable; \
+        export SSL_CERT_FILE=/run/secrets/host_ca_bundle; \
+    fi \
+    && if [ "${INSTALL_CROSS_ENCODER}" = "true" ]; then \
+        uv sync --system-certs --frozen --all-groups --no-editable --extra cross-encoder; \
     else \
         uv sync --system-certs --frozen --all-groups --no-editable; \
     fi

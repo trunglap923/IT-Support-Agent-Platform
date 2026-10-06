@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from app.config import AIProvider, Settings
+from app.config import AIProvider, RetrievalReranker, Settings
 
 
 def test_fake_provider_is_safe_default() -> None:
@@ -10,6 +10,7 @@ def test_fake_provider_is_safe_default() -> None:
     assert settings.text_provider is AIProvider.FAKE
     assert settings.embedding_provider is AIProvider.FAKE
     assert settings.openai_api_key is None
+    assert settings.retrieval_reranker is RetrievalReranker.WEIGHTED
     assert "openai_api_key" not in settings.public_summary()
 
 

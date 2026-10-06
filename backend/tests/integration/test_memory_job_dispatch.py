@@ -109,17 +109,12 @@ def test_memory_job_is_committed_before_enqueue_and_replay_is_idempotent(
             assert await execute_memory_extraction(database, job_id=job_id) == "completed"
             async with database.session() as session:
                 candidate_count = await session.scalar(
-                    select(func.count(MemoryCandidate.id)).where(
-                        MemoryCandidate.job_id == job_id
-                    )
+                    select(func.count(MemoryCandidate.id)).where(MemoryCandidate.job_id == job_id)
                 )
             assert candidate_count == 1
 
             # Completed jobs are not redelivered by reconciliation.
-            assert (
-                await reconcile_memory_extractions(database, memory_dispatcher)
-                == 0
-            )
+            assert await reconcile_memory_extractions(database, memory_dispatcher) == 0
         finally:
             await embeddings.close()
             await database.close()

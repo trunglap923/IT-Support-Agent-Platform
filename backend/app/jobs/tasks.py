@@ -23,6 +23,7 @@ from app.providers.factory import (
     create_provider,
     create_text_usage_ledger,
 )
+from app.rag.retrieval.rerank import create_reranker
 
 
 @shared_task(name="jobs.run_agent")  # type: ignore[untyped-decorator]
@@ -39,6 +40,13 @@ def run_agent(run_id: str) -> dict[str, str]:
         provider = create_provider(settings, database)
         embedding_provider = create_embedding_provider(settings, database)
         observer = create_ai_observer(settings)
+        retrieval_reranker = create_reranker(
+            strategy=settings.retrieval_reranker.value,
+            model=settings.retrieval_cross_encoder_model,
+            model_file=settings.retrieval_cross_encoder_model_file,
+            max_candidates=settings.retrieval_cross_encoder_candidate_limit,
+            timeout_seconds=settings.retrieval_cross_encoder_timeout_seconds,
+        )
         use_agents_sdk = settings.agent_runtime is AgentRuntime.OPENAI_AGENTS or (
             settings.agent_runtime is AgentRuntime.AUTO
             and settings.text_provider is AIProvider.OPENAI
@@ -77,6 +85,7 @@ def run_agent(run_id: str) -> dict[str, str]:
                     retrieval_max_primary_chunks_per_document=(
                         settings.retrieval_max_primary_chunks_per_document
                     ),
+                    retrieval_reranker=retrieval_reranker,
                 )
             )
             return {key: str(value) for key, value in receipt.items()}

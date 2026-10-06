@@ -36,6 +36,7 @@ from app.providers.embeddings import EmbeddingProvider, FakeEmbeddingProvider
 from app.providers.fake import FakeTextProvider
 from app.providers.structured import IncompleteStructuredResponseError
 from app.rag.retrieval.query import HybridRetriever
+from app.rag.retrieval.rerank import Reranker
 from app.repositories.conversations import ConversationRepository
 from app.repositories.runs import RunRepository
 from app.repositories.users import UserRepository
@@ -85,6 +86,7 @@ async def execute_support_run(
     retrieval_result_limit: int = 5,
     retrieval_rrf_k: int = 60,
     retrieval_max_primary_chunks_per_document: int = 1,
+    retrieval_reranker: Reranker | None = None,
 ) -> WorkerResult:
     started_at = time.monotonic()
     log_event(
@@ -332,9 +334,8 @@ async def execute_support_run(
                 branch_limit=retrieval_branch_limit,
                 result_limit=retrieval_result_limit,
                 rrf_k=retrieval_rrf_k,
-                max_primary_chunks_per_document=(
-                    retrieval_max_primary_chunks_per_document
-                ),
+                max_primary_chunks_per_document=(retrieval_max_primary_chunks_per_document),
+                reranker=retrieval_reranker,
                 log_prompts=log_prompts,
             )
             citation_store: dict[str, dict[str, object]] = {}

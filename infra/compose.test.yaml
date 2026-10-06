@@ -13,6 +13,8 @@ services:
       context: ..
       dockerfile: backend/Dockerfile
       target: test
+      args:
+        INSTALL_CROSS_ENCODER: ${INSTALL_CROSS_ENCODER:-false}
       secrets:
         - host_ca_bundle
     init: true

@@ -35,9 +35,7 @@ def test_celery_runtime_uses_safe_queue_contracts() -> None:
         == 60.0
     )
     assert (
-        application.conf.beat_schedule[
-            "reconcile-memory-extractions-every-30-seconds"
-        ]["schedule"]
+        application.conf.beat_schedule["reconcile-memory-extractions-every-30-seconds"]["schedule"]
         == 30.0
     )
 

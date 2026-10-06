@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Protocol, cast
+from typing import Protocol
 
 from app.providers.structured import QueryAnalysisResponse
 from app.rag.retrieval.models import (
@@ -362,9 +362,7 @@ def _intent(normalized: str, *, has_domain: bool) -> tuple[QueryIntent, float]:
     )
     if stripped in _SOCIAL_EXACT:
         return "social", 1.0
-    identity_language = _contains_any(
-        normalized, _INTENT_MARKERS["identity"]
-    ) or (
+    identity_language = _contains_any(normalized, _INTENT_MARKERS["identity"]) or (
         not asks_support and _contains_any(normalized, _SELF_INTRODUCTION_MARKERS)
     )
     if identity_language and any(
@@ -560,7 +558,7 @@ class ModelQueryAnalyzer:
             version_scope=(
                 deterministic.filters.version_scope
                 if deterministic.filters.version_scope != "current"
-                else cast(VersionScope, output.version_scope)
+                else output.version_scope
             ),
         )
         metadata_filters = tuple(
