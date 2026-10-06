@@ -85,6 +85,7 @@ def run_agent(run_id: str) -> dict[str, str]:
                     retrieval_max_primary_chunks_per_document=(
                         settings.retrieval_max_primary_chunks_per_document
                     ),
+                    retrieval_minimum_evidence_score=(settings.retrieval_minimum_evidence_score),
                     retrieval_reranker=retrieval_reranker,
                 )
             )

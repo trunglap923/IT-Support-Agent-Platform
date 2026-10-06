@@ -59,6 +59,7 @@ class RetrievalHit:
     rerank_score: float | None = None
     exact_match_score: float | None = None
     metadata_score: float = 0.0
+    evidence_score: float | None = None
     expansion_kind: str | None = None
 
 
@@ -317,7 +318,7 @@ class HybridRetriever:
                 )
                 for item in expanded_candidates
             ]
-        results = [*hits, *expanded]
+        results = _merge_and_score_evidence([*hits, *expanded])
         expansion_ms = (time.monotonic() - expansion_started) * 1_000
 
         log_event(
@@ -418,6 +419,48 @@ class HybridRetriever:
                 round(hit.exact_match_score, 6) if hit.exact_match_score is not None else None
             ),
             "metadata_score": round(hit.metadata_score, 6),
+            "evidence_score": (
+                round(hit.evidence_score, 6) if hit.evidence_score is not None else None
+            ),
             "expansion_kind": hit.expansion_kind,
             **content_log_fields("content", hit.content, include_content=self._log_prompts),
         }
+
+
+def _bounded_score(value: float | None) -> float:
+    if value is None:
+        return 0.0
+    return max(0.0, min(1.0, value))
+
+
+def _merge_and_score_evidence(hits: list[RetrievalHit]) -> list[RetrievalHit]:
+    """Deduplicate the primary/expanded pool and assign a shared evidence score."""
+
+    merged: dict[UUID, RetrievalHit] = {}
+    order: list[UUID] = []
+    for hit in hits:
+        existing = merged.get(hit.chunk_id)
+        if existing is None:
+            merged[hit.chunk_id] = hit
+            order.append(hit.chunk_id)
+            continue
+        existing_rank = existing.rerank_score or existing.score
+        incoming_rank = hit.rerank_score or hit.score
+        if incoming_rank > existing_rank and not (
+            existing.expansion_kind is None and hit.expansion_kind is not None
+        ):
+            merged[hit.chunk_id] = hit
+
+    return [
+        replace(
+            merged[chunk_id],
+            evidence_score=(
+                0.50 * _bounded_score(merged[chunk_id].lexical_coverage)
+                + 0.15 * _bounded_score(merged[chunk_id].vector_similarity)
+                + 0.20 * _bounded_score(merged[chunk_id].rerank_score)
+                + 0.10 * _bounded_score(merged[chunk_id].exact_match_score)
+                + 0.05 * _bounded_score(merged[chunk_id].metadata_score)
+            ),
+        )
+        for chunk_id in order
+    ]

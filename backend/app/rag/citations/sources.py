@@ -64,7 +64,13 @@ def _select_hits(
     ranked = sorted(
         enumerate(hits),
         key=lambda item: (
-            -(item[1].rerank_score if item[1].rerank_score is not None else item[1].score),
+            -(
+                item[1].evidence_score
+                if item[1].evidence_score is not None
+                else item[1].rerank_score
+                if item[1].rerank_score is not None
+                else item[1].score
+            ),
             item[0],
         ),
     )
@@ -106,22 +112,31 @@ def build_evidence_output(
     requested_source_ids: list[str] | None = None,
     minimum_lexical_coverage: float = 0.5,
     minimum_vector_similarity: float = 0.75,
+    minimum_evidence_score: float = 0.45,
     max_sources: int = 5,
     context_token_budget: int = 6_000,
 ) -> EvidenceOutput:
     if max_sources < 1 or context_token_budget < 1:
         raise ValueError("Evidence source and token budgets must be positive")
+    if not 0.0 <= minimum_evidence_score <= 1.0:
+        raise ValueError("Evidence threshold must be between zero and one")
     max_sources = min(max_sources, 5)
     supported = [
         hit
         for hit in hits
         if (
-            hit.lexical_coverage >= minimum_lexical_coverage
-            or (hit.vector_similarity or 0.0) >= minimum_vector_similarity
+            (hit.evidence_score is not None and hit.evidence_score >= minimum_evidence_score)
             or (
-                hit.vector_similarity is None
-                and hit.lexical_coverage == 0.0
-                and hit.score >= minimum_lexical_coverage
+                hit.evidence_score is None
+                and (
+                    hit.lexical_coverage >= minimum_lexical_coverage
+                    or (hit.vector_similarity or 0.0) >= minimum_vector_similarity
+                    or (
+                        hit.vector_similarity is None
+                        and hit.lexical_coverage == 0.0
+                        and hit.score >= minimum_lexical_coverage
+                    )
+                )
             )
         )
     ]

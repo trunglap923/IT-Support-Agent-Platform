@@ -83,6 +83,7 @@ class RAGGraphNodes:
         history: Sequence[ContextMessage] = (),
         minimum_lexical_coverage: float = 0.5,
         minimum_vector_similarity: float = 0.75,
+        minimum_evidence_score: float = 0.45,
         observer: AIObserver | None = None,
         model: str = "fake",
         tool_runner: ToolRunner | None = None,
@@ -99,6 +100,7 @@ class RAGGraphNodes:
         self._history = list(history)
         self._minimum_lexical_coverage = minimum_lexical_coverage
         self._minimum_vector_similarity = minimum_vector_similarity
+        self._minimum_evidence_score = minimum_evidence_score
         self._observer = observer or NoopAIObserver()
         self._model = model
         self._tool_runner = tool_runner
@@ -486,8 +488,12 @@ class RAGGraphNodes:
             self._hits,
             minimum_lexical_coverage=self._minimum_lexical_coverage,
             minimum_vector_similarity=self._minimum_vector_similarity,
+            minimum_evidence_score=self._minimum_evidence_score,
         )
-        scores = {str(hit.chunk_id): hit.score for hit in self._hits}
+        scores = {
+            str(hit.chunk_id): (hit.evidence_score if hit.evidence_score is not None else hit.score)
+            for hit in self._hits
+        }
         evidence = [
             _evidence_state(source, scores[str(source.chunk_id)]) for source in output.sources
         ]
@@ -507,6 +513,7 @@ class RAGGraphNodes:
             accepted_evidence=len(evidence),
             minimum_lexical_coverage=self._minimum_lexical_coverage,
             minimum_vector_similarity=self._minimum_vector_similarity,
+            minimum_evidence_score=self._minimum_evidence_score,
             sources=[
                 {
                     "source_id": item["source_id"],
@@ -700,6 +707,7 @@ class RAGGraphNodes:
                 requested_source_ids=state.get("citation_ids", []),
                 minimum_lexical_coverage=self._minimum_lexical_coverage,
                 minimum_vector_similarity=self._minimum_vector_similarity,
+                minimum_evidence_score=self._minimum_evidence_score,
             )
         except InvalidCitationError as exc:
             await self._progress("answer", "warning", "Đang kiểm tra lại nguồn tham chiếu.")

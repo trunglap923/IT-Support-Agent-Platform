@@ -23,6 +23,7 @@ class KnowledgeToolSearch:
         current_query: str,
         minimum_lexical_coverage: float = 0.5,
         minimum_vector_similarity: float = 0.75,
+        minimum_evidence_score: float = 0.45,
     ) -> None:
         self._session = session
         self._principal = principal
@@ -32,6 +33,7 @@ class KnowledgeToolSearch:
         self._current_query = current_query.strip()
         self._minimum_lexical_coverage = minimum_lexical_coverage
         self._minimum_vector_similarity = minimum_vector_similarity
+        self._minimum_evidence_score = minimum_evidence_score
         self._call_index = 0
 
     async def __call__(self, query: str, limit: int) -> dict[str, object]:
@@ -47,9 +49,13 @@ class KnowledgeToolSearch:
             hits,
             minimum_lexical_coverage=self._minimum_lexical_coverage,
             minimum_vector_similarity=self._minimum_vector_similarity,
+            minimum_evidence_score=self._minimum_evidence_score,
             max_sources=limit,
         )
-        scores = {str(hit.chunk_id): hit.score for hit in hits}
+        scores = {
+            str(hit.chunk_id): (hit.evidence_score if hit.evidence_score is not None else hit.score)
+            for hit in hits
+        }
         sources: list[dict[str, object]] = []
         for source in output.sources:
             citation = {

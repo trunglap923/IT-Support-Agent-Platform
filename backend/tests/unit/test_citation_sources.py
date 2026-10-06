@@ -17,6 +17,8 @@ def hit(
     vector_similarity: float | None = None,
     lexical_coverage: float = 0.0,
     section_path: tuple[str, ...] = (),
+    evidence_score: float | None = None,
+    expansion_kind: str | None = None,
 ) -> RetrievalHit:
     return RetrievalHit(
         chunk_id=uuid4(),
@@ -34,6 +36,8 @@ def hit(
         vector_similarity=vector_similarity,
         lexical_coverage=lexical_coverage,
         section_path=section_path,
+        evidence_score=evidence_score,
+        expansion_kind=expansion_kind,
     )
 
 
@@ -112,3 +116,34 @@ def test_excerpt_is_bounded() -> None:
     output = build_evidence_output([hit(content="word " * 200)])
     assert len(output.sources[0].excerpt) == 500
     assert output.sources[0].excerpt.endswith("…")
+
+
+def test_evidence_score_controls_selection_when_available() -> None:
+    output = build_evidence_output(
+        [
+            hit(
+                score=0.9,
+                vector_similarity=0.9,
+                lexical_coverage=0.9,
+                evidence_score=0.39,
+            )
+        ]
+    )
+
+    assert output.outcome == "no_answer"
+
+
+def test_selection_merges_primary_and_expanded_hits_by_evidence_score() -> None:
+    primary = hit(
+        content="Primary overview",
+        evidence_score=0.55,
+    )
+    expanded = hit(
+        content="Expanded exact procedure",
+        evidence_score=0.90,
+        expansion_kind="neighbor",
+    )
+
+    output = build_evidence_output([primary, expanded], max_sources=1)
+
+    assert output.sources[0].chunk_id == expanded.chunk_id

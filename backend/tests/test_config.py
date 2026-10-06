@@ -11,6 +11,7 @@ def test_fake_provider_is_safe_default() -> None:
     assert settings.embedding_provider is AIProvider.FAKE
     assert settings.openai_api_key is None
     assert settings.retrieval_reranker is RetrievalReranker.WEIGHTED
+    assert settings.retrieval_minimum_evidence_score == 0.45
     assert "openai_api_key" not in settings.public_summary()
 
 
@@ -47,6 +48,11 @@ def test_text_and_embedding_providers_are_independent() -> None:
 def test_current_vector_schema_requires_1536_dimensions() -> None:
     with pytest.raises(ValidationError, match="must remain 1536"):
         Settings(embedding_dimensions=768)
+
+
+def test_evidence_score_threshold_is_bounded() -> None:
+    with pytest.raises(ValidationError, match="less than or equal to 1"):
+        Settings(retrieval_minimum_evidence_score=1.1)
 
 
 def test_redis_url_is_validated_and_kept_secret() -> None:

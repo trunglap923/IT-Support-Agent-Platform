@@ -99,6 +99,7 @@ def test_orchestrator_expands_dense_input_but_preserves_sparse_raw_query() -> No
         assert hits[0].vector_rank == hits[0].lexical_rank == 1
         assert hits[0].exact_rank == 1
         assert hits[0].rrf_score > 0
+        assert hits[0].evidence_score is not None
 
     asyncio.run(scenario())
 

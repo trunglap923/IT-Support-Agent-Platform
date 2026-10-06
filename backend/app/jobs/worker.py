@@ -86,6 +86,7 @@ async def execute_support_run(
     retrieval_result_limit: int = 5,
     retrieval_rrf_k: int = 60,
     retrieval_max_primary_chunks_per_document: int = 1,
+    retrieval_minimum_evidence_score: float = 0.45,
     retrieval_reranker: Reranker | None = None,
 ) -> WorkerResult:
     started_at = time.monotonic()
@@ -346,6 +347,7 @@ async def execute_support_run(
                 run_id=str(run_id),
                 citation_store=citation_store,
                 current_query=query,
+                minimum_evidence_score=retrieval_minimum_evidence_score,
             )
 
             tool_executor = ToolExecutor(
@@ -430,6 +432,7 @@ async def execute_support_run(
                     on_text_delta=stream_text_delta,
                     on_progress=append_progress_event,
                     log_prompts=log_prompts,
+                    minimum_evidence_score=retrieval_minimum_evidence_score,
                 )
                 log_event(logger, "worker.graph.started", run_id=str(run_id))
                 result = dict(

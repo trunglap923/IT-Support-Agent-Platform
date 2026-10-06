@@ -68,6 +68,7 @@ class Settings(BaseSettings):
     retrieval_cross_encoder_model_file: str = "onnx/model_quint8_avx2.onnx"
     retrieval_cross_encoder_candidate_limit: int = Field(default=20, ge=1, le=100)
     retrieval_cross_encoder_timeout_seconds: float = Field(default=10.0, gt=0, le=300)
+    retrieval_minimum_evidence_score: float = Field(default=0.45, ge=0, le=1)
 
     database_url: SecretStr | None = None
     migration_database_url: SecretStr | None = None

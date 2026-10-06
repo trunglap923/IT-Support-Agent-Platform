@@ -86,6 +86,17 @@ CROSS_ENCODER_MODEL_FILE = os.getenv(
 CROSS_ENCODER_TIMEOUT_SECONDS = float(
     os.getenv("RETRIEVAL_CROSS_ENCODER_TIMEOUT_SECONDS", "300")
 )
+DEFAULT_EVIDENCE_SCORE_THRESHOLD = float(
+    os.getenv("RETRIEVAL_BENCHMARK_EVIDENCE_THRESHOLD", "0.45")
+)
+EVIDENCE_THRESHOLD_SWEEP = tuple(
+    float(value)
+    for value in os.getenv(
+        "RETRIEVAL_BENCHMARK_EVIDENCE_THRESHOLD_SWEEP",
+        "0.20,0.25,0.30,0.35,0.40,0.45,0.50,0.55,0.60,0.65,0.70",
+    ).split(",")
+    if value.strip()
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -184,6 +195,7 @@ def _empty_score_samples() -> dict[str, dict[str, dict[str, list[float]]]]:
         "rerank_score",
         "exact_match_score",
         "metadata_score",
+        "evidence_score",
     )
     return {
         scope: {
@@ -463,6 +475,16 @@ async def evaluate(database_url: str) -> dict[str, Any]:
         citation_context_token_max = 0
         expanded_chunk_sum = 0
         score_samples = _empty_score_samples()
+        threshold_metrics = {
+            threshold: {
+                "answerable_document_cited": 0,
+                "answerable_chunk_cited": 0,
+                "answerable_relevant_citations": 0,
+                "answerable_selected_citations": 0,
+                "no_answer_correct": 0,
+            }
+            for threshold in EVIDENCE_THRESHOLD_SWEEP
+        }
         reranker = create_reranker(
             strategy=RERANKER_STRATEGY,
             model=CROSS_ENCODER_MODEL,
@@ -533,7 +555,10 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                 if case.forbidden_document_keys:
                     scope_count += 1
                     scope_leaks += bool(forbidden_returned)
-                evidence = build_evidence_output(hits)
+                evidence = build_evidence_output(
+                    hits,
+                    minimum_evidence_score=DEFAULT_EVIDENCE_SCORE_THRESHOLD,
+                )
                 expanded_count = sum(hit.expansion_kind is not None for hit in hits)
                 primary_result_count = len(hits) - expanded_count
                 primary_hits = hits[:primary_result_count]
@@ -563,6 +588,7 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                             "rerank_score": hit.rerank_score,
                             "exact_match_score": hit.exact_match_score,
                             "metadata_score": hit.metadata_score,
+                            "evidence_score": hit.evidence_score,
                         }
                         for signal, value in signals.items():
                             if value is not None:
@@ -619,6 +645,47 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                 ):
                     no_answer_count += 1
                     no_answer_correct += evidence.outcome == "no_answer"
+                for threshold, threshold_metric in threshold_metrics.items():
+                    threshold_evidence = build_evidence_output(
+                        hits,
+                        minimum_evidence_score=threshold,
+                    )
+                    threshold_relevant_citations = sum(
+                        any(
+                            label.matches(
+                                document_key=source.document_key,
+                                version_label=source.version_label,
+                                section=source.section,
+                                content=hit_by_id[source.chunk_id].content,
+                            )
+                            for label in case.relevant_chunks
+                        )
+                        for source in threshold_evidence.sources
+                    )
+                    threshold_document_cited = any(
+                        f"{source.document_key}:{source.version_label}" in relevant
+                        for source in threshold_evidence.sources
+                    )
+                    if case.expected_outcome == "answered":
+                        threshold_metric["answerable_document_cited"] += int(
+                            threshold_document_cited
+                        )
+                        threshold_metric["answerable_chunk_cited"] += int(
+                            threshold_relevant_citations > 0
+                        )
+                        threshold_metric["answerable_relevant_citations"] += (
+                            threshold_relevant_citations
+                        )
+                        threshold_metric["answerable_selected_citations"] += len(
+                            threshold_evidence.sources
+                        )
+                    if (
+                        case.expected_outcome == "no_answer"
+                        and not case.forbidden_document_keys
+                    ):
+                        threshold_metric["no_answer_correct"] += int(
+                            threshold_evidence.outcome == "no_answer"
+                        )
                 results.append(
                     {
                         "case_id": case.case_id,
@@ -652,6 +719,18 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                             }
                             for hit in primary_hits[:RESULT_LIMIT]
                         ],
+                        "top_evidence_scores": [
+                            {
+                                "document": f"{hit.document_key}:{hit.version_label}",
+                                "section": hit.section,
+                                "expansion_kind": hit.expansion_kind,
+                                "evidence_score": hit.evidence_score,
+                            }
+                            for hit in sorted(
+                                hits,
+                                key=lambda item: -(item.evidence_score or 0.0),
+                            )[:RESULT_LIMIT]
+                        ],
                         "tags": case.tags,
                         "relevant_documents": sorted(relevant),
                         "duplicate_rate_at_5": case_duplicate_rate,
@@ -660,6 +739,42 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                 )
         recall = recall_sum / answerable_count
         case_count = len(cases)
+        threshold_sweep = [
+            {
+                "threshold": threshold,
+                "expected_document_citation_rate": (
+                    values["answerable_document_cited"] / answerable_count
+                ),
+                "expected_chunk_citation_rate": (
+                    values["answerable_chunk_cited"] / answerable_count
+                ),
+                "citation_precision": (
+                    values["answerable_relevant_citations"]
+                    / values["answerable_selected_citations"]
+                    if values["answerable_selected_citations"]
+                    else 0.0
+                ),
+                "selected_citations_per_answerable": (
+                    values["answerable_selected_citations"] / answerable_count
+                ),
+                "no_answer_accuracy": values["no_answer_correct"] / no_answer_count,
+                "scope_leakage": scope_leaks / scope_count,
+                "eligible": (
+                    values["no_answer_correct"] == no_answer_count and scope_leaks == 0
+                ),
+            }
+            for threshold, values in sorted(threshold_metrics.items())
+        ]
+        eligible_thresholds = [item for item in threshold_sweep if item["eligible"]]
+        recommended_threshold = max(
+            eligible_thresholds or threshold_sweep,
+            key=lambda item: (
+                item["expected_chunk_citation_rate"],
+                item["citation_precision"],
+                item["expected_document_citation_rate"],
+                -item["threshold"],
+            ),
+        )["threshold"]
         reranker_runtime: dict[str, Any] = {
             "attempt_count": 0,
             "fallback_count": 0,
@@ -754,6 +869,14 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                     "estimated_context_token_budget": 6000,
                     "near_duplicate_jaccard_threshold": 0.82,
                     "near_duplicate_scope": "same_document_version",
+                    "evidence_score_weights": {
+                        "lexical_coverage": 0.50,
+                        "vector_similarity": 0.15,
+                        "rerank_score": 0.20,
+                        "exact_match_score": 0.10,
+                        "metadata_score": 0.05,
+                    },
+                    "minimum_evidence_score": DEFAULT_EVIDENCE_SCORE_THRESHOLD,
                 },
                 "version_scope": "published_current_effective_unexpired",
                 "result_limit": RESULT_LIMIT,
@@ -851,6 +974,14 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                 "g04_recall_gate": {"threshold": 0.85, "passed": recall >= 0.85},
             },
             "score_distributions": _summarize_score_samples(score_samples),
+            "evidence_threshold_sweep": {
+                "recommended_threshold": recommended_threshold,
+                "selection_policy": (
+                    "preserve perfect no-answer accuracy and zero scope leakage, then maximize "
+                    "chunk citation rate, citation precision, and document citation rate"
+                ),
+                "results": threshold_sweep,
+            },
             "limitations": [
                 (
                     "Fake hash embeddings validate wiring and reproducibility, not semantic "
@@ -929,7 +1060,16 @@ def write_report(report: dict[str, Any]) -> None:
             "rerank_score",
             "exact_match_score",
             "metadata_score",
+            "evidence_score",
         )
+    )
+    threshold_sweep = report["evidence_threshold_sweep"]
+    threshold_rows = "\n".join(
+        f"| {item['threshold']:.2f} | {item['expected_document_citation_rate']:.4f} | "
+        f"{item['expected_chunk_citation_rate']:.4f} | {item['citation_precision']:.4f} | "
+        f"{item['no_answer_accuracy']:.4f} | {item['scope_leakage']:.4f} | "
+        f"{'yes' if item['eligible'] else 'no'} |"
+        for item in threshold_sweep["results"]
     )
     report_title = (
         "Retrieval benchmark — Phase 5 cross-encoder experiment"
@@ -1032,6 +1172,14 @@ No-answer false positives: {", ".join(case["case_id"] for case in false_answers)
 | Signal | Positive count | Positive median | Negative count | Negative median |
 |---|---:|---:|---:|---:|
 {distribution_rows}
+
+## Evidence threshold sweep
+
+Recommended threshold: **{threshold_sweep["recommended_threshold"]:.2f}**.
+
+| Threshold | Document citation | Chunk citation | Citation precision | No-answer accuracy | Scope leakage | Eligible |
+|---:|---:|---:|---:|---:|---:|:---:|
+{threshold_rows}
 
 ## Limitations
 
