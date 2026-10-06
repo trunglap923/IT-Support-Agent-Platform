@@ -26,6 +26,12 @@ Run the complete official test split with deterministic fake embeddings:
 make public-retrieval-benchmark
 ```
 
+Run the whole-document BM25 anchor:
+
+```bash
+make public-retrieval-bm25
+```
+
 Run the complete split with the configured production OpenAI embedding model:
 
 ```bash
