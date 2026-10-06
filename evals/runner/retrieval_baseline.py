@@ -16,6 +16,7 @@ from typing import Any
 from uuid import uuid4
 
 from app.auth.principal import Principal
+from app.config import AIProvider, Settings
 from app.db import Database
 from app.db.models import (
     Department,
@@ -27,7 +28,8 @@ from app.db.models import (
     DocumentVisibility,
     UserRole,
 )
-from app.providers.embeddings import FakeEmbeddingProvider
+from app.providers.embeddings import EmbeddingProvider, FakeEmbeddingProvider
+from app.providers.factory import create_embedding_provider
 from app.rag.chunking.splitter import (
     CHUNKER_VERSION,
     ChunkingConfig,
@@ -64,8 +66,15 @@ EVALUATION_TIME = datetime(2026, 9, 16, tzinfo=UTC)
 RESULT_LIMIT = 5
 BRANCH_LIMIT = 20
 RRF_K = 60
-CHUNK_TARGET_TOKENS = 120
-CHUNK_OVERLAP_TOKENS = 20
+CHUNK_TARGET_TOKENS = int(os.getenv("RETRIEVAL_BENCHMARK_CHUNK_TARGET_TOKENS", "120"))
+CHUNK_OVERLAP_TOKENS = int(os.getenv("RETRIEVAL_BENCHMARK_CHUNK_OVERLAP_TOKENS", "20"))
+CHUNKING_CONFIG = ChunkingConfig(
+    target_tokens=CHUNK_TARGET_TOKENS,
+    overlap_tokens=CHUNK_OVERLAP_TOKENS,
+)
+BENCHMARK_EMBEDDING_PROVIDER = os.getenv(
+    "RETRIEVAL_BENCHMARK_EMBEDDING_PROVIDER", "fake"
+).casefold()
 RERANKER_STRATEGY = os.getenv("RETRIEVAL_BENCHMARK_RERANKER", "weighted")
 CROSS_ENCODER_MODEL = os.getenv(
     "RETRIEVAL_CROSS_ENCODER_MODEL",
@@ -131,6 +140,69 @@ class RetrievalCase:
     tags: list[str]
 
 
+def _percentile(values: list[float], percentile: float) -> float:
+    if not values:
+        return 0.0
+    ordered = sorted(values)
+    index = min(len(ordered) - 1, max(0, math.ceil(len(ordered) * percentile) - 1))
+    return ordered[index]
+
+
+def _distribution(values: list[float]) -> dict[str, float | int]:
+    if not values:
+        return {
+            "count": 0,
+            "minimum": 0.0,
+            "p10": 0.0,
+            "p25": 0.0,
+            "median": 0.0,
+            "p75": 0.0,
+            "p90": 0.0,
+            "maximum": 0.0,
+            "mean": 0.0,
+        }
+    return {
+        "count": len(values),
+        "minimum": min(values),
+        "p10": _percentile(values, 0.10),
+        "p25": _percentile(values, 0.25),
+        "median": _percentile(values, 0.50),
+        "p75": _percentile(values, 0.75),
+        "p90": _percentile(values, 0.90),
+        "maximum": max(values),
+        "mean": sum(values) / len(values),
+    }
+
+
+def _empty_score_samples() -> dict[str, dict[str, dict[str, list[float]]]]:
+    signals = (
+        "score",
+        "vector_similarity",
+        "lexical_coverage",
+        "rrf_score",
+        "rerank_score",
+    )
+    return {
+        scope: {
+            label: {signal: [] for signal in signals}
+            for label in ("positive", "negative")
+        }
+        for scope in ("primary", "expanded")
+    }
+
+
+def _summarize_score_samples(
+    samples: dict[str, dict[str, dict[str, list[float]]]],
+) -> dict[str, dict[str, dict[str, dict[str, float | int]]]]:
+    return {
+        scope: {
+            label: {signal: _distribution(values) for signal, values in signals.items()}
+            for label, signals in labels.items()
+        }
+        for scope, labels in samples.items()
+    }
+
+
 def load_cases() -> list[RetrievalCase]:
     cases: list[RetrievalCase] = []
     validator = Draft202012Validator(
@@ -190,9 +262,34 @@ def markdown_blocks(path: Path) -> list[SourceBlock]:
     ]
 
 
-async def seed_corpus(database: Database) -> dict[str, Department]:
+def create_benchmark_embedding_provider(
+    database: Database,
+) -> tuple[EmbeddingProvider, str, str]:
+    if BENCHMARK_EMBEDDING_PROVIDER == "fake":
+        return FakeEmbeddingProvider(dimensions=1536), "fake", "fake-embedding-v2"
+    if BENCHMARK_EMBEDDING_PROVIDER != "openai":
+        raise ValueError(
+            "RETRIEVAL_BENCHMARK_EMBEDDING_PROVIDER must be 'fake' or 'openai'"
+        )
+    if os.getenv("RUN_PAID_RETRIEVAL_BENCHMARK", "false").casefold() != "true":
+        raise RuntimeError(
+            "Set RUN_PAID_RETRIEVAL_BENCHMARK=true for a paid production-embedding run"
+        )
+    settings = Settings(embedding_provider=AIProvider.OPENAI)
+    return (
+        create_embedding_provider(settings, database),
+        "openai",
+        settings.embedding_model,
+    )
+
+
+async def seed_corpus(
+    database: Database,
+    *,
+    provider: EmbeddingProvider,
+    embedding_model: str,
+) -> dict[str, Department]:
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
-    provider = FakeEmbeddingProvider(dimensions=1536)
     async with database.session() as session, session.begin():
         departments = {
             key: Department(key=key, name=key.title())
@@ -261,7 +358,7 @@ async def seed_corpus(database: Database) -> dict[str, Department]:
                     ),
                     parser_version=MARKDOWN_PARSER_VERSION,
                     chunker_version=CHUNKER_VERSION,
-                    embedding_model="fake-embedding-v2",
+                    embedding_model=embedding_model,
                     embedding_dimensions=1536,
                 )
                 session.add(version)
@@ -294,10 +391,7 @@ async def seed_corpus(database: Database) -> dict[str, Department]:
                 drafts = chunk_blocks(
                     version_id=version.id,
                     blocks=blocks,
-                    config=ChunkingConfig(
-                        target_tokens=CHUNK_TARGET_TOKENS,
-                        overlap_tokens=CHUNK_OVERLAP_TOKENS,
-                    ),
+                    config=CHUNKING_CONFIG,
                 )
                 batch = await provider.embed(
                     [draft.content for draft in drafts],
@@ -333,9 +427,15 @@ async def seed_corpus(database: Database) -> dict[str, Department]:
 
 async def evaluate(database_url: str) -> dict[str, Any]:
     database = Database(database_url)
-    provider = FakeEmbeddingProvider(dimensions=1536)
+    provider, embedding_provider_name, embedding_model = (
+        create_benchmark_embedding_provider(database)
+    )
     try:
-        departments = await seed_corpus(database)
+        departments = await seed_corpus(
+            database,
+            provider=provider,
+            embedding_model=embedding_model,
+        )
         cases = load_cases()
         results: list[dict[str, Any]] = []
         recall_sum = 0.0
@@ -359,6 +459,7 @@ async def evaluate(database_url: str) -> dict[str, Any]:
         citation_context_token_sum = 0
         citation_context_token_max = 0
         expanded_chunk_sum = 0
+        score_samples = _empty_score_samples()
         reranker = create_reranker(
             strategy=RERANKER_STRATEGY,
             model=CROSS_ENCODER_MODEL,
@@ -433,6 +534,34 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                 expanded_count = sum(hit.expansion_kind is not None for hit in hits)
                 primary_result_count = len(hits) - expanded_count
                 primary_hits = hits[:primary_result_count]
+                if case.expected_outcome != "known_gap":
+                    for hit in hits:
+                        label = (
+                            "positive"
+                            if any(
+                                relevant_chunk.matches(
+                                    document_key=hit.document_key,
+                                    version_label=hit.version_label,
+                                    section=hit.section,
+                                    content=hit.content,
+                                )
+                                for relevant_chunk in case.relevant_chunks
+                            )
+                            else "negative"
+                        )
+                        scope = (
+                            "expanded" if hit.expansion_kind is not None else "primary"
+                        )
+                        signals = {
+                            "score": hit.score,
+                            "vector_similarity": hit.vector_similarity,
+                            "lexical_coverage": hit.lexical_coverage,
+                            "rrf_score": hit.rrf_score,
+                            "rerank_score": hit.rerank_score,
+                        }
+                        for signal, value in signals.items():
+                            if value is not None:
+                                score_samples[scope][label][signal].append(float(value))
                 expanded_chunk_sum += expanded_count
                 evidence_tokens = sum(
                     max(1, math.ceil(len(item.encode("utf-8")) / 3))
@@ -572,8 +701,8 @@ async def evaluate(database_url: str) -> dict[str, Any]:
             "configuration": {
                 "schema_version": "retrieval-config-v1",
                 "embedding": {
-                    "provider": "fake",
-                    "model": "fake-embedding-v2",
+                    "provider": embedding_provider_name,
+                    "model": embedding_model,
                     "dimensions": 1536,
                 },
                 "parser": {"name": "markdown", "version": MARKDOWN_PARSER_VERSION},
@@ -708,8 +837,14 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                 },
                 "g04_recall_gate": {"threshold": 0.85, "passed": recall >= 0.85},
             },
+            "score_distributions": _summarize_score_samples(score_samples),
             "limitations": [
-                "Fake hash embeddings validate wiring and reproducibility, not semantic quality.",
+                (
+                    "Fake hash embeddings validate wiring and reproducibility, not semantic "
+                    "quality."
+                    if embedding_provider_name == "fake"
+                    else "Production embeddings incur provider cost and remain corpus-specific."
+                ),
                 (
                     "Historical version requests are measured as a known gap and excluded "
                     "from the release gate."
@@ -725,6 +860,7 @@ async def evaluate(database_url: str) -> dict[str, Any]:
             "cases": results,
         }
     finally:
+        await provider.close()
         await database.close()
 
 
@@ -764,6 +900,22 @@ def write_report(report: dict[str, Any]) -> None:
     citation_tokens = metrics["citation_context_estimated_tokens"]
     expansion = metrics["expanded_chunks_per_case"]
     reranker_strategy = report["configuration"]["reranker"]["strategy"]
+    embedding_configuration = report["configuration"]["embedding"]
+    chunking_configuration = report["configuration"]["chunking"]
+    primary_distributions = report["score_distributions"]["primary"]
+    distribution_rows = "\n".join(
+        f"| {signal} | {primary_distributions['positive'][signal]['count']} | "
+        f"{primary_distributions['positive'][signal]['median']:.4f} | "
+        f"{primary_distributions['negative'][signal]['count']} | "
+        f"{primary_distributions['negative'][signal]['median']:.4f} |"
+        for signal in (
+            "score",
+            "vector_similarity",
+            "lexical_coverage",
+            "rrf_score",
+            "rerank_score",
+        )
+    )
     report_title = (
         "Retrieval benchmark — Phase 5 cross-encoder experiment"
         if reranker_strategy.startswith("cross_encoder:")
@@ -823,7 +975,9 @@ def write_report(report: dict[str, Any]) -> None:
 Run against an isolated, freshly migrated PostgreSQL/pgvector database at
 `{report["evaluated_at"]}` using corpus `{report["corpus_snapshot"]}`.
 
-Configuration: reranker `{reranker_strategy}`, """
+Configuration: embedding `{embedding_configuration["provider"]}:{embedding_configuration["model"]}`,
+chunking `{chunking_configuration["target_tokens"]}/{chunking_configuration["overlap_tokens"]}`,
+reranker `{reranker_strategy}`, """
         + (
             f"candidate pool {report['configuration']['reranker']['candidate_limit']}, "
             f"neighbor/parent expansion up to "
@@ -857,6 +1011,12 @@ estimated citation context tokens (maximum observed {citation_tokens["max_case"]
 
 Answerable misses: {", ".join(case["case_id"] for case in failed) or "none"}.
 No-answer false positives: {", ".join(case["case_id"] for case in false_answers) or "none"}.
+
+## Primary candidate score distributions
+
+| Signal | Positive count | Positive median | Negative count | Negative median |
+|---|---:|---:|---:|---:|
+{distribution_rows}
 
 ## Limitations
 
