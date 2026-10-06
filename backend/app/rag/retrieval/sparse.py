@@ -147,7 +147,6 @@ class Bm25SparseRetriever:
             principal.user_id,
             principal.role,
             principal.department_id,
-            now,
         )
         if self._scope is not None and self._scope != scope:
             raise RuntimeError("A BM25 sparse retriever cannot be shared across ACL scopes")

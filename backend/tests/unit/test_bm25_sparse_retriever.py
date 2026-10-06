@@ -96,7 +96,7 @@ def test_bm25_sparse_retriever_ranks_and_reuses_acl_scoped_index() -> None:
             session,
             raw_query="office printer paper",
             principal=_principal(),
-            now=now,
+            now=datetime(2026, 10, 6, 0, 1, tzinfo=UTC),
             limit=2,
         )
 
