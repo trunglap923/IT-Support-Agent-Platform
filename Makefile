@@ -28,6 +28,7 @@ FRONTEND_DOCKER = docker run --rm --user $(PROJECT_UID):$(PROJECT_GID) -e npm_co
 	eval-agent-repro eval-agent-live knowledge-validate knowledge-reindex \
 	knowledge-reindex-dry-run retrieval-baseline \
 	public-retrieval-smoke public-retrieval-benchmark public-retrieval-bm25 \
+	public-retrieval-ablation-smoke public-retrieval-ablation \
 	wp13-gate-tests quality-report \
 	db-up db-down db-status redis-up redis-down redis-status services-up services-down \
 	migrate seed seed-dry-run seed-demo-user wp02-integration-check wp03-integration-check \
@@ -79,6 +80,8 @@ help:
 	@echo "  make public-retrieval-smoke  Run 10 SciFact queries for integration verification"
 	@echo "  make public-retrieval-benchmark  Run the complete official SciFact test split"
 	@echo "  make public-retrieval-bm25   Run the full whole-document SciFact BM25 anchor"
+	@echo "  make public-retrieval-ablation-smoke  Run 10 SciFact queries across four variants"
+	@echo "  make public-retrieval-ablation  Run full SciFact dense/sparse/fusion/rerank ablation"
 	@echo "  make db-up                  Start local PostgreSQL/pgvector and wait until healthy"
 	@echo "  make db-down                Stop containers; preserve the PostgreSQL volume"
 	@echo "  make db-status              Show local Compose service status"
@@ -283,6 +286,12 @@ public-retrieval-benchmark: db-up
 
 public-retrieval-bm25:
 	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --project backend --frozen python -m evals.runner.public_bm25 --dataset scifact --split test
+
+public-retrieval-ablation-smoke: db-up
+	$(STACK_COMPOSE) run --rm --no-deps --user $(PROJECT_UID):$(PROJECT_GID) -e PYTHONPATH=/workspace/backend:/workspace -e SSL_CERT_FILE=/tmp/host-ca.crt -v $(HOST_CA_BUNDLE):/tmp/host-ca.crt:ro -v $(CURDIR):/workspace -w /workspace api python -m evals.runner.public_ablation --dataset scifact --split test --embedding-provider fake --query-limit 10
+
+public-retrieval-ablation: db-up
+	$(STACK_COMPOSE) run --rm --no-deps --user $(PROJECT_UID):$(PROJECT_GID) -e PYTHONPATH=/workspace/backend:/workspace -e SSL_CERT_FILE=/tmp/host-ca.crt -e PUBLIC_RETRIEVAL_EMBEDDING_PROVIDER -e RUN_PAID_PUBLIC_RETRIEVAL_BENCHMARK -v $(HOST_CA_BUNDLE):/tmp/host-ca.crt:ro -v $(CURDIR):/workspace -w /workspace api python -m evals.runner.public_ablation --dataset scifact --split test --embedding-provider "$${PUBLIC_RETRIEVAL_EMBEDDING_PROVIDER:-fake}"
 
 wp13-gate-tests:
 	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --project backend --frozen --env-file $(COMPOSE_ENV_FILE) python -m evals.runner.gate_tests

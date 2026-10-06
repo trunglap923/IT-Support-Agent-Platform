@@ -32,6 +32,15 @@ Run the whole-document BM25 anchor:
 make public-retrieval-bm25
 ```
 
+Run dense, PostgreSQL FTS, RRF, and weighted reranker ablations in one shared index:
+
+```bash
+make public-retrieval-ablation-smoke
+PUBLIC_RETRIEVAL_EMBEDDING_PROVIDER=openai \
+RUN_PAID_PUBLIC_RETRIEVAL_BENCHMARK=true \
+make public-retrieval-ablation
+```
+
 Run the complete split with the configured production OpenAI embedding model:
 
 ```bash

@@ -26,6 +26,23 @@ for describing model-backed retrieval performance. These scores measure SciFact 
 claim retrieval and must not be presented as IT support domain accuracy. Internal IT support
 quality remains covered separately by the versioned regression suite under `evals/cases`.
 
+## Candidate and ranking ablation
+
+The full fake-embedding run isolates the retrieval branches without another paid API call:
+
+| Variant | nDCG@10 | Recall@10 | MRR@10 |
+|---|---:|---:|---:|
+| Dense hash only | 0.3471 | 0.4375 | 0.3235 |
+| PostgreSQL FTS only | 0.2723 | 0.3997 | 0.2355 |
+| Hybrid RRF | 0.4880 | 0.6150 | 0.4573 |
+| Hybrid weighted reranker | **0.5147** | **0.6586** | **0.4749** |
+
+The weighted reranker improves RRF by `0.0267` nDCG@10. PostgreSQL FTS trails the verified
+whole-document BM25 anchor by `0.4039`, identifying lexical candidate quality as the main
+measured bottleneck. The production ablation must be rerun after configuring a valid API key;
+the previous key was rejected before corpus indexing, so no partial production result is used.
+
 Detailed provenance, configuration, per-query rankings, relevance labels, metrics, and latency
 are recorded in `fake-test-retrieval.json`, `openai-test-retrieval.json`, and
-`bm25-test-retrieval.json`.
+`bm25-test-retrieval.json`. Candidate-level ablation results are in
+`fake-test-ablation.json`.
