@@ -1,9 +1,10 @@
 import asyncio
 from collections.abc import Sequence
+from dataclasses import replace
 from uuid import UUID
 
-from app.rag.retrieval.models import RetrievalCandidate
-from app.rag.retrieval.rerank import CrossEncoderReranker
+from app.rag.retrieval.models import QuerySpec, RetrievalCandidate, RetrievalRequest
+from app.rag.retrieval.rerank import CrossEncoderReranker, WeightedFeatureReranker
 
 
 def _candidate(index: int, content: str) -> RetrievalCandidate:
@@ -96,5 +97,30 @@ def test_cross_encoder_invalid_score_count_falls_back() -> None:
 
         assert len(ranked) == 1
         assert reranker.fallback_count == 1
+
+    asyncio.run(scenario())
+
+
+def test_weighted_reranker_soft_boosts_matching_metadata() -> None:
+    async def scenario() -> None:
+        analysis = QuerySpec.from_request(
+            RetrievalRequest(raw_query="Cấu hình Registry"),
+            intent="knowledge",
+            confidence=0.9,
+            metadata_filters=(("service", "registry"),),
+        )
+        matching = _candidate(1, "setup steps")
+        matching = replace(matching, document_key="registry-guide")
+        unrelated = _candidate(2, "setup steps")
+
+        ranked = await WeightedFeatureReranker().rerank(
+            "Cấu hình Registry",
+            [unrelated, matching],
+            analysis=analysis,
+        )
+
+        assert ranked[0].chunk_id == matching.chunk_id
+        assert ranked[0].metadata_score == 1.0
+        assert ranked[1].metadata_score == 0.0
 
     asyncio.run(scenario())

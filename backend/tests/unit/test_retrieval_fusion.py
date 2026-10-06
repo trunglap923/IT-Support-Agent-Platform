@@ -31,6 +31,23 @@ def test_rrf_merges_branch_metadata_and_ranks_shared_candidate_first() -> None:
     assert fused[0].fusion_score == pytest.approx(1 / 62 + 1 / 61)
 
 
+def test_rrf_merges_exact_branch_rank_and_score() -> None:
+    shared = candidate(1, "shared").with_dense(rank=1, score=0.7)
+    exact_shared = candidate(1, "shared").with_exact(rank=1, score=1.0)
+    sparse_only = candidate(2, "sparse").with_sparse(rank=1, score=0.9)
+
+    fused = ReciprocalRankFusion(k=60).fuse(
+        [shared],
+        [sparse_only],
+        [exact_shared],
+    )
+
+    assert fused[0].document_key == "shared"
+    assert fused[0].exact_rank == 1
+    assert fused[0].exact_score == 1.0
+    assert fused[0].fusion_score == pytest.approx(2 / 61)
+
+
 @pytest.mark.parametrize("value", [0, -1])
 def test_rrf_rejects_non_positive_k(value: int) -> None:
     with pytest.raises(ValueError, match="positive"):

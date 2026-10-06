@@ -114,13 +114,14 @@ class RelevantChunk:
         section: str | None,
         content: str,
     ) -> bool:
-        normalized_content = content.casefold()
+        normalized_content = " ".join(content.casefold().split())
         return (
             document_key == self.document_key
             and version_label == self.version_label
             and (section or "").casefold() == self.section.casefold()
             and all(
-                term.casefold() in normalized_content for term in self.required_terms
+                " ".join(term.casefold().split()) in normalized_content
+                for term in self.required_terms
             )
         )
 
@@ -181,6 +182,8 @@ def _empty_score_samples() -> dict[str, dict[str, dict[str, list[float]]]]:
         "lexical_coverage",
         "rrf_score",
         "rerank_score",
+        "exact_match_score",
+        "metadata_score",
     )
     return {
         scope: {
@@ -558,6 +561,8 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                             "lexical_coverage": hit.lexical_coverage,
                             "rrf_score": hit.rrf_score,
                             "rerank_score": hit.rerank_score,
+                            "exact_match_score": hit.exact_match_score,
+                            "metadata_score": hit.metadata_score,
                         }
                         for signal, value in signals.items():
                             if value is not None:
@@ -680,10 +685,12 @@ async def evaluate(database_url: str) -> dict[str, Any]:
             reranker_configuration["runtime"] = reranker_runtime
         else:
             reranker_configuration["weights"] = {
-                "query_term_coverage": 0.55,
-                "exact_identifier_match": 0.25,
+                "query_term_coverage": 0.50,
+                "exact_identifier_match": 0.20,
                 "normalized_rrf": 0.15,
                 "dense_score": 0.05,
+                "exact_branch_score": 0.05,
+                "metadata_soft_boost": 0.05,
             }
         return {
             "report_version": "retrieval-baseline-v3",
@@ -723,14 +730,20 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                     "candidate_limit": BRANCH_LIMIT,
                     "preserves_original_query": True,
                 },
+                "exact": {
+                    "strategy": "acl_scoped_literal_content_and_metadata",
+                    "candidate_limit": BRANCH_LIMIT,
+                },
                 "fusion": {
                     "strategy": "reciprocal_rank_fusion",
                     "rrf_k": RRF_K,
                 },
                 "reranker": reranker_configuration,
                 "primary_diversity": {
-                    "strategy": "document_version_cap",
+                    "strategy": "adaptive_document_version_cap",
                     "max_chunks_per_document": 1,
+                    "adaptive_max_chunks_per_document": 2,
+                    "adaptive_score_ratio": 0.85,
                 },
                 "context_expansion": {
                     "strategy": "acl_scoped_neighbor_and_parent_section",
@@ -914,6 +927,8 @@ def write_report(report: dict[str, Any]) -> None:
             "lexical_coverage",
             "rrf_score",
             "rerank_score",
+            "exact_match_score",
+            "metadata_score",
         )
     )
     report_title = (

@@ -13,7 +13,7 @@ from typing import Any, Protocol
 
 from app.diagnostics import log_event
 from app.rag.retrieval.analysis import meaningful_terms
-from app.rag.retrieval.models import RetrievalCandidate
+from app.rag.retrieval.models import QuerySpec, RetrievalCandidate
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,11 @@ class Reranker(Protocol):
     def name(self) -> str: ...
 
     async def rerank(
-        self, query: str, candidates: list[RetrievalCandidate]
+        self,
+        query: str,
+        candidates: list[RetrievalCandidate],
+        *,
+        analysis: QuerySpec | None = None,
     ) -> list[RetrievalCandidate]: ...
 
 
@@ -45,7 +49,11 @@ class WeightedFeatureReranker:
         return "weighted_feature_v1"
 
     async def rerank(
-        self, query: str, candidates: list[RetrievalCandidate]
+        self,
+        query: str,
+        candidates: list[RetrievalCandidate],
+        *,
+        analysis: QuerySpec | None = None,
     ) -> list[RetrievalCandidate]:
         query_terms = tuple(dict.fromkeys(meaningful_terms(query)))
         exact_terms = tuple(
@@ -66,10 +74,35 @@ class WeightedFeatureReranker:
                 if exact_terms
                 else 0.0
             )
+            metadata_values = (
+                tuple(value for _, value in analysis.metadata_filters)
+                if analysis is not None
+                else ()
+            )
+            metadata_match = (
+                sum(value.casefold() in searchable for value in metadata_values)
+                / len(metadata_values)
+                if metadata_values
+                else 0.0
+            )
             normalized_rrf = candidate.fusion_score / max_rrf
             dense = candidate.dense_score or 0.0
-            score = 0.55 * coverage + 0.25 * identifier_match + 0.15 * normalized_rrf + 0.05 * dense
-            ranked.append(replace(candidate, rerank_score=score))
+            exact = candidate.exact_score or 0.0
+            score = (
+                0.50 * coverage
+                + 0.20 * identifier_match
+                + 0.15 * normalized_rrf
+                + 0.05 * dense
+                + 0.05 * exact
+                + 0.05 * metadata_match
+            )
+            ranked.append(
+                replace(
+                    candidate,
+                    rerank_score=score,
+                    metadata_score=metadata_match,
+                )
+            )
         return _sort_candidates(ranked)
 
 
@@ -154,7 +187,11 @@ class CrossEncoderReranker:
         return f"cross_encoder:{self._model}"
 
     async def rerank(
-        self, query: str, candidates: list[RetrievalCandidate]
+        self,
+        query: str,
+        candidates: list[RetrievalCandidate],
+        *,
+        analysis: QuerySpec | None = None,
     ) -> list[RetrievalCandidate]:
         if not candidates:
             return []
@@ -174,7 +211,7 @@ class CrossEncoderReranker:
                 replace(candidate, rerank_score=float(score))
                 for candidate, score in zip(bounded, scores, strict=True)
             ]
-            ranked_remainder = await self._fallback.rerank(query, remainder)
+            ranked_remainder = await self._fallback.rerank(query, remainder, analysis=analysis)
             return [*_sort_candidates(reranked), *ranked_remainder]
         except Exception as error:
             self.fallback_count += 1
@@ -185,7 +222,7 @@ class CrossEncoderReranker:
                 error_type=type(error).__name__,
                 candidate_count=len(bounded),
             )
-            return await self._fallback.rerank(query, candidates)
+            return await self._fallback.rerank(query, candidates, analysis=analysis)
         finally:
             duration_ms = (time.monotonic() - started_at) * 1_000
             self.total_duration_ms += duration_ms
@@ -218,6 +255,8 @@ def _candidate_text(candidate: RetrievalCandidate) -> str:
     return "\n".join(
         part
         for part in (
+            candidate.document_key,
+            candidate.version_label,
             candidate.title,
             candidate.section or "",
             " > ".join(candidate.section_path),

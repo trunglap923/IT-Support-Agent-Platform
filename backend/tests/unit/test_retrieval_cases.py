@@ -33,3 +33,19 @@ def test_relevant_chunk_requires_document_section_and_terms() -> None:
         section="Windows",
         content="Install client and authenticate with SSO.",
     )
+
+
+def test_relevant_chunk_normalizes_structural_whitespace() -> None:
+    label = RelevantChunk(
+        document_key="engineering-oncall",
+        version_label="v1",
+        section="Registry incident",
+        required_terms=["request ID", "service status dashboard"],
+    )
+
+    assert label.matches(
+        document_key="engineering-oncall",
+        version_label="v1",
+        section="Registry incident",
+        content="Compare the request ID with the service status\ndashboard.",
+    )

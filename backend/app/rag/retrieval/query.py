@@ -24,6 +24,7 @@ from app.rag.retrieval.analysis import (
 )
 from app.rag.retrieval.dense import DenseRetriever, PostgresDenseRetriever
 from app.rag.retrieval.diversity import DocumentDiversitySelector
+from app.rag.retrieval.exact import ExactRetriever, PostgresExactRetriever
 from app.rag.retrieval.expansion import expand_parent_and_neighbors
 from app.rag.retrieval.fusion import FusionStrategy, ReciprocalRankFusion
 from app.rag.retrieval.models import QuerySpec, RetrievalCandidate, RetrievalRequest
@@ -48,6 +49,7 @@ class RetrievalHit:
     score: float
     vector_rank: int | None
     lexical_rank: int | None
+    exact_rank: int | None = None
     vector_similarity: float | None = None
     lexical_coverage: float = 0.0
     rrf_score: float = 0.0
@@ -55,6 +57,8 @@ class RetrievalHit:
     section_id: UUID | None = None
     ordinal: int = 0
     rerank_score: float | None = None
+    exact_match_score: float | None = None
+    metadata_score: float = 0.0
     expansion_kind: str | None = None
 
 
@@ -71,6 +75,7 @@ class HybridRetriever:
         diversity_selector: DocumentDiversitySelector | None = None,
         dense_retriever: DenseRetriever | None = None,
         sparse_retriever: SparseRetriever | None = None,
+        exact_retriever: ExactRetriever | None = None,
         fusion_strategy: FusionStrategy | None = None,
         reranker: Reranker | None = None,
         branch_limit: int = 20,
@@ -94,6 +99,7 @@ class HybridRetriever:
         )
         self._dense_retriever = dense_retriever or PostgresDenseRetriever()
         self._sparse_retriever = sparse_retriever or PostgresSparseRetriever()
+        self._exact_retriever = exact_retriever or PostgresExactRetriever()
         self._fusion_strategy = fusion_strategy or ReciprocalRankFusion(k=rrf_k)
         self._reranker = reranker or WeightedFeatureReranker()
         self._branch_limit = branch_limit
@@ -237,14 +243,38 @@ class HybridRetriever:
         )
         sparse_ms = (time.monotonic() - sparse_started) * 1_000
 
+        exact_started = time.monotonic()
+        exact = await self._exact_retriever.retrieve(
+            session,
+            raw_query=spec.raw_query,
+            exact_terms=tuple(
+                dict.fromkeys(
+                    (
+                        *spec.exact_terms,
+                        *spec.filters.error_codes,
+                        *spec.filters.version_labels,
+                    )
+                )
+            ),
+            principal=principal,
+            now=selected_now,
+            limit=self._branch_limit,
+        )
+        exact_ms = (time.monotonic() - exact_started) * 1_000
+
         fusion_started = time.monotonic()
-        fused = self._fusion_strategy.fuse(dense, sparse)
+        fused = self._fusion_strategy.fuse(dense, sparse, exact)
         fusion_ms = (time.monotonic() - fusion_started) * 1_000
         rerank_started = time.monotonic()
-        reranked = await self._reranker.rerank(spec.raw_query, fused[: self._candidate_limit])
+        reranked = await self._reranker.rerank(
+            spec.raw_query,
+            fused[: self._candidate_limit],
+            analysis=spec,
+        )
         seeds = self._diversity_selector.select(
             reranked,
             limit=request.result_limit,
+            exact_terms=spec.exact_terms,
         )
         selected_seed_ids = {candidate.chunk_id for candidate in seeds}
         diversity_dropped = sum(
@@ -271,7 +301,9 @@ class HybridRetriever:
                 max_neighbors_per_seed=self._expansion_per_hit,
             )
             expanded_candidates = await WeightedFeatureReranker().rerank(
-                spec.raw_query, [item.candidate for item in expansion_candidates]
+                spec.raw_query,
+                [item.candidate for item in expansion_candidates],
+                analysis=spec,
             )
             expansion_kind_by_id = {
                 item.candidate.chunk_id: item.expansion_kind for item in expansion_candidates
@@ -303,6 +335,7 @@ class HybridRetriever:
             reranker=self._reranker.name,
             dense_candidates=len(dense),
             sparse_candidates=len(sparse),
+            exact_candidates=len(exact),
             fused_candidates=len(fused),
             reranked_candidates=len(reranked),
             diversity_dropped_candidates=max(0, diversity_dropped),
@@ -312,6 +345,7 @@ class HybridRetriever:
             embedding_ms=round(embedding_ms, 2),
             dense_ms=round(dense_ms, 2),
             sparse_ms=round(sparse_ms, 2),
+            exact_ms=round(exact_ms, 2),
             fusion_ms=round(fusion_ms, 2),
             rerank_ms=round(rerank_ms, 2),
             expansion_ms=round(expansion_ms, 2),
@@ -348,6 +382,7 @@ class HybridRetriever:
             score=confidence,
             vector_rank=candidate.dense_rank,
             lexical_rank=candidate.sparse_rank,
+            exact_rank=candidate.exact_rank,
             vector_similarity=candidate.dense_score,
             lexical_coverage=lexical_coverage,
             rrf_score=candidate.fusion_score,
@@ -355,6 +390,8 @@ class HybridRetriever:
             section_id=candidate.section_id,
             ordinal=candidate.ordinal,
             rerank_score=candidate.rerank_score,
+            exact_match_score=candidate.exact_score,
+            metadata_score=candidate.metadata_score,
             expansion_kind=expansion_kind,
         )
 
@@ -370,12 +407,17 @@ class HybridRetriever:
             "score": round(hit.score, 6),
             "dense_rank": hit.vector_rank,
             "sparse_rank": hit.lexical_rank,
+            "exact_rank": hit.exact_rank,
             "vector_similarity": (
                 round(hit.vector_similarity, 6) if hit.vector_similarity is not None else None
             ),
             "lexical_coverage": round(hit.lexical_coverage, 6),
             "rrf_score": round(hit.rrf_score, 6),
             "rerank_score": (round(hit.rerank_score, 6) if hit.rerank_score is not None else None),
+            "exact_match_score": (
+                round(hit.exact_match_score, 6) if hit.exact_match_score is not None else None
+            ),
+            "metadata_score": round(hit.metadata_score, 6),
             "expansion_kind": hit.expansion_kind,
             **content_log_fields("content", hit.content, include_content=self._log_prompts),
         }

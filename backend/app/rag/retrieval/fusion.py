@@ -17,6 +17,7 @@ class FusionStrategy(Protocol):
         self,
         dense: list[RetrievalCandidate],
         sparse: list[RetrievalCandidate],
+        exact: list[RetrievalCandidate] | None = None,
     ) -> list[RetrievalCandidate]: ...
 
 
@@ -34,6 +35,7 @@ class ReciprocalRankFusion:
         self,
         dense: list[RetrievalCandidate],
         sparse: list[RetrievalCandidate],
+        exact: list[RetrievalCandidate] | None = None,
     ) -> list[RetrievalCandidate]:
         candidates: dict[UUID, RetrievalCandidate] = {}
         for item in dense:
@@ -49,12 +51,23 @@ class ReciprocalRankFusion:
                     sparse_score=item.sparse_score,
                 )
             )
+        for item in exact or ():
+            existing = candidates.get(item.chunk_id)
+            candidates[item.chunk_id] = (
+                item
+                if existing is None
+                else replace(
+                    existing,
+                    exact_rank=item.exact_rank,
+                    exact_score=item.exact_score,
+                )
+            )
         fused = [
             replace(
                 item,
                 fusion_score=sum(
                     1 / (self._k + rank)
-                    for rank in (item.dense_rank, item.sparse_rank)
+                    for rank in (item.dense_rank, item.sparse_rank, item.exact_rank)
                     if rank is not None
                 ),
             )
@@ -66,6 +79,7 @@ class ReciprocalRankFusion:
                 -item.fusion_score,
                 -(item.dense_score or 0.0),
                 -(item.sparse_score or 0.0),
+                -(item.exact_score or 0.0),
                 item.document_key,
                 item.version_label,
                 item.ordinal,

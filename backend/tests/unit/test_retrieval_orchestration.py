@@ -44,6 +44,16 @@ class RecordingSparseRetriever:
         return [self.result.with_sparse(rank=1, score=0.5)]
 
 
+class RecordingExactRetriever:
+    def __init__(self, result: RetrievalCandidate) -> None:
+        self.result = result
+        self.raw_queries: list[str] = []
+
+    async def retrieve(self, session: AsyncSession, **kwargs: Any) -> list[RetrievalCandidate]:
+        self.raw_queries.append(str(kwargs["raw_query"]))
+        return [self.result.with_exact(rank=1, score=0.75)]
+
+
 def test_orchestrator_expands_dense_input_but_preserves_sparse_raw_query() -> None:
     async def scenario() -> None:
         candidate = RetrievalCandidate(
@@ -57,10 +67,12 @@ def test_orchestrator_expands_dense_input_but_preserves_sparse_raw_query() -> No
         )
         embeddings = RecordingEmbeddingProvider()
         sparse = RecordingSparseRetriever(candidate)
+        exact = RecordingExactRetriever(candidate)
         retriever = HybridRetriever(
             embedding_provider=embeddings,
             dense_retriever=StubDenseRetriever(candidate),
             sparse_retriever=sparse,
+            exact_retriever=exact,
         )
         query = "Cách cấu hình VPN trên Ubuntu?"
 
@@ -81,9 +93,11 @@ def test_orchestrator_expands_dense_input_but_preserves_sparse_raw_query() -> No
         )
 
         assert sparse.raw_queries == [query]
+        assert exact.raw_queries == [query]
         assert embeddings.texts[0].startswith(query)
         assert "configure" in embeddings.texts[0]
         assert hits[0].vector_rank == hits[0].lexical_rank == 1
+        assert hits[0].exact_rank == 1
         assert hits[0].rrf_score > 0
 
     asyncio.run(scenario())
@@ -116,12 +130,14 @@ def test_orchestrator_reuses_precomputed_analysis_without_second_model_call() ->
         )
         embeddings = RecordingEmbeddingProvider()
         sparse = RecordingSparseRetriever(candidate)
+        exact = RecordingExactRetriever(candidate)
         retriever = HybridRetriever(
             embedding_provider=embeddings,
             query_analysis=analysis,
             model_query_analyzer=ModelQueryAnalyzer(UnexpectedModel()),  # type: ignore[arg-type]
             dense_retriever=StubDenseRetriever(candidate),
             sparse_retriever=sparse,
+            exact_retriever=exact,
         )
 
         await retriever.search(
