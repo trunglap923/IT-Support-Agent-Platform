@@ -54,7 +54,14 @@ def create_text_usage_ledger(settings: Settings, database: Database) -> Database
     )
 
 
-def create_embedding_provider(settings: Settings, database: Database) -> EmbeddingProvider:
+def create_embedding_provider(
+    settings: Settings,
+    database: Database,
+    *,
+    timeout_seconds: float = 20.0,
+) -> EmbeddingProvider:
+    if timeout_seconds <= 0:
+        raise ValueError("Embedding provider timeout must be positive")
     if settings.embedding_provider is AIProvider.FAKE:
         return FakeEmbeddingProvider(dimensions=settings.embedding_dimensions)
     key = settings.openai_api_key
@@ -67,7 +74,11 @@ def create_embedding_provider(settings: Settings, database: Database) -> Embeddi
         input_price_per_million_usd=Decimal(str(settings.embedding_input_price_per_million_usd)),
         price_version=settings.embedding_price_version,
     )
-    client = AsyncOpenAI(api_key=key.get_secret_value(), max_retries=0, timeout=20.0)
+    client = AsyncOpenAI(
+        api_key=key.get_secret_value(),
+        max_retries=0,
+        timeout=timeout_seconds,
+    )
     return OpenAIEmbeddingProvider(
         client=client,
         ledger=ledger,

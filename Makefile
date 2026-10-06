@@ -4,6 +4,7 @@ PYTHON_VERSION ?= 3.12
 UV_CACHE_DIR ?= /tmp/it-support-agent-uv-cache
 NODE_IMAGE ?= node:22-bookworm-slim@sha256:83f487e0a63425e5b4d146fb5e5be574bcbe1b7b843d3ebafdd95eaf7767a7e5
 PLAYWRIGHT_IMAGE ?= mcr.microsoft.com/playwright:v1.63.0-noble
+HOST_CA_BUNDLE ?= /etc/ssl/certs/ca-certificates.crt
 BACKEND_DEV_HOST ?= 0.0.0.0
 BACKEND_DEV_PORT ?= 8000
 FRONTEND_DEV_PORT ?= 5173
@@ -26,6 +27,7 @@ FRONTEND_DOCKER = docker run --rm --user $(PROJECT_UID):$(PROJECT_GID) -e npm_co
 	spike-mcp-stdio spike-langgraph-postgres eval-validate eval-agent-fake \
 	eval-agent-repro eval-agent-live knowledge-validate knowledge-reindex \
 	knowledge-reindex-dry-run retrieval-baseline \
+	public-retrieval-smoke public-retrieval-benchmark \
 	wp13-gate-tests quality-report \
 	db-up db-down db-status redis-up redis-down redis-status services-up services-down \
 	migrate seed seed-dry-run seed-demo-user wp02-integration-check wp03-integration-check \
@@ -74,6 +76,8 @@ help:
 	@echo "  make knowledge-reindex-dry-run  Preview seed-corpus embedding changes"
 	@echo "  make knowledge-reindex       Re-embed only seed-corpus versions (paid opt-in guarded)"
 	@echo "  make retrieval-baseline      Run isolated PostgreSQL retrieval evaluation"
+	@echo "  make public-retrieval-smoke  Run 10 SciFact queries for integration verification"
+	@echo "  make public-retrieval-benchmark  Run the complete official SciFact test split"
 	@echo "  make db-up                  Start local PostgreSQL/pgvector and wait until healthy"
 	@echo "  make db-down                Stop containers; preserve the PostgreSQL volume"
 	@echo "  make db-status              Show local Compose service status"
@@ -269,6 +273,12 @@ knowledge-validate:
 
 retrieval-baseline:
 	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --project backend --frozen --env-file $(COMPOSE_ENV_FILE) python -m evals.runner.retrieval_baseline
+
+public-retrieval-smoke: db-up
+	$(STACK_COMPOSE) run --rm --no-deps --user $(PROJECT_UID):$(PROJECT_GID) -e PYTHONPATH=/workspace/backend:/workspace -e SSL_CERT_FILE=/tmp/host-ca.crt -v $(HOST_CA_BUNDLE):/tmp/host-ca.crt:ro -v $(CURDIR):/workspace -w /workspace api python -m evals.runner.public_retrieval --dataset scifact --split test --embedding-provider fake --query-limit 10
+
+public-retrieval-benchmark: db-up
+	$(STACK_COMPOSE) run --rm --no-deps --user $(PROJECT_UID):$(PROJECT_GID) -e PYTHONPATH=/workspace/backend:/workspace -e SSL_CERT_FILE=/tmp/host-ca.crt -e PUBLIC_RETRIEVAL_EMBEDDING_PROVIDER -e RUN_PAID_PUBLIC_RETRIEVAL_BENCHMARK -v $(HOST_CA_BUNDLE):/tmp/host-ca.crt:ro -v $(CURDIR):/workspace -w /workspace api python -m evals.runner.public_retrieval --dataset scifact --split test --embedding-provider "$${PUBLIC_RETRIEVAL_EMBEDDING_PROVIDER:-fake}"
 
 wp13-gate-tests:
 	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --project backend --frozen --env-file $(COMPOSE_ENV_FILE) python -m evals.runner.gate_tests
