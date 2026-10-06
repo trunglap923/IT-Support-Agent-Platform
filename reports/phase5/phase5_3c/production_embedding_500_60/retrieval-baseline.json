@@ -1,0 +1,4609 @@
+{
+  "report_version": "retrieval-baseline-v3",
+  "evaluated_at": "2026-09-16T00:00:00+00:00",
+  "corpus_snapshot": "m2-corpus-v1",
+  "corpus_manifest_sha256": "d83d8e921252349b45f6a247dc7a7106fa8b5687b73089e26c6d4d44e60faf19",
+  "dataset": {
+    "path": "evals/cases/retrieval-baseline.jsonl",
+    "sha256": "af13f9caa2070e8f4c7564bdf32cc120e56d64053ea77049f10241b6f854cc7b",
+    "case_count": 42,
+    "tags": [
+      "acl",
+      "chunk_label",
+      "current_version",
+      "exact_identifier",
+      "historical_version",
+      "it_only",
+      "known_gap",
+      "mixed_vi_en",
+      "multi_relevant",
+      "no_answer",
+      "secret_request",
+      "semantic_en",
+      "semantic_vi"
+    ]
+  },
+  "configuration": {
+    "schema_version": "retrieval-config-v1",
+    "embedding": {
+      "provider": "openai",
+      "model": "text-embedding-3-small",
+      "dimensions": 1536
+    },
+    "parser": {
+      "name": "markdown",
+      "version": "markdown-structure-v2"
+    },
+    "chunking": {
+      "version": "hierarchical-window-v3",
+      "target_tokens": 500,
+      "overlap_tokens": 60
+    },
+    "structure": {
+      "parent_store": "document_sections",
+      "leaf_store": "document_chunks",
+      "section_path_preserved": true,
+      "content_types_preserved": true
+    },
+    "dense": {
+      "strategy": "exact_cosine",
+      "candidate_limit": 20
+    },
+    "sparse": {
+      "strategy": "postgres_simple_fts_or_terms",
+      "candidate_limit": 20,
+      "preserves_original_query": true
+    },
+    "exact": {
+      "strategy": "acl_scoped_literal_content_and_metadata",
+      "candidate_limit": 20
+    },
+    "fusion": {
+      "strategy": "reciprocal_rank_fusion",
+      "rrf_k": 60
+    },
+    "reranker": {
+      "strategy": "weighted_feature_v1",
+      "candidate_limit": 20,
+      "weights": {
+        "query_term_coverage": 0.5,
+        "exact_identifier_match": 0.2,
+        "normalized_rrf": 0.15,
+        "dense_score": 0.05,
+        "exact_branch_score": 0.05,
+        "metadata_soft_boost": 0.05
+      }
+    },
+    "primary_diversity": {
+      "strategy": "adaptive_document_version_cap",
+      "max_chunks_per_document": 1,
+      "adaptive_max_chunks_per_document": 2,
+      "adaptive_score_ratio": 0.85
+    },
+    "context_expansion": {
+      "strategy": "acl_scoped_neighbor_and_parent_section",
+      "neighbors_per_seed_each_direction": 2
+    },
+    "citation_selection": {
+      "max_sources": 5,
+      "estimated_context_token_budget": 6000,
+      "near_duplicate_jaccard_threshold": 0.82,
+      "near_duplicate_scope": "same_document_version",
+      "evidence_score_weights": {
+        "lexical_coverage": 0.5,
+        "vector_similarity": 0.15,
+        "rerank_score": 0.2,
+        "exact_match_score": 0.1,
+        "metadata_score": 0.05
+      },
+      "minimum_evidence_score": 0.45
+    },
+    "version_scope": "published_current_effective_unexpired",
+    "result_limit": 5
+  },
+  "metrics": {
+    "recall_at_5": {
+      "numerator": 31.0,
+      "denominator": 31,
+      "value": 1.0
+    },
+    "precision_at_5": {
+      "numerator_sum": 6.800000000000003,
+      "denominator": 31,
+      "value": 0.21935483870967754
+    },
+    "mrr_at_5": {
+      "numerator_reciprocal_rank_sum": 29.333333333333336,
+      "denominator": 31,
+      "value": 0.946236559139785
+    },
+    "ndcg_at_5": {
+      "numerator_sum": 29.448619370695,
+      "denominator": 31,
+      "value": 0.9499554635708064
+    },
+    "duplicate_rate_at_5": {
+      "numerator_sum": 0.0,
+      "denominator": 42,
+      "value": 0.0
+    },
+    "known_gap_historical_version": {
+      "retrieved": 0,
+      "denominator": 2,
+      "value": 0.0
+    },
+    "no_answer_accuracy": {
+      "numerator": 6,
+      "denominator": 6,
+      "value": 1.0
+    },
+    "scope_leakage": {
+      "leaks": 0,
+      "denominator": 3,
+      "value": 0.0
+    },
+    "expected_document_citation_rate": {
+      "numerator": 24,
+      "denominator": 31,
+      "value": 0.7741935483870968
+    },
+    "expected_chunk_recall_at_5": {
+      "numerator": 31,
+      "denominator": 31,
+      "value": 1.0
+    },
+    "expected_chunk_citation_rate": {
+      "numerator": 24,
+      "denominator": 31,
+      "value": 0.7741935483870968
+    },
+    "citation_precision": {
+      "numerator": 24,
+      "denominator": 33,
+      "value": 0.7272727272727273
+    },
+    "selected_citations_per_case": {
+      "sum": 33,
+      "denominator": 42,
+      "mean": 0.7857142857142857
+    },
+    "citation_context_estimated_tokens": {
+      "sum": 3332,
+      "denominator": 42,
+      "mean": 79.33333333333333,
+      "max_case": 310,
+      "budget": 6000
+    },
+    "expanded_chunks_per_case": {
+      "sum": 598,
+      "denominator": 42,
+      "mean": 14.238095238095237
+    },
+    "g04_recall_gate": {
+      "threshold": 0.85,
+      "passed": true
+    }
+  },
+  "score_distributions": {
+    "primary": {
+      "positive": {
+        "score": {
+          "count": 32,
+          "minimum": 0.35592214281922074,
+          "p10": 0.4049681239207459,
+          "p25": 0.5191419696463687,
+          "median": 0.6666666666666666,
+          "p75": 0.7533118806313607,
+          "p90": 0.8571428571428571,
+          "maximum": 1.0,
+          "mean": 0.6577342603048594
+        },
+        "vector_similarity": {
+          "count": 32,
+          "minimum": 0.35592214281922074,
+          "p10": 0.4049681239207459,
+          "p25": 0.5180835972187099,
+          "median": 0.6000582520046067,
+          "p75": 0.6634586615339197,
+          "p90": 0.7194181800673616,
+          "maximum": 0.7786848088423768,
+          "mean": 0.5883689729465451
+        },
+        "lexical_coverage": {
+          "count": 32,
+          "minimum": 0.125,
+          "p10": 0.21428571428571427,
+          "p25": 0.3333333333333333,
+          "median": 0.625,
+          "p75": 0.75,
+          "p90": 0.8571428571428571,
+          "maximum": 1.0,
+          "mean": 0.5824115988178488
+        },
+        "rrf_score": {
+          "count": 32,
+          "minimum": 0.045547159015581276,
+          "p10": 0.04741797364748185,
+          "p25": 0.04865990111891751,
+          "median": 0.04918032786885246,
+          "p75": 0.04918032786885246,
+          "p90": 0.04918032786885246,
+          "maximum": 0.04918032786885246,
+          "mean": 0.04869710621839392
+        },
+        "rerank_score": {
+          "count": 32,
+          "minimum": 0.24972373342757398,
+          "p10": 0.4132663718373104,
+          "p25": 0.452466521033803,
+          "median": 0.6520367014132757,
+          "p75": 0.7817047726549569,
+          "p90": 0.8597052556497288,
+          "maximum": 0.9830286389742185,
+          "mean": 0.6288762481113117
+        },
+        "exact_match_score": {
+          "count": 32,
+          "minimum": 0.0625,
+          "p10": 0.2857142857142857,
+          "p25": 0.4444444444444444,
+          "median": 0.75,
+          "p75": 1.0,
+          "p90": 1.0,
+          "maximum": 1.0,
+          "mean": 0.6900141091547342
+        },
+        "metadata_score": {
+          "count": 32,
+          "minimum": 0.0,
+          "p10": 1.0,
+          "p25": 1.0,
+          "median": 1.0,
+          "p75": 1.0,
+          "p90": 1.0,
+          "maximum": 1.0,
+          "mean": 0.9375
+        },
+        "evidence_score": {
+          "count": 32,
+          "minimum": 0.24352715315221812,
+          "p10": 0.3328933755549936,
+          "p25": 0.41297671800913754,
+          "median": 0.6560093203207371,
+          "p75": 0.7711007703392075,
+          "p90": 0.8550883026062522,
+          "maximum": 0.9245895694147803,
+          "mean": 0.6211128058886419
+        }
+      },
+      "negative": {
+        "score": {
+          "count": 168,
+          "minimum": 0.125,
+          "p10": 0.2,
+          "p25": 0.285313021744787,
+          "median": 0.3398652287828473,
+          "p75": 0.4327100478579854,
+          "p90": 0.5154227448784405,
+          "maximum": 1.0,
+          "mean": 0.3617442017686452
+        },
+        "vector_similarity": {
+          "count": 164,
+          "minimum": 0.13287912335094132,
+          "p10": 0.22743143055834536,
+          "p25": 0.285313021744787,
+          "median": 0.3398652287828473,
+          "p75": 0.4331623416998327,
+          "p90": 0.4991446714329102,
+          "maximum": 0.7218261241809635,
+          "mean": 0.35658737314340755
+        },
+        "lexical_coverage": {
+          "count": 168,
+          "minimum": 0.0,
+          "p10": 0.0,
+          "p25": 0.07692307692307693,
+          "median": 0.125,
+          "p75": 0.23076923076923078,
+          "p90": 0.3333333333333333,
+          "maximum": 1.0,
+          "mean": 0.16574228516192802
+        },
+        "rrf_score": {
+          "count": 168,
+          "minimum": 0.014084507042253521,
+          "p10": 0.015384615384615385,
+          "p25": 0.032266458495966696,
+          "median": 0.04490392648287385,
+          "p75": 0.046459914611005695,
+          "p90": 0.048131080389144903,
+          "maximum": 0.04918032786885246,
+          "mean": 0.039566657264452895
+        },
+        "rerank_score": {
+          "count": 168,
+          "minimum": 0.05488821874611188,
+          "p10": 0.06497086882591624,
+          "p25": 0.19973865799956464,
+          "median": 0.2650591926218319,
+          "p75": 0.3323319884746534,
+          "p90": 0.41942463954238146,
+          "maximum": 0.9029194309994857,
+          "mean": 0.26717153429604557
+        },
+        "exact_match_score": {
+          "count": 144,
+          "minimum": 0.0625,
+          "p10": 0.1,
+          "p25": 0.125,
+          "median": 0.2,
+          "p75": 0.3076923076923077,
+          "p90": 0.42857142857142855,
+          "maximum": 1.0,
+          "mean": 0.2413179027762361
+        },
+        "metadata_score": {
+          "count": 168,
+          "minimum": 0.0,
+          "p10": 0.0,
+          "p25": 0.0,
+          "median": 0.5,
+          "p75": 1.0,
+          "p90": 1.0,
+          "maximum": 1.0,
+          "mean": 0.4791666666666667
+        },
+        "evidence_score": {
+          "count": 168,
+          "minimum": 0.044026294405814986,
+          "p10": 0.06212041126794182,
+          "p25": 0.1435189758890365,
+          "median": 0.21888129932544675,
+          "p75": 0.2873549248607513,
+          "p90": 0.3912562978001994,
+          "maximum": 0.9060632609597012,
+          "mean": 0.23316275407889706
+        }
+      }
+    },
+    "expanded": {
+      "positive": {
+        "score": {
+          "count": 1,
+          "minimum": 0.14285714285714285,
+          "p10": 0.14285714285714285,
+          "p25": 0.14285714285714285,
+          "median": 0.14285714285714285,
+          "p75": 0.14285714285714285,
+          "p90": 0.14285714285714285,
+          "maximum": 0.14285714285714285,
+          "mean": 0.14285714285714285
+        },
+        "vector_similarity": {
+          "count": 0,
+          "minimum": 0.0,
+          "p10": 0.0,
+          "p25": 0.0,
+          "median": 0.0,
+          "p75": 0.0,
+          "p90": 0.0,
+          "maximum": 0.0,
+          "mean": 0.0
+        },
+        "lexical_coverage": {
+          "count": 1,
+          "minimum": 0.14285714285714285,
+          "p10": 0.14285714285714285,
+          "p25": 0.14285714285714285,
+          "median": 0.14285714285714285,
+          "p75": 0.14285714285714285,
+          "p90": 0.14285714285714285,
+          "maximum": 0.14285714285714285,
+          "mean": 0.14285714285714285
+        },
+        "rrf_score": {
+          "count": 1,
+          "minimum": 0.0,
+          "p10": 0.0,
+          "p25": 0.0,
+          "median": 0.0,
+          "p75": 0.0,
+          "p90": 0.0,
+          "maximum": 0.0,
+          "mean": 0.0
+        },
+        "rerank_score": {
+          "count": 1,
+          "minimum": 0.12142857142857143,
+          "p10": 0.12142857142857143,
+          "p25": 0.12142857142857143,
+          "median": 0.12142857142857143,
+          "p75": 0.12142857142857143,
+          "p90": 0.12142857142857143,
+          "maximum": 0.12142857142857143,
+          "mean": 0.12142857142857143
+        },
+        "exact_match_score": {
+          "count": 0,
+          "minimum": 0.0,
+          "p10": 0.0,
+          "p25": 0.0,
+          "median": 0.0,
+          "p75": 0.0,
+          "p90": 0.0,
+          "maximum": 0.0,
+          "mean": 0.0
+        },
+        "metadata_score": {
+          "count": 1,
+          "minimum": 1.0,
+          "p10": 1.0,
+          "p25": 1.0,
+          "median": 1.0,
+          "p75": 1.0,
+          "p90": 1.0,
+          "maximum": 1.0,
+          "mean": 1.0
+        },
+        "evidence_score": {
+          "count": 1,
+          "minimum": 0.1457142857142857,
+          "p10": 0.1457142857142857,
+          "p25": 0.1457142857142857,
+          "median": 0.1457142857142857,
+          "p75": 0.1457142857142857,
+          "p90": 0.1457142857142857,
+          "maximum": 0.1457142857142857,
+          "mean": 0.1457142857142857
+        }
+      },
+      "negative": {
+        "score": {
+          "count": 570,
+          "minimum": 0.0,
+          "p10": 0.0,
+          "p25": 0.0,
+          "median": 0.0,
+          "p75": 0.1,
+          "p90": 0.14285714285714285,
+          "maximum": 0.5,
+          "mean": 0.047824322363796044
+        },
+        "vector_similarity": {
+          "count": 0,
+          "minimum": 0.0,
+          "p10": 0.0,
+          "p25": 0.0,
+          "median": 0.0,
+          "p75": 0.0,
+          "p90": 0.0,
+          "maximum": 0.0,
+          "mean": 0.0
+        },
+        "lexical_coverage": {
+          "count": 570,
+          "minimum": 0.0,
+          "p10": 0.0,
+          "p25": 0.0,
+          "median": 0.0,
+          "p75": 0.1,
+          "p90": 0.14285714285714285,
+          "maximum": 0.5,
+          "mean": 0.047824322363796044
+        },
+        "rrf_score": {
+          "count": 570,
+          "minimum": 0.0,
+          "p10": 0.0,
+          "p25": 0.0,
+          "median": 0.0,
+          "p75": 0.0,
+          "p90": 0.0,
+          "maximum": 0.0,
+          "mean": 0.0
+        },
+        "rerank_score": {
+          "count": 570,
+          "minimum": 0.0,
+          "p10": 0.0,
+          "p25": 0.0,
+          "median": 0.0,
+          "p75": 0.10555555555555556,
+          "p90": 0.14090909090909093,
+          "maximum": 0.3111111111111111,
+          "mean": 0.051747270760428656
+        },
+        "exact_match_score": {
+          "count": 0,
+          "minimum": 0.0,
+          "p10": 0.0,
+          "p25": 0.0,
+          "median": 0.0,
+          "p75": 0.0,
+          "p90": 0.0,
+          "maximum": 0.0,
+          "mean": 0.0
+        },
+        "metadata_score": {
+          "count": 570,
+          "minimum": 0.0,
+          "p10": 0.0,
+          "p25": 0.0,
+          "median": 0.0,
+          "p75": 1.0,
+          "p90": 1.0,
+          "maximum": 1.0,
+          "mean": 0.312280701754386
+        },
+        "evidence_score": {
+          "count": 570,
+          "minimum": 0.0,
+          "p10": 0.0,
+          "p25": 0.0,
+          "median": 0.0,
+          "p75": 0.08571428571428572,
+          "p90": 0.14461538461538465,
+          "maximum": 0.3171428571428571,
+          "mean": 0.049875650421703055
+        }
+      }
+    }
+  },
+  "evidence_threshold_sweep": {
+    "recommended_threshold": 0.45,
+    "selection_policy": "preserve perfect no-answer accuracy and zero scope leakage, then maximize chunk citation rate, citation precision, and document citation rate",
+    "results": [
+      {
+        "threshold": 0.2,
+        "expected_document_citation_rate": 1.0,
+        "expected_chunk_citation_rate": 1.0,
+        "citation_precision": 0.27586206896551724,
+        "selected_citations_per_answerable": 3.7419354838709675,
+        "no_answer_accuracy": 0.16666666666666666,
+        "scope_leakage": 0.0,
+        "eligible": false
+      },
+      {
+        "threshold": 0.25,
+        "expected_document_citation_rate": 0.9354838709677419,
+        "expected_chunk_citation_rate": 0.9354838709677419,
+        "citation_precision": 0.35294117647058826,
+        "selected_citations_per_answerable": 2.7419354838709675,
+        "no_answer_accuracy": 0.6666666666666666,
+        "scope_leakage": 0.0,
+        "eligible": false
+      },
+      {
+        "threshold": 0.3,
+        "expected_document_citation_rate": 0.9354838709677419,
+        "expected_chunk_citation_rate": 0.9354838709677419,
+        "citation_precision": 0.43478260869565216,
+        "selected_citations_per_answerable": 2.225806451612903,
+        "no_answer_accuracy": 0.6666666666666666,
+        "scope_leakage": 0.0,
+        "eligible": false
+      },
+      {
+        "threshold": 0.35,
+        "expected_document_citation_rate": 0.8709677419354839,
+        "expected_chunk_citation_rate": 0.8709677419354839,
+        "citation_precision": 0.5490196078431373,
+        "selected_citations_per_answerable": 1.6451612903225807,
+        "no_answer_accuracy": 0.6666666666666666,
+        "scope_leakage": 0.0,
+        "eligible": false
+      },
+      {
+        "threshold": 0.4,
+        "expected_document_citation_rate": 0.8064516129032258,
+        "expected_chunk_citation_rate": 0.8064516129032258,
+        "citation_precision": 0.6756756756756757,
+        "selected_citations_per_answerable": 1.1935483870967742,
+        "no_answer_accuracy": 0.8333333333333334,
+        "scope_leakage": 0.0,
+        "eligible": false
+      },
+      {
+        "threshold": 0.45,
+        "expected_document_citation_rate": 0.7741935483870968,
+        "expected_chunk_citation_rate": 0.7741935483870968,
+        "citation_precision": 0.7272727272727273,
+        "selected_citations_per_answerable": 1.064516129032258,
+        "no_answer_accuracy": 1.0,
+        "scope_leakage": 0.0,
+        "eligible": true
+      },
+      {
+        "threshold": 0.5,
+        "expected_document_citation_rate": 0.7096774193548387,
+        "expected_chunk_citation_rate": 0.7096774193548387,
+        "citation_precision": 0.7586206896551724,
+        "selected_citations_per_answerable": 0.9354838709677419,
+        "no_answer_accuracy": 1.0,
+        "scope_leakage": 0.0,
+        "eligible": true
+      },
+      {
+        "threshold": 0.55,
+        "expected_document_citation_rate": 0.7096774193548387,
+        "expected_chunk_citation_rate": 0.7096774193548387,
+        "citation_precision": 0.7586206896551724,
+        "selected_citations_per_answerable": 0.9354838709677419,
+        "no_answer_accuracy": 1.0,
+        "scope_leakage": 0.0,
+        "eligible": true
+      },
+      {
+        "threshold": 0.6,
+        "expected_document_citation_rate": 0.6451612903225806,
+        "expected_chunk_citation_rate": 0.6451612903225806,
+        "citation_precision": 0.8,
+        "selected_citations_per_answerable": 0.8064516129032258,
+        "no_answer_accuracy": 1.0,
+        "scope_leakage": 0.0,
+        "eligible": true
+      },
+      {
+        "threshold": 0.65,
+        "expected_document_citation_rate": 0.5806451612903226,
+        "expected_chunk_citation_rate": 0.5806451612903226,
+        "citation_precision": 0.782608695652174,
+        "selected_citations_per_answerable": 0.7419354838709677,
+        "no_answer_accuracy": 1.0,
+        "scope_leakage": 0.0,
+        "eligible": true
+      },
+      {
+        "threshold": 0.7,
+        "expected_document_citation_rate": 0.41935483870967744,
+        "expected_chunk_citation_rate": 0.41935483870967744,
+        "citation_precision": 0.8125,
+        "selected_citations_per_answerable": 0.5161290322580645,
+        "no_answer_accuracy": 1.0,
+        "scope_leakage": 0.0,
+        "eligible": true
+      }
+    ]
+  },
+  "limitations": [
+    "Production embeddings incur provider cost and remain corpus-specific.",
+    "Historical version requests are measured as a known gap and excluded from the release gate.",
+    "Precision and duplicate rate are measured at document-version level.",
+    "No-answer uses the retrieval/citation threshold; claim support needs WP-06.",
+    "Chunk labels match section plus required terms and do not provide claim-level entailment judgments.",
+    "The dataset is development-only and must not be treated as a holdout set."
+  ],
+  "cases": [
+    {
+      "case_id": "ret-001",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "answered",
+      "expected_document": "vpn-setup:v2",
+      "rank": 1,
+      "top5": [
+        "vpn-setup:v2",
+        "vpn-troubleshooting:v1",
+        "it-escalation:v1",
+        "docker-registry:v1",
+        "docker-registry-token-policy:v2"
+      ],
+      "retrieved_result_count": 20,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 15,
+      "selected_citation_count": 1,
+      "selected_citation_documents": [
+        "vpn-setup:v2"
+      ],
+      "citation_context_estimated_tokens": 98,
+      "expected_document_cited": true,
+      "expected_chunk_retrieved": true,
+      "expected_chunk_cited": true,
+      "relevant_selected_citations": 1,
+      "top5_chunks": [
+        {
+          "document": "vpn-setup:v2",
+          "section": "Ubuntu",
+          "ordinal": 1
+        },
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Certificate warning",
+          "ordinal": 1
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "VPN",
+          "ordinal": 1
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Certificate setup",
+          "ordinal": 2
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Storage",
+          "ordinal": 3
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "vpn-setup:v2",
+          "section": "Ubuntu",
+          "expansion_kind": null,
+          "evidence_score": 0.8278020221357772
+        },
+        {
+          "document": "vpn-setup:v2",
+          "section": "Windows",
+          "expansion_kind": "neighbor",
+          "evidence_score": 0.31333333333333335
+        },
+        {
+          "document": "vpn-setup:v2",
+          "section": "Thiết lập VPN demo",
+          "expansion_kind": "parent_section",
+          "evidence_score": 0.2966666666666667
+        },
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Certificate warning",
+          "expansion_kind": null,
+          "evidence_score": 0.2873549248607513
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "VPN",
+          "expansion_kind": null,
+          "evidence_score": 0.24027848686330217
+        }
+      ],
+      "tags": [
+        "semantic_vi",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "vpn-setup:v2"
+      ],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-002",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "answered",
+      "expected_document": "vpn-setup:v2",
+      "rank": 1,
+      "top5": [
+        "vpn-setup:v2",
+        "vpn-troubleshooting:v1",
+        "it-escalation:v1",
+        "docker-troubleshooting:v1",
+        "docker-registry:v1"
+      ],
+      "retrieved_result_count": 20,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 15,
+      "selected_citation_count": 1,
+      "selected_citation_documents": [
+        "vpn-setup:v2"
+      ],
+      "citation_context_estimated_tokens": 89,
+      "expected_document_cited": true,
+      "expected_chunk_retrieved": true,
+      "expected_chunk_cited": true,
+      "relevant_selected_citations": 1,
+      "top5_chunks": [
+        {
+          "document": "vpn-setup:v2",
+          "section": "Windows",
+          "ordinal": 2
+        },
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Certificate warning",
+          "ordinal": 1
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "VPN",
+          "ordinal": 1
+        },
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Pull failures",
+          "ordinal": 2
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Authentication",
+          "ordinal": 1
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "vpn-setup:v2",
+          "section": "Windows",
+          "expansion_kind": null,
+          "evidence_score": 0.8181219391625282
+        },
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Certificate warning",
+          "expansion_kind": null,
+          "evidence_score": 0.3912562978001994
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "VPN",
+          "expansion_kind": null,
+          "evidence_score": 0.3610307694235279
+        },
+        {
+          "document": "vpn-setup:v2",
+          "section": "Ubuntu",
+          "expansion_kind": "neighbor",
+          "evidence_score": 0.24666666666666667
+        },
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Pull failures",
+          "expansion_kind": null,
+          "evidence_score": 0.20369853749180022
+        }
+      ],
+      "tags": [
+        "semantic_en",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "vpn-setup:v2"
+      ],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-003",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "answered",
+      "expected_document": "docker-registry:v1",
+      "rank": 1,
+      "top5": [
+        "docker-registry:v1",
+        "it-escalation:v1",
+        "docker-troubleshooting:v1",
+        "docker-registry-token-policy:v2",
+        "engineering-oncall:v1"
+      ],
+      "retrieved_result_count": 18,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 13,
+      "selected_citation_count": 3,
+      "selected_citation_documents": [
+        "docker-registry:v1",
+        "it-escalation:v1",
+        "docker-troubleshooting:v1"
+      ],
+      "citation_context_estimated_tokens": 310,
+      "expected_document_cited": true,
+      "expected_chunk_retrieved": true,
+      "expected_chunk_cited": true,
+      "relevant_selected_citations": 1,
+      "top5_chunks": [
+        {
+          "document": "docker-registry:v1",
+          "section": "Authentication",
+          "ordinal": 1
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "Docker Registry",
+          "ordinal": 2
+        },
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Pull failures",
+          "ordinal": 2
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Registry token policy",
+          "ordinal": 0
+        },
+        {
+          "document": "engineering-oncall:v1",
+          "section": "Registry incident",
+          "ordinal": 1
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "docker-registry:v1",
+          "section": "Authentication",
+          "expansion_kind": null,
+          "evidence_score": 0.8742630732889276
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "Docker Registry",
+          "expansion_kind": null,
+          "evidence_score": 0.8441298239859991
+        },
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Pull failures",
+          "expansion_kind": null,
+          "evidence_score": 0.7388023508697023
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Registry token policy",
+          "expansion_kind": null,
+          "evidence_score": 0.41043851093109396
+        },
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Escalation data",
+          "expansion_kind": "neighbor",
+          "evidence_score": 0.3171428571428571
+        }
+      ],
+      "tags": [
+        "semantic_en",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "docker-registry:v1"
+      ],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-004",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "answered",
+      "expected_document": "docker-troubleshooting:v1",
+      "rank": 1,
+      "top5": [
+        "docker-troubleshooting:v1",
+        "docker-registry:v1",
+        "it-escalation:v1",
+        "docker-registry-token-policy:v2",
+        "gitlab-access:v3"
+      ],
+      "retrieved_result_count": 19,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 14,
+      "selected_citation_count": 1,
+      "selected_citation_documents": [
+        "docker-troubleshooting:v1"
+      ],
+      "citation_context_estimated_tokens": 110,
+      "expected_document_cited": true,
+      "expected_chunk_retrieved": true,
+      "expected_chunk_cited": true,
+      "relevant_selected_citations": 1,
+      "top5_chunks": [
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Cache cleanup",
+          "ordinal": 1
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Demo Docker Registry",
+          "ordinal": 0
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "Docker Registry",
+          "ordinal": 2
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Storage",
+          "ordinal": 3
+        },
+        {
+          "document": "gitlab-access:v3",
+          "section": "Access review",
+          "ordinal": 3
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Cache cleanup",
+          "expansion_kind": null,
+          "evidence_score": 0.8550883026062522
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Demo Docker Registry",
+          "expansion_kind": null,
+          "evidence_score": 0.24176485053914165
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "Docker Registry",
+          "expansion_kind": null,
+          "evidence_score": 0.226005086708351
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Storage",
+          "expansion_kind": null,
+          "evidence_score": 0.1435189758890365
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Authentication",
+          "expansion_kind": "neighbor",
+          "evidence_score": 0.12666666666666665
+        }
+      ],
+      "tags": [
+        "semantic_en",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "docker-troubleshooting:v1"
+      ],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-005",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "answered",
+      "expected_document": "gitlab-access:v3",
+      "rank": 2,
+      "top5": [
+        "it-escalation:v1",
+        "gitlab-access:v3",
+        "docker-registry:v1",
+        "docker-registry-token-policy:v2",
+        "vpn-setup:v2"
+      ],
+      "retrieved_result_count": 20,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 15,
+      "selected_citation_count": 2,
+      "selected_citation_documents": [
+        "it-escalation:v1",
+        "gitlab-access:v3"
+      ],
+      "citation_context_estimated_tokens": 234,
+      "expected_document_cited": true,
+      "expected_chunk_retrieved": true,
+      "expected_chunk_cited": true,
+      "relevant_selected_citations": 1,
+      "top5_chunks": [
+        {
+          "document": "it-escalation:v1",
+          "section": "GitLab",
+          "ordinal": 3
+        },
+        {
+          "document": "gitlab-access:v3",
+          "section": "Yêu cầu quyền",
+          "ordinal": 1
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Authentication",
+          "ordinal": 1
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Scope",
+          "ordinal": 2
+        },
+        {
+          "document": "vpn-setup:v2",
+          "section": "Ubuntu",
+          "ordinal": 1
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "it-escalation:v1",
+          "section": "GitLab",
+          "expansion_kind": null,
+          "evidence_score": 0.9060632609597012
+        },
+        {
+          "document": "gitlab-access:v3",
+          "section": "Yêu cầu quyền",
+          "expansion_kind": null,
+          "evidence_score": 0.45353239744835105
+        },
+        {
+          "document": "gitlab-access:v3",
+          "section": "GitLab access for the demo company",
+          "expansion_kind": "parent_section",
+          "evidence_score": 0.26
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Authentication",
+          "expansion_kind": null,
+          "evidence_score": 0.18354391458093702
+        },
+        {
+          "document": "gitlab-access:v3",
+          "section": "Access review",
+          "expansion_kind": "neighbor",
+          "evidence_score": 0.17666666666666664
+        }
+      ],
+      "tags": [
+        "semantic_en",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "gitlab-access:v3"
+      ],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-006",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "answered",
+      "expected_document": "it-escalation:v1",
+      "rank": 1,
+      "top5": [
+        "it-escalation:v1",
+        "vpn-troubleshooting:v1",
+        "docker-registry:v1",
+        "engineering-oncall:v1",
+        "vpn-setup:v2"
+      ],
+      "retrieved_result_count": 18,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 13,
+      "selected_citation_count": 2,
+      "selected_citation_documents": [
+        "it-escalation:v1",
+        "vpn-troubleshooting:v1"
+      ],
+      "citation_context_estimated_tokens": 186,
+      "expected_document_cited": true,
+      "expected_chunk_retrieved": true,
+      "expected_chunk_cited": true,
+      "relevant_selected_citations": 1,
+      "top5_chunks": [
+        {
+          "document": "it-escalation:v1",
+          "section": "VPN",
+          "ordinal": 1
+        },
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Connection timeout",
+          "ordinal": 2
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Certificate setup",
+          "ordinal": 2
+        },
+        {
+          "document": "engineering-oncall:v1",
+          "section": "Registry incident",
+          "ordinal": 1
+        },
+        {
+          "document": "vpn-setup:v2",
+          "section": "Thiết lập VPN demo",
+          "ordinal": 0
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "it-escalation:v1",
+          "section": "VPN",
+          "expansion_kind": null,
+          "evidence_score": 0.8214786245929059
+        },
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Connection timeout",
+          "expansion_kind": null,
+          "evidence_score": 0.6820176404382743
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Certificate setup",
+          "expansion_kind": null,
+          "evidence_score": 0.3729122267784368
+        },
+        {
+          "document": "engineering-oncall:v1",
+          "section": "Registry incident",
+          "expansion_kind": null,
+          "evidence_score": 0.2764599119493954
+        },
+        {
+          "document": "vpn-setup:v2",
+          "section": "Thiết lập VPN demo",
+          "expansion_kind": null,
+          "evidence_score": 0.24909457821054098
+        }
+      ],
+      "tags": [
+        "semantic_en",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "it-escalation:v1"
+      ],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-007",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "answered",
+      "expected_document": "docker-registry-token-policy:v2",
+      "rank": 1,
+      "top5": [
+        "docker-registry-token-policy:v2",
+        "docker-registry:v1",
+        "docker-troubleshooting:v1",
+        "it-escalation:v1",
+        "gitlab-access:v3"
+      ],
+      "retrieved_result_count": 20,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 15,
+      "selected_citation_count": 1,
+      "selected_citation_documents": [
+        "docker-registry-token-policy:v2"
+      ],
+      "citation_context_estimated_tokens": 102,
+      "expected_document_cited": true,
+      "expected_chunk_retrieved": true,
+      "expected_chunk_cited": true,
+      "relevant_selected_citations": 1,
+      "top5_chunks": [
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Thời hạn",
+          "ordinal": 1
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Authentication",
+          "ordinal": 1
+        },
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Pull failures",
+          "ordinal": 2
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "Docker Registry",
+          "ordinal": 2
+        },
+        {
+          "document": "gitlab-access:v3",
+          "section": "Yêu cầu quyền",
+          "ordinal": 1
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Thời hạn",
+          "expansion_kind": null,
+          "evidence_score": 0.6558446283790896
+        },
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Pull failures",
+          "expansion_kind": null,
+          "evidence_score": 0.3461378625882975
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Authentication",
+          "expansion_kind": null,
+          "evidence_score": 0.3432254045175179
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "Docker Registry",
+          "expansion_kind": null,
+          "evidence_score": 0.3420771148648572
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Registry token policy",
+          "expansion_kind": "parent_section",
+          "evidence_score": 0.23142857142857143
+        }
+      ],
+      "tags": [
+        "semantic_vi",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "docker-registry-token-policy:v2"
+      ],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-008",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "answered",
+      "expected_document": "engineering-oncall:v1",
+      "rank": 1,
+      "top5": [
+        "engineering-oncall:v1",
+        "gitlab-access:v3",
+        "it-escalation:v1",
+        "vpn-troubleshooting:v1",
+        "docker-registry:v1"
+      ],
+      "retrieved_result_count": 19,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 14,
+      "selected_citation_count": 1,
+      "selected_citation_documents": [
+        "engineering-oncall:v1"
+      ],
+      "citation_context_estimated_tokens": 96,
+      "expected_document_cited": true,
+      "expected_chunk_retrieved": true,
+      "expected_chunk_cited": true,
+      "relevant_selected_citations": 1,
+      "top5_chunks": [
+        {
+          "document": "engineering-oncall:v1",
+          "section": "Escalation channel",
+          "ordinal": 2
+        },
+        {
+          "document": "gitlab-access:v3",
+          "section": "Access review",
+          "ordinal": 3
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "GitLab",
+          "ordinal": 3
+        },
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Evidence for escalation",
+          "ordinal": 3
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Safe diagnostics",
+          "ordinal": 3
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "engineering-oncall:v1",
+          "section": "Escalation channel",
+          "expansion_kind": null,
+          "evidence_score": 0.8951069088107778
+        },
+        {
+          "document": "gitlab-access:v3",
+          "section": "Access review",
+          "expansion_kind": null,
+          "evidence_score": 0.1774712153804638
+        },
+        {
+          "document": "engineering-oncall:v1",
+          "section": "Registry incident",
+          "expansion_kind": "neighbor",
+          "evidence_score": 0.17142857142857143
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "GitLab",
+          "expansion_kind": null,
+          "evidence_score": 0.10371712414079415
+        },
+        {
+          "document": "engineering-oncall:v1",
+          "section": "Engineering on-call notes",
+          "expansion_kind": "parent_section",
+          "evidence_score": 0.08571428571428572
+        }
+      ],
+      "tags": [
+        "semantic_en",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "engineering-oncall:v1"
+      ],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-009",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "answered",
+      "expected_document": "it-service-recovery:v1",
+      "rank": 1,
+      "top5": [
+        "it-service-recovery:v1",
+        "docker-registry:v1",
+        "it-escalation:v1",
+        "docker-troubleshooting:v1",
+        "docker-registry-token-policy:v2"
+      ],
+      "retrieved_result_count": 19,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 14,
+      "selected_citation_count": 1,
+      "selected_citation_documents": [
+        "it-service-recovery:v1"
+      ],
+      "citation_context_estimated_tokens": 112,
+      "expected_document_cited": true,
+      "expected_chunk_retrieved": true,
+      "expected_chunk_cited": true,
+      "relevant_selected_citations": 1,
+      "top5_chunks": [
+        {
+          "document": "it-service-recovery:v1",
+          "section": "Registry recovery",
+          "ordinal": 2
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Certificate setup",
+          "ordinal": 2
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "Docker Registry",
+          "ordinal": 2
+        },
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Pull failures",
+          "ordinal": 2
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Storage",
+          "ordinal": 3
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "it-service-recovery:v1",
+          "section": "Registry recovery",
+          "expansion_kind": null,
+          "evidence_score": 0.9245895694147803
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "Docker Registry",
+          "expansion_kind": null,
+          "evidence_score": 0.3615179044340104
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Certificate setup",
+          "expansion_kind": null,
+          "evidence_score": 0.36138738528966713
+        },
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Pull failures",
+          "expansion_kind": null,
+          "evidence_score": 0.3416040203779128
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Storage",
+          "expansion_kind": null,
+          "evidence_score": 0.20690476190476192
+        }
+      ],
+      "tags": [
+        "semantic_en",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "it-service-recovery:v1"
+      ],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-010",
+      "expected_outcome": "no_answer",
+      "retrieval_outcome": "no_answer",
+      "expected_document": null,
+      "rank": null,
+      "top5": [
+        "docker-registry-token-policy:v2",
+        "docker-registry:v1",
+        "gitlab-access:v3",
+        "engineering-oncall:v1",
+        "docker-troubleshooting:v1"
+      ],
+      "retrieved_result_count": 19,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 14,
+      "selected_citation_count": 0,
+      "selected_citation_documents": [],
+      "citation_context_estimated_tokens": 0,
+      "expected_document_cited": false,
+      "expected_chunk_retrieved": false,
+      "expected_chunk_cited": false,
+      "relevant_selected_citations": 0,
+      "top5_chunks": [
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Scope",
+          "ordinal": 2
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Authentication",
+          "ordinal": 1
+        },
+        {
+          "document": "gitlab-access:v3",
+          "section": "SSH keys",
+          "ordinal": 2
+        },
+        {
+          "document": "engineering-oncall:v1",
+          "section": "Registry incident",
+          "ordinal": 1
+        },
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Pull failures",
+          "ordinal": 2
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Scope",
+          "expansion_kind": null,
+          "evidence_score": 0.22638511933159455
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Authentication",
+          "expansion_kind": null,
+          "evidence_score": 0.1954738015020449
+        },
+        {
+          "document": "gitlab-access:v3",
+          "section": "SSH keys",
+          "expansion_kind": null,
+          "evidence_score": 0.16084498480243165
+        },
+        {
+          "document": "engineering-oncall:v1",
+          "section": "Registry incident",
+          "expansion_kind": null,
+          "evidence_score": 0.07422718398696176
+        },
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Pull failures",
+          "expansion_kind": null,
+          "evidence_score": 0.07049140248979441
+        }
+      ],
+      "tags": [
+        "semantic_en",
+        "no_answer"
+      ],
+      "relevant_documents": [],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-011",
+      "expected_outcome": "no_answer",
+      "retrieval_outcome": "no_answer",
+      "expected_document": null,
+      "rank": null,
+      "top5": [
+        "docker-registry:v1",
+        "vpn-setup:v2",
+        "vpn-troubleshooting:v1",
+        "gitlab-access:v3",
+        "it-escalation:v1"
+      ],
+      "retrieved_result_count": 20,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 15,
+      "selected_citation_count": 0,
+      "selected_citation_documents": [],
+      "citation_context_estimated_tokens": 0,
+      "expected_document_cited": false,
+      "expected_chunk_retrieved": false,
+      "expected_chunk_cited": false,
+      "relevant_selected_citations": 0,
+      "top5_chunks": [
+        {
+          "document": "docker-registry:v1",
+          "section": "Authentication",
+          "ordinal": 1
+        },
+        {
+          "document": "vpn-setup:v2",
+          "section": "Windows",
+          "ordinal": 2
+        },
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Evidence for escalation",
+          "ordinal": 3
+        },
+        {
+          "document": "gitlab-access:v3",
+          "section": "Access review",
+          "ordinal": 3
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "GitLab",
+          "ordinal": 3
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "docker-registry:v1",
+          "section": "Authentication",
+          "expansion_kind": null,
+          "evidence_score": 0.24495156574917734
+        },
+        {
+          "document": "vpn-setup:v2",
+          "section": "Windows",
+          "expansion_kind": null,
+          "evidence_score": 0.11114931105559417
+        },
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Evidence for escalation",
+          "expansion_kind": null,
+          "evidence_score": 0.09807864025682053
+        },
+        {
+          "document": "gitlab-access:v3",
+          "section": "Access review",
+          "expansion_kind": null,
+          "evidence_score": 0.07617597856070554
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "GitLab",
+          "expansion_kind": null,
+          "evidence_score": 0.07166948707999651
+        }
+      ],
+      "tags": [
+        "semantic_en",
+        "no_answer"
+      ],
+      "relevant_documents": [],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-012",
+      "expected_outcome": "no_answer",
+      "retrieval_outcome": "no_answer",
+      "expected_document": null,
+      "rank": null,
+      "top5": [
+        "vpn-setup:v2",
+        "docker-registry-token-policy:v2",
+        "gitlab-access:v3",
+        "it-escalation:v1",
+        "vpn-troubleshooting:v1"
+      ],
+      "retrieved_result_count": 19,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 14,
+      "selected_citation_count": 0,
+      "selected_citation_documents": [],
+      "citation_context_estimated_tokens": 0,
+      "expected_document_cited": false,
+      "expected_chunk_retrieved": false,
+      "expected_chunk_cited": false,
+      "relevant_selected_citations": 0,
+      "top5_chunks": [
+        {
+          "document": "vpn-setup:v2",
+          "section": "Ubuntu",
+          "ordinal": 1
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Thời hạn",
+          "ordinal": 1
+        },
+        {
+          "document": "gitlab-access:v3",
+          "section": "Yêu cầu quyền",
+          "ordinal": 1
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "VPN",
+          "ordinal": 1
+        },
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Demo VPN troubleshooting",
+          "ordinal": 0
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "vpn-setup:v2",
+          "section": "Ubuntu",
+          "expansion_kind": null,
+          "evidence_score": 0.09792067041257155
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Thời hạn",
+          "expansion_kind": null,
+          "evidence_score": 0.07140311341393468
+        },
+        {
+          "document": "gitlab-access:v3",
+          "section": "Yêu cầu quyền",
+          "expansion_kind": null,
+          "evidence_score": 0.05701407200524118
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "VPN",
+          "expansion_kind": null,
+          "evidence_score": 0.05246083233190944
+        },
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Demo VPN troubleshooting",
+          "expansion_kind": null,
+          "evidence_score": 0.044026294405814986
+        }
+      ],
+      "tags": [
+        "semantic_en",
+        "no_answer"
+      ],
+      "relevant_documents": [],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-013",
+      "expected_outcome": "no_answer",
+      "retrieval_outcome": "no_answer",
+      "expected_document": null,
+      "rank": null,
+      "top5": [
+        "gitlab-access:v3",
+        "it-escalation:v1",
+        "docker-registry:v1",
+        "vpn-setup:v2",
+        "docker-registry-token-policy:v2"
+      ],
+      "retrieved_result_count": 17,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 12,
+      "selected_citation_count": 0,
+      "selected_citation_documents": [],
+      "citation_context_estimated_tokens": 0,
+      "expected_document_cited": false,
+      "expected_chunk_retrieved": false,
+      "expected_chunk_cited": false,
+      "relevant_selected_citations": 0,
+      "top5_chunks": [
+        {
+          "document": "gitlab-access:v3",
+          "section": "GitLab access for the demo company",
+          "ordinal": 0
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "GitLab",
+          "ordinal": 3
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Demo Docker Registry",
+          "ordinal": 0
+        },
+        {
+          "document": "vpn-setup:v2",
+          "section": "Thiết lập VPN demo",
+          "ordinal": 0
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Storage",
+          "ordinal": 3
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "gitlab-access:v3",
+          "section": "GitLab access for the demo company",
+          "expansion_kind": null,
+          "evidence_score": 0.44215884653562076
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "GitLab",
+          "expansion_kind": null,
+          "evidence_score": 0.39912709063148566
+        },
+        {
+          "document": "gitlab-access:v3",
+          "section": "Yêu cầu quyền",
+          "expansion_kind": "neighbor",
+          "evidence_score": 0.09333333333333334
+        },
+        {
+          "document": "gitlab-access:v3",
+          "section": "SSH keys",
+          "expansion_kind": "neighbor",
+          "evidence_score": 0.09333333333333334
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Demo Docker Registry",
+          "expansion_kind": null,
+          "evidence_score": 0.06327207636968844
+        }
+      ],
+      "tags": [
+        "semantic_en",
+        "no_answer"
+      ],
+      "relevant_documents": [],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-014",
+      "expected_outcome": "no_answer",
+      "retrieval_outcome": "no_answer",
+      "expected_document": null,
+      "rank": null,
+      "top5": [
+        "it-escalation:v1",
+        "engineering-oncall:v1",
+        "docker-registry:v1",
+        "gitlab-access:v3",
+        "docker-registry-token-policy:v2"
+      ],
+      "retrieved_result_count": 17,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 12,
+      "selected_citation_count": 0,
+      "selected_citation_documents": [],
+      "citation_context_estimated_tokens": 0,
+      "expected_document_cited": false,
+      "expected_chunk_retrieved": false,
+      "expected_chunk_cited": false,
+      "relevant_selected_citations": 0,
+      "top5_chunks": [
+        {
+          "document": "it-escalation:v1",
+          "section": "IT escalation guide",
+          "ordinal": 0
+        },
+        {
+          "document": "engineering-oncall:v1",
+          "section": "Escalation channel",
+          "ordinal": 2
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Certificate setup",
+          "ordinal": 2
+        },
+        {
+          "document": "gitlab-access:v3",
+          "section": "GitLab access for the demo company",
+          "ordinal": 0
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Scope",
+          "ordinal": 2
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "it-escalation:v1",
+          "section": "IT escalation guide",
+          "expansion_kind": null,
+          "evidence_score": 0.21486997912049483
+        },
+        {
+          "document": "engineering-oncall:v1",
+          "section": "Escalation channel",
+          "expansion_kind": null,
+          "evidence_score": 0.2008265748250172
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Certificate setup",
+          "expansion_kind": null,
+          "evidence_score": 0.19300602213035978
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Authentication",
+          "expansion_kind": "neighbor",
+          "evidence_score": 0.12000000000000001
+        },
+        {
+          "document": "gitlab-access:v3",
+          "section": "GitLab access for the demo company",
+          "expansion_kind": null,
+          "evidence_score": 0.07746568008670765
+        }
+      ],
+      "tags": [
+        "semantic_en",
+        "no_answer"
+      ],
+      "relevant_documents": [],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-015",
+      "expected_outcome": "no_answer",
+      "retrieval_outcome": "no_answer",
+      "expected_document": null,
+      "rank": null,
+      "top5": [
+        "gitlab-access:v3",
+        "it-escalation:v1",
+        "vpn-troubleshooting:v1",
+        "docker-registry:v1",
+        "docker-troubleshooting:v1"
+      ],
+      "retrieved_result_count": 20,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 15,
+      "selected_citation_count": 0,
+      "selected_citation_documents": [],
+      "citation_context_estimated_tokens": 0,
+      "expected_document_cited": false,
+      "expected_chunk_retrieved": false,
+      "expected_chunk_cited": false,
+      "relevant_selected_citations": 0,
+      "top5_chunks": [
+        {
+          "document": "gitlab-access:v3",
+          "section": "Access review",
+          "ordinal": 3
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "GitLab",
+          "ordinal": 3
+        },
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Evidence for escalation",
+          "ordinal": 3
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Safe diagnostics",
+          "ordinal": 3
+        },
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Escalation data",
+          "ordinal": 3
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "gitlab-access:v3",
+          "section": "Access review",
+          "expansion_kind": null,
+          "evidence_score": 0.17593176591005855
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "GitLab",
+          "expansion_kind": null,
+          "evidence_score": 0.1052074574445909
+        },
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Evidence for escalation",
+          "expansion_kind": null,
+          "evidence_score": 0.06174381845258632
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Safe diagnostics",
+          "expansion_kind": null,
+          "evidence_score": 0.059761487828654536
+        },
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Escalation data",
+          "expansion_kind": null,
+          "evidence_score": 0.05562158086113396
+        }
+      ],
+      "tags": [
+        "semantic_en",
+        "acl"
+      ],
+      "relevant_documents": [],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-016",
+      "expected_outcome": "no_answer",
+      "retrieval_outcome": "no_answer",
+      "expected_document": null,
+      "rank": null,
+      "top5": [
+        "vpn-troubleshooting:v1",
+        "it-escalation:v1",
+        "docker-registry:v1",
+        "vpn-setup:v2",
+        "engineering-oncall:v1"
+      ],
+      "retrieved_result_count": 18,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 13,
+      "selected_citation_count": 0,
+      "selected_citation_documents": [],
+      "citation_context_estimated_tokens": 0,
+      "expected_document_cited": false,
+      "expected_chunk_retrieved": false,
+      "expected_chunk_cited": false,
+      "relevant_selected_citations": 0,
+      "top5_chunks": [
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Connection timeout",
+          "ordinal": 2
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "VPN",
+          "ordinal": 1
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Certificate setup",
+          "ordinal": 2
+        },
+        {
+          "document": "vpn-setup:v2",
+          "section": "Thiết lập VPN demo",
+          "ordinal": 0
+        },
+        {
+          "document": "engineering-oncall:v1",
+          "section": "Registry incident",
+          "ordinal": 1
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Connection timeout",
+          "expansion_kind": null,
+          "evidence_score": 0.353591649243476
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "VPN",
+          "expansion_kind": null,
+          "evidence_score": 0.28333016143962836
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Certificate setup",
+          "expansion_kind": null,
+          "evidence_score": 0.2569901346787957
+        },
+        {
+          "document": "vpn-setup:v2",
+          "section": "Thiết lập VPN demo",
+          "expansion_kind": null,
+          "evidence_score": 0.24560651997305732
+        },
+        {
+          "document": "engineering-oncall:v1",
+          "section": "Registry incident",
+          "expansion_kind": null,
+          "evidence_score": 0.18198591858892976
+        }
+      ],
+      "tags": [
+        "semantic_en",
+        "acl"
+      ],
+      "relevant_documents": [],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-017",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "answered",
+      "expected_document": "vpn-troubleshooting:v1",
+      "rank": 1,
+      "top5": [
+        "vpn-troubleshooting:v1",
+        "vpn-setup:v2",
+        "it-escalation:v1",
+        "docker-registry:v1",
+        "docker-troubleshooting:v1"
+      ],
+      "retrieved_result_count": 20,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 15,
+      "selected_citation_count": 1,
+      "selected_citation_documents": [
+        "vpn-troubleshooting:v1"
+      ],
+      "citation_context_estimated_tokens": 116,
+      "expected_document_cited": true,
+      "expected_chunk_retrieved": true,
+      "expected_chunk_cited": true,
+      "relevant_selected_citations": 1,
+      "top5_chunks": [
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Certificate warning",
+          "ordinal": 1
+        },
+        {
+          "document": "vpn-setup:v2",
+          "section": "Ubuntu",
+          "ordinal": 1
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "VPN",
+          "ordinal": 1
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Certificate setup",
+          "ordinal": 2
+        },
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Pull failures",
+          "ordinal": 2
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Certificate warning",
+          "expansion_kind": null,
+          "evidence_score": 0.7592346145887785
+        },
+        {
+          "document": "vpn-setup:v2",
+          "section": "Ubuntu",
+          "expansion_kind": null,
+          "evidence_score": 0.4100613229543719
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "VPN",
+          "expansion_kind": null,
+          "evidence_score": 0.3058867207705651
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Certificate setup",
+          "expansion_kind": null,
+          "evidence_score": 0.26475662167954767
+        },
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Pull failures",
+          "expansion_kind": null,
+          "evidence_score": 0.2551843159384259
+        }
+      ],
+      "tags": [
+        "semantic_vi",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "vpn-troubleshooting:v1"
+      ],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-018",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "no_answer",
+      "expected_document": "engineering-oncall:v1",
+      "rank": 1,
+      "top5": [
+        "engineering-oncall:v1",
+        "docker-registry:v1",
+        "docker-registry-token-policy:v2",
+        "docker-troubleshooting:v1",
+        "it-escalation:v1"
+      ],
+      "retrieved_result_count": 19,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 14,
+      "selected_citation_count": 0,
+      "selected_citation_documents": [],
+      "citation_context_estimated_tokens": 0,
+      "expected_document_cited": false,
+      "expected_chunk_retrieved": true,
+      "expected_chunk_cited": false,
+      "relevant_selected_citations": 0,
+      "top5_chunks": [
+        {
+          "document": "engineering-oncall:v1",
+          "section": "Escalation channel",
+          "ordinal": 2
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Safe diagnostics",
+          "ordinal": 3
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Thời hạn",
+          "ordinal": 1
+        },
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Pull failures",
+          "ordinal": 2
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "Docker Registry",
+          "ordinal": 2
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "docker-registry:v1",
+          "section": "Safe diagnostics",
+          "expansion_kind": null,
+          "evidence_score": 0.24656857061280027
+        },
+        {
+          "document": "engineering-oncall:v1",
+          "section": "Escalation channel",
+          "expansion_kind": null,
+          "evidence_score": 0.2442745110267701
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Thời hạn",
+          "expansion_kind": null,
+          "evidence_score": 0.18675342500222292
+        },
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Pull failures",
+          "expansion_kind": null,
+          "evidence_score": 0.1691457649397068
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "Docker Registry",
+          "expansion_kind": null,
+          "evidence_score": 0.15880319105999088
+        }
+      ],
+      "tags": [
+        "exact_identifier",
+        "semantic_vi",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "engineering-oncall:v1"
+      ],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-019",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "no_answer",
+      "expected_document": "docker-troubleshooting:v1",
+      "rank": 1,
+      "top5": [
+        "docker-troubleshooting:v1",
+        "docker-registry:v1",
+        "docker-registry-token-policy:v2",
+        "it-escalation:v1",
+        "vpn-setup:v2"
+      ],
+      "retrieved_result_count": 20,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 15,
+      "selected_citation_count": 0,
+      "selected_citation_documents": [],
+      "citation_context_estimated_tokens": 0,
+      "expected_document_cited": false,
+      "expected_chunk_retrieved": true,
+      "expected_chunk_cited": false,
+      "relevant_selected_citations": 0,
+      "top5_chunks": [
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Escalation data",
+          "ordinal": 3
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Safe diagnostics",
+          "ordinal": 3
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Thời hạn",
+          "ordinal": 1
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "Docker Registry",
+          "ordinal": 2
+        },
+        {
+          "document": "vpn-setup:v2",
+          "section": "Ubuntu",
+          "ordinal": 1
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Escalation data",
+          "expansion_kind": null,
+          "evidence_score": 0.41297671800913754
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Safe diagnostics",
+          "expansion_kind": null,
+          "evidence_score": 0.3592890223228503
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "Docker Registry",
+          "expansion_kind": null,
+          "evidence_score": 0.3037198647296903
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Thời hạn",
+          "expansion_kind": null,
+          "evidence_score": 0.25422615373354157
+        },
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Pull failures",
+          "expansion_kind": "neighbor",
+          "evidence_score": 0.17818181818181816
+        }
+      ],
+      "tags": [
+        "exact_identifier",
+        "semantic_vi",
+        "multi_relevant",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "docker-registry:v1",
+        "docker-troubleshooting:v1"
+      ],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-020",
+      "expected_outcome": "known_gap",
+      "retrieval_outcome": "no_answer",
+      "expected_document": "vpn-setup:v1",
+      "rank": null,
+      "top5": [
+        "vpn-troubleshooting:v1",
+        "it-escalation:v1",
+        "docker-registry:v1",
+        "docker-troubleshooting:v1",
+        "vpn-setup:v2"
+      ],
+      "retrieved_result_count": 18,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 13,
+      "selected_citation_count": 0,
+      "selected_citation_documents": [],
+      "citation_context_estimated_tokens": 0,
+      "expected_document_cited": false,
+      "expected_chunk_retrieved": false,
+      "expected_chunk_cited": false,
+      "relevant_selected_citations": 0,
+      "top5_chunks": [
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Demo VPN troubleshooting",
+          "ordinal": 0
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "VPN",
+          "ordinal": 1
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Certificate setup",
+          "ordinal": 2
+        },
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Pull failures",
+          "ordinal": 2
+        },
+        {
+          "document": "vpn-setup:v2",
+          "section": "Thiết lập VPN demo",
+          "ordinal": 0
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Demo VPN troubleshooting",
+          "expansion_kind": null,
+          "evidence_score": 0.2923379146408534
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "VPN",
+          "expansion_kind": null,
+          "evidence_score": 0.28511780831978
+        },
+        {
+          "document": "vpn-setup:v2",
+          "section": "Thiết lập VPN demo",
+          "expansion_kind": null,
+          "evidence_score": 0.23703955362391724
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Certificate setup",
+          "expansion_kind": null,
+          "evidence_score": 0.23434698945289623
+        },
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Connection timeout",
+          "expansion_kind": "neighbor",
+          "evidence_score": 0.1675
+        }
+      ],
+      "tags": [
+        "exact_identifier",
+        "historical_version",
+        "known_gap"
+      ],
+      "relevant_documents": [
+        "vpn-setup:v1"
+      ],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-021",
+      "expected_outcome": "known_gap",
+      "retrieval_outcome": "no_answer",
+      "expected_document": "docker-registry-token-policy:v1",
+      "rank": null,
+      "top5": [
+        "docker-troubleshooting:v1",
+        "docker-registry:v1",
+        "it-escalation:v1",
+        "docker-registry-token-policy:v2",
+        "vpn-troubleshooting:v1"
+      ],
+      "retrieved_result_count": 19,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 14,
+      "selected_citation_count": 0,
+      "selected_citation_documents": [],
+      "citation_context_estimated_tokens": 0,
+      "expected_document_cited": false,
+      "expected_chunk_retrieved": false,
+      "expected_chunk_cited": false,
+      "relevant_selected_citations": 0,
+      "top5_chunks": [
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Pull failures",
+          "ordinal": 2
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Authentication",
+          "ordinal": 1
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "Docker Registry",
+          "ordinal": 2
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Registry token policy",
+          "ordinal": 0
+        },
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Connection timeout",
+          "ordinal": 2
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Pull failures",
+          "expansion_kind": null,
+          "evidence_score": 0.349860438636008
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "Docker Registry",
+          "expansion_kind": null,
+          "evidence_score": 0.34235193842745276
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Authentication",
+          "expansion_kind": null,
+          "evidence_score": 0.3415000143317459
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Registry token policy",
+          "expansion_kind": null,
+          "evidence_score": 0.3148426350999312
+        },
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Escalation data",
+          "expansion_kind": "neighbor",
+          "evidence_score": 0.22444444444444445
+        }
+      ],
+      "tags": [
+        "exact_identifier",
+        "historical_version",
+        "known_gap"
+      ],
+      "relevant_documents": [
+        "docker-registry-token-policy:v1"
+      ],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-022",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "no_answer",
+      "expected_document": "vpn-troubleshooting:v1",
+      "rank": 3,
+      "top5": [
+        "vpn-setup:v2",
+        "it-escalation:v1",
+        "vpn-troubleshooting:v1",
+        "docker-registry-token-policy:v2",
+        "gitlab-access:v3"
+      ],
+      "retrieved_result_count": 20,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 15,
+      "selected_citation_count": 0,
+      "selected_citation_documents": [],
+      "citation_context_estimated_tokens": 0,
+      "expected_document_cited": false,
+      "expected_chunk_retrieved": true,
+      "expected_chunk_cited": false,
+      "relevant_selected_citations": 0,
+      "top5_chunks": [
+        {
+          "document": "vpn-setup:v2",
+          "section": "Kiểm tra",
+          "ordinal": 3
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "VPN",
+          "ordinal": 1
+        },
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Connection timeout",
+          "ordinal": 2
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Scope",
+          "ordinal": 2
+        },
+        {
+          "document": "gitlab-access:v3",
+          "section": "Yêu cầu quyền",
+          "ordinal": 1
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "vpn-setup:v2",
+          "section": "Kiểm tra",
+          "expansion_kind": null,
+          "evidence_score": 0.4000294549024332
+        },
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Connection timeout",
+          "expansion_kind": null,
+          "evidence_score": 0.24352715315221812
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "VPN",
+          "expansion_kind": null,
+          "evidence_score": 0.2052630203204845
+        },
+        {
+          "document": "vpn-setup:v2",
+          "section": "Ubuntu",
+          "expansion_kind": "neighbor",
+          "evidence_score": 0.14125
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Scope",
+          "expansion_kind": null,
+          "evidence_score": 0.113329617961982
+        }
+      ],
+      "tags": [
+        "semantic_vi",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "vpn-troubleshooting:v1"
+      ],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-023",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "answered",
+      "expected_document": "vpn-setup:v2",
+      "rank": 1,
+      "top5": [
+        "vpn-setup:v2",
+        "vpn-troubleshooting:v1",
+        "it-escalation:v1",
+        "docker-registry-token-policy:v2",
+        "gitlab-access:v3"
+      ],
+      "retrieved_result_count": 20,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 15,
+      "selected_citation_count": 1,
+      "selected_citation_documents": [
+        "vpn-setup:v2"
+      ],
+      "citation_context_estimated_tokens": 98,
+      "expected_document_cited": true,
+      "expected_chunk_retrieved": true,
+      "expected_chunk_cited": true,
+      "relevant_selected_citations": 1,
+      "top5_chunks": [
+        {
+          "document": "vpn-setup:v2",
+          "section": "Ubuntu",
+          "ordinal": 1
+        },
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Certificate warning",
+          "ordinal": 1
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "VPN",
+          "ordinal": 1
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Thời hạn",
+          "ordinal": 1
+        },
+        {
+          "document": "gitlab-access:v3",
+          "section": "Yêu cầu quyền",
+          "ordinal": 1
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "vpn-setup:v2",
+          "section": "Ubuntu",
+          "expansion_kind": null,
+          "evidence_score": 0.7203626001681656
+        },
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Certificate warning",
+          "expansion_kind": null,
+          "evidence_score": 0.2315072888593988
+        },
+        {
+          "document": "vpn-setup:v2",
+          "section": "Windows",
+          "expansion_kind": "neighbor",
+          "evidence_score": 0.19999999999999998
+        },
+        {
+          "document": "vpn-setup:v2",
+          "section": "Thiết lập VPN demo",
+          "expansion_kind": "parent_section",
+          "evidence_score": 0.19
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "VPN",
+          "expansion_kind": null,
+          "evidence_score": 0.18850719660546936
+        }
+      ],
+      "tags": [
+        "semantic_vi",
+        "chunk_label",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "vpn-setup:v2"
+      ],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-024",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "answered",
+      "expected_document": "vpn-setup:v2",
+      "rank": 1,
+      "top5": [
+        "vpn-setup:v2",
+        "vpn-troubleshooting:v1",
+        "it-escalation:v1",
+        "docker-registry:v1",
+        "docker-troubleshooting:v1"
+      ],
+      "retrieved_result_count": 20,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 15,
+      "selected_citation_count": 1,
+      "selected_citation_documents": [
+        "vpn-setup:v2"
+      ],
+      "citation_context_estimated_tokens": 89,
+      "expected_document_cited": true,
+      "expected_chunk_retrieved": true,
+      "expected_chunk_cited": true,
+      "relevant_selected_citations": 1,
+      "top5_chunks": [
+        {
+          "document": "vpn-setup:v2",
+          "section": "Windows",
+          "ordinal": 2
+        },
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Certificate warning",
+          "ordinal": 1
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "VPN",
+          "ordinal": 1
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Authentication",
+          "ordinal": 1
+        },
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Escalation data",
+          "ordinal": 3
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "vpn-setup:v2",
+          "section": "Windows",
+          "expansion_kind": null,
+          "evidence_score": 0.7099308503637038
+        },
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Certificate warning",
+          "expansion_kind": null,
+          "evidence_score": 0.24755577622093952
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "VPN",
+          "expansion_kind": null,
+          "evidence_score": 0.23556782484393346
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Authentication",
+          "expansion_kind": null,
+          "evidence_score": 0.1718944473291425
+        },
+        {
+          "document": "vpn-setup:v2",
+          "section": "Kiểm tra",
+          "expansion_kind": "neighbor",
+          "evidence_score": 0.14666666666666667
+        }
+      ],
+      "tags": [
+        "semantic_en",
+        "chunk_label",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "vpn-setup:v2"
+      ],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-025",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "answered",
+      "expected_document": "vpn-setup:v2",
+      "rank": 1,
+      "top5": [
+        "vpn-setup:v2",
+        "vpn-troubleshooting:v1",
+        "it-escalation:v1",
+        "gitlab-access:v3",
+        "docker-registry-token-policy:v2"
+      ],
+      "retrieved_result_count": 19,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 14,
+      "selected_citation_count": 1,
+      "selected_citation_documents": [
+        "vpn-setup:v2"
+      ],
+      "citation_context_estimated_tokens": 86,
+      "expected_document_cited": true,
+      "expected_chunk_retrieved": true,
+      "expected_chunk_cited": true,
+      "relevant_selected_citations": 1,
+      "top5_chunks": [
+        {
+          "document": "vpn-setup:v2",
+          "section": "Kiểm tra",
+          "ordinal": 3
+        },
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Demo VPN troubleshooting",
+          "ordinal": 0
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "VPN",
+          "ordinal": 1
+        },
+        {
+          "document": "gitlab-access:v3",
+          "section": "Yêu cầu quyền",
+          "ordinal": 1
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Scope",
+          "ordinal": 2
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "vpn-setup:v2",
+          "section": "Kiểm tra",
+          "expansion_kind": null,
+          "evidence_score": 0.6903635983686363
+        },
+        {
+          "document": "vpn-setup:v2",
+          "section": "Ubuntu",
+          "expansion_kind": "neighbor",
+          "evidence_score": 0.25230769230769234
+        },
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Demo VPN troubleshooting",
+          "expansion_kind": null,
+          "evidence_score": 0.22210224819777818
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "VPN",
+          "expansion_kind": null,
+          "evidence_score": 0.21248945770367755
+        },
+        {
+          "document": "gitlab-access:v3",
+          "section": "Yêu cầu quyền",
+          "expansion_kind": null,
+          "evidence_score": 0.16775137404511173
+        }
+      ],
+      "tags": [
+        "semantic_vi",
+        "chunk_label",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "vpn-setup:v2"
+      ],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-026",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "no_answer",
+      "expected_document": "vpn-troubleshooting:v1",
+      "rank": 2,
+      "top5": [
+        "vpn-setup:v2",
+        "vpn-troubleshooting:v1",
+        "docker-registry-token-policy:v2",
+        "it-escalation:v1",
+        "docker-registry:v1"
+      ],
+      "retrieved_result_count": 20,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 15,
+      "selected_citation_count": 0,
+      "selected_citation_documents": [],
+      "citation_context_estimated_tokens": 0,
+      "expected_document_cited": false,
+      "expected_chunk_retrieved": true,
+      "expected_chunk_cited": false,
+      "relevant_selected_citations": 0,
+      "top5_chunks": [
+        {
+          "document": "vpn-setup:v2",
+          "section": "Ubuntu",
+          "ordinal": 1
+        },
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Certificate warning",
+          "ordinal": 1
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Thời hạn",
+          "ordinal": 1
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "VPN",
+          "ordinal": 1
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Certificate setup",
+          "ordinal": 2
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "vpn-setup:v2",
+          "section": "Ubuntu",
+          "expansion_kind": null,
+          "evidence_score": 0.3543421852484823
+        },
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Certificate warning",
+          "expansion_kind": null,
+          "evidence_score": 0.302450936817049
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Thời hạn",
+          "expansion_kind": null,
+          "evidence_score": 0.20723730966099824
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "VPN",
+          "expansion_kind": null,
+          "evidence_score": 0.18611140752146477
+        },
+        {
+          "document": "vpn-setup:v2",
+          "section": "Kiểm tra",
+          "expansion_kind": "neighbor",
+          "evidence_score": 0.17615384615384616
+        }
+      ],
+      "tags": [
+        "mixed_vi_en",
+        "chunk_label",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "vpn-troubleshooting:v1"
+      ],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-027",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "answered",
+      "expected_document": "vpn-troubleshooting:v1",
+      "rank": 1,
+      "top5": [
+        "vpn-troubleshooting:v1",
+        "it-escalation:v1",
+        "vpn-setup:v2",
+        "docker-registry:v1",
+        "docker-troubleshooting:v1"
+      ],
+      "retrieved_result_count": 19,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 14,
+      "selected_citation_count": 1,
+      "selected_citation_documents": [
+        "vpn-troubleshooting:v1"
+      ],
+      "citation_context_estimated_tokens": 101,
+      "expected_document_cited": true,
+      "expected_chunk_retrieved": true,
+      "expected_chunk_cited": true,
+      "relevant_selected_citations": 1,
+      "top5_chunks": [
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Connection timeout",
+          "ordinal": 2
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "VPN",
+          "ordinal": 1
+        },
+        {
+          "document": "vpn-setup:v2",
+          "section": "Thiết lập VPN demo",
+          "ordinal": 0
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Certificate setup",
+          "ordinal": 2
+        },
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Pull failures",
+          "ordinal": 2
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Connection timeout",
+          "expansion_kind": null,
+          "evidence_score": 0.6380913709728213
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "VPN",
+          "expansion_kind": null,
+          "evidence_score": 0.33813124830433544
+        },
+        {
+          "document": "vpn-setup:v2",
+          "section": "Thiết lập VPN demo",
+          "expansion_kind": null,
+          "evidence_score": 0.2366441288035241
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Certificate setup",
+          "expansion_kind": null,
+          "evidence_score": 0.1723761021751589
+        },
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Demo VPN troubleshooting",
+          "expansion_kind": "parent_section",
+          "evidence_score": 0.135
+        }
+      ],
+      "tags": [
+        "semantic_en",
+        "chunk_label",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "vpn-troubleshooting:v1"
+      ],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-028",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "no_answer",
+      "expected_document": "vpn-troubleshooting:v1",
+      "rank": 1,
+      "top5": [
+        "it-escalation:v1",
+        "vpn-setup:v2",
+        "vpn-troubleshooting:v1",
+        "docker-registry-token-policy:v2",
+        "docker-registry:v1"
+      ],
+      "retrieved_result_count": 20,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 15,
+      "selected_citation_count": 0,
+      "selected_citation_documents": [],
+      "citation_context_estimated_tokens": 0,
+      "expected_document_cited": false,
+      "expected_chunk_retrieved": true,
+      "expected_chunk_cited": false,
+      "relevant_selected_citations": 0,
+      "top5_chunks": [
+        {
+          "document": "it-escalation:v1",
+          "section": "VPN",
+          "ordinal": 1
+        },
+        {
+          "document": "vpn-setup:v2",
+          "section": "Ubuntu",
+          "ordinal": 1
+        },
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Connection timeout",
+          "ordinal": 2
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Thời hạn",
+          "ordinal": 1
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Certificate setup",
+          "ordinal": 2
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "it-escalation:v1",
+          "section": "VPN",
+          "expansion_kind": null,
+          "evidence_score": 0.3328933755549936
+        },
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Connection timeout",
+          "expansion_kind": null,
+          "evidence_score": 0.2584813476995852
+        },
+        {
+          "document": "vpn-setup:v2",
+          "section": "Ubuntu",
+          "expansion_kind": null,
+          "evidence_score": 0.22825481418854304
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Thời hạn",
+          "expansion_kind": null,
+          "evidence_score": 0.20459042765624802
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Certificate setup",
+          "expansion_kind": null,
+          "evidence_score": 0.1711706860498639
+        }
+      ],
+      "tags": [
+        "semantic_vi",
+        "multi_relevant",
+        "chunk_label"
+      ],
+      "relevant_documents": [
+        "it-escalation:v1",
+        "vpn-troubleshooting:v1"
+      ],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-029",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "answered",
+      "expected_document": "docker-registry:v1",
+      "rank": 1,
+      "top5": [
+        "docker-registry:v1",
+        "docker-registry-token-policy:v2",
+        "it-escalation:v1",
+        "docker-troubleshooting:v1",
+        "gitlab-access:v3"
+      ],
+      "retrieved_result_count": 20,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 15,
+      "selected_citation_count": 1,
+      "selected_citation_documents": [
+        "docker-registry:v1"
+      ],
+      "citation_context_estimated_tokens": 106,
+      "expected_document_cited": true,
+      "expected_chunk_retrieved": true,
+      "expected_chunk_cited": true,
+      "relevant_selected_citations": 1,
+      "top5_chunks": [
+        {
+          "document": "docker-registry:v1",
+          "section": "Authentication",
+          "ordinal": 1
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Thời hạn",
+          "ordinal": 1
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "Docker Registry",
+          "ordinal": 2
+        },
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Escalation data",
+          "ordinal": 3
+        },
+        {
+          "document": "gitlab-access:v3",
+          "section": "Yêu cầu quyền",
+          "ordinal": 1
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "docker-registry:v1",
+          "section": "Authentication",
+          "expansion_kind": null,
+          "evidence_score": 0.5619151858826005
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Thời hạn",
+          "expansion_kind": null,
+          "evidence_score": 0.36780102623162486
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "Docker Registry",
+          "expansion_kind": null,
+          "evidence_score": 0.3146870057954472
+        },
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Escalation data",
+          "expansion_kind": null,
+          "evidence_score": 0.30032733418203716
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Certificate setup",
+          "expansion_kind": "neighbor",
+          "evidence_score": 0.1933333333333333
+        }
+      ],
+      "tags": [
+        "mixed_vi_en",
+        "chunk_label",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "docker-registry:v1"
+      ],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-030",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "answered",
+      "expected_document": "docker-registry:v1",
+      "rank": 1,
+      "top5": [
+        "docker-registry:v1",
+        "it-escalation:v1",
+        "docker-troubleshooting:v1",
+        "vpn-troubleshooting:v1",
+        "vpn-setup:v2"
+      ],
+      "retrieved_result_count": 20,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 15,
+      "selected_citation_count": 3,
+      "selected_citation_documents": [
+        "docker-registry:v1",
+        "it-escalation:v1",
+        "docker-troubleshooting:v1"
+      ],
+      "citation_context_estimated_tokens": 300,
+      "expected_document_cited": true,
+      "expected_chunk_retrieved": true,
+      "expected_chunk_cited": true,
+      "relevant_selected_citations": 1,
+      "top5_chunks": [
+        {
+          "document": "docker-registry:v1",
+          "section": "Certificate setup",
+          "ordinal": 2
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "Docker Registry",
+          "ordinal": 2
+        },
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Pull failures",
+          "ordinal": 2
+        },
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Certificate warning",
+          "ordinal": 1
+        },
+        {
+          "document": "vpn-setup:v2",
+          "section": "Windows",
+          "ordinal": 2
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "docker-registry:v1",
+          "section": "Certificate setup",
+          "expansion_kind": null,
+          "evidence_score": 0.6906697692435229
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "Docker Registry",
+          "expansion_kind": null,
+          "evidence_score": 0.6733182263006701
+        },
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Pull failures",
+          "expansion_kind": null,
+          "evidence_score": 0.48104735935384
+        },
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Certificate warning",
+          "expansion_kind": null,
+          "evidence_score": 0.28106604424770554
+        },
+        {
+          "document": "vpn-setup:v2",
+          "section": "Windows",
+          "expansion_kind": null,
+          "evidence_score": 0.18787446637857325
+        }
+      ],
+      "tags": [
+        "semantic_en",
+        "chunk_label",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "docker-registry:v1"
+      ],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-031",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "answered",
+      "expected_document": "docker-registry:v1",
+      "rank": 1,
+      "top5": [
+        "docker-registry:v1",
+        "docker-registry-token-policy:v2",
+        "docker-troubleshooting:v1",
+        "it-escalation:v1",
+        "gitlab-access:v3"
+      ],
+      "retrieved_result_count": 20,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 15,
+      "selected_citation_count": 1,
+      "selected_citation_documents": [
+        "docker-registry:v1"
+      ],
+      "citation_context_estimated_tokens": 89,
+      "expected_document_cited": true,
+      "expected_chunk_retrieved": true,
+      "expected_chunk_cited": true,
+      "relevant_selected_citations": 1,
+      "top5_chunks": [
+        {
+          "document": "docker-registry:v1",
+          "section": "Safe diagnostics",
+          "ordinal": 3
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Thời hạn",
+          "ordinal": 1
+        },
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Pull failures",
+          "ordinal": 2
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "Docker Registry",
+          "ordinal": 2
+        },
+        {
+          "document": "gitlab-access:v3",
+          "section": "Yêu cầu quyền",
+          "ordinal": 1
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "docker-registry:v1",
+          "section": "Safe diagnostics",
+          "expansion_kind": null,
+          "evidence_score": 0.47830887160750835
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Thời hạn",
+          "expansion_kind": null,
+          "evidence_score": 0.23315728159720417
+        },
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Pull failures",
+          "expansion_kind": null,
+          "evidence_score": 0.2043119737298869
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "Docker Registry",
+          "expansion_kind": null,
+          "evidence_score": 0.1972724076495027
+        },
+        {
+          "document": "gitlab-access:v3",
+          "section": "Yêu cầu quyền",
+          "expansion_kind": null,
+          "evidence_score": 0.15773824576745377
+        }
+      ],
+      "tags": [
+        "mixed_vi_en",
+        "chunk_label",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "docker-registry:v1"
+      ],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-032",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "no_answer",
+      "expected_document": "docker-troubleshooting:v1",
+      "rank": 1,
+      "top5": [
+        "docker-troubleshooting:v1",
+        "docker-registry-token-policy:v2",
+        "docker-registry:v1",
+        "it-escalation:v1",
+        "vpn-setup:v2"
+      ],
+      "retrieved_result_count": 18,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 13,
+      "selected_citation_count": 0,
+      "selected_citation_documents": [],
+      "citation_context_estimated_tokens": 0,
+      "expected_document_cited": false,
+      "expected_chunk_retrieved": true,
+      "expected_chunk_cited": false,
+      "relevant_selected_citations": 0,
+      "top5_chunks": [
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Cache cleanup",
+          "ordinal": 1
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Thời hạn",
+          "ordinal": 1
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Demo Docker Registry",
+          "ordinal": 0
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "Docker Registry",
+          "ordinal": 2
+        },
+        {
+          "document": "vpn-setup:v2",
+          "section": "Thiết lập VPN demo",
+          "ordinal": 0
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Cache cleanup",
+          "expansion_kind": null,
+          "evidence_score": 0.3778525049028417
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Demo Docker Registry",
+          "expansion_kind": null,
+          "evidence_score": 0.21444075335337448
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Thời hạn",
+          "expansion_kind": null,
+          "evidence_score": 0.206306340750741
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "Docker Registry",
+          "expansion_kind": null,
+          "evidence_score": 0.1860289571670335
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Authentication",
+          "expansion_kind": "neighbor",
+          "evidence_score": 0.11
+        }
+      ],
+      "tags": [
+        "semantic_vi",
+        "chunk_label",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "docker-troubleshooting:v1"
+      ],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-033",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "answered",
+      "expected_document": "docker-troubleshooting:v1",
+      "rank": 1,
+      "top5": [
+        "docker-troubleshooting:v1",
+        "it-escalation:v1",
+        "docker-registry:v1",
+        "docker-registry-token-policy:v2",
+        "vpn-troubleshooting:v1"
+      ],
+      "retrieved_result_count": 20,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 15,
+      "selected_citation_count": 3,
+      "selected_citation_documents": [
+        "docker-troubleshooting:v1",
+        "it-escalation:v1",
+        "docker-registry:v1"
+      ],
+      "citation_context_estimated_tokens": 310,
+      "expected_document_cited": true,
+      "expected_chunk_retrieved": true,
+      "expected_chunk_cited": true,
+      "relevant_selected_citations": 1,
+      "top5_chunks": [
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Pull failures",
+          "ordinal": 2
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "Docker Registry",
+          "ordinal": 2
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Authentication",
+          "ordinal": 1
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Scope",
+          "ordinal": 2
+        },
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Evidence for escalation",
+          "ordinal": 3
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Pull failures",
+          "expansion_kind": null,
+          "evidence_score": 0.5976875478372621
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "Docker Registry",
+          "expansion_kind": null,
+          "evidence_score": 0.5795822663348914
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Authentication",
+          "expansion_kind": null,
+          "evidence_score": 0.5519410217133107
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Scope",
+          "expansion_kind": null,
+          "evidence_score": 0.3610541698359302
+        },
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Escalation data",
+          "expansion_kind": "neighbor",
+          "evidence_score": 0.3171428571428571
+        }
+      ],
+      "tags": [
+        "semantic_en",
+        "multi_relevant",
+        "chunk_label"
+      ],
+      "relevant_documents": [
+        "docker-registry:v1",
+        "docker-troubleshooting:v1"
+      ],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-034",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "answered",
+      "expected_document": "gitlab-access:v3",
+      "rank": 1,
+      "top5": [
+        "gitlab-access:v3",
+        "it-escalation:v1",
+        "docker-registry-token-policy:v2",
+        "vpn-setup:v2",
+        "engineering-oncall:v1"
+      ],
+      "retrieved_result_count": 19,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 14,
+      "selected_citation_count": 2,
+      "selected_citation_documents": [
+        "gitlab-access:v3",
+        "it-escalation:v1"
+      ],
+      "citation_context_estimated_tokens": 234,
+      "expected_document_cited": true,
+      "expected_chunk_retrieved": true,
+      "expected_chunk_cited": true,
+      "relevant_selected_citations": 1,
+      "top5_chunks": [
+        {
+          "document": "gitlab-access:v3",
+          "section": "Yêu cầu quyền",
+          "ordinal": 1
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "GitLab",
+          "ordinal": 3
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Scope",
+          "ordinal": 2
+        },
+        {
+          "document": "vpn-setup:v2",
+          "section": "Ubuntu",
+          "ordinal": 1
+        },
+        {
+          "document": "engineering-oncall:v1",
+          "section": "Registry incident",
+          "ordinal": 1
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "gitlab-access:v3",
+          "section": "Yêu cầu quyền",
+          "expansion_kind": null,
+          "evidence_score": 0.6928200525120938
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "GitLab",
+          "expansion_kind": null,
+          "evidence_score": 0.47240908136081444
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Scope",
+          "expansion_kind": null,
+          "evidence_score": 0.27225742332046377
+        },
+        {
+          "document": "vpn-setup:v2",
+          "section": "Ubuntu",
+          "expansion_kind": null,
+          "evidence_score": 0.18289256382915486
+        },
+        {
+          "document": "gitlab-access:v3",
+          "section": "GitLab access for the demo company",
+          "expansion_kind": "parent_section",
+          "evidence_score": 0.18222222222222223
+        }
+      ],
+      "tags": [
+        "semantic_vi",
+        "chunk_label",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "gitlab-access:v3"
+      ],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-035",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "answered",
+      "expected_document": "gitlab-access:v3",
+      "rank": 1,
+      "top5": [
+        "gitlab-access:v3",
+        "it-escalation:v1",
+        "vpn-troubleshooting:v1",
+        "docker-registry-token-policy:v2",
+        "docker-registry:v1"
+      ],
+      "retrieved_result_count": 20,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 15,
+      "selected_citation_count": 1,
+      "selected_citation_documents": [
+        "gitlab-access:v3"
+      ],
+      "citation_context_estimated_tokens": 88,
+      "expected_document_cited": true,
+      "expected_chunk_retrieved": true,
+      "expected_chunk_cited": true,
+      "relevant_selected_citations": 1,
+      "top5_chunks": [
+        {
+          "document": "gitlab-access:v3",
+          "section": "SSH keys",
+          "ordinal": 2
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "GitLab",
+          "ordinal": 3
+        },
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Evidence for escalation",
+          "ordinal": 3
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Storage",
+          "ordinal": 3
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Certificate setup",
+          "ordinal": 2
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "gitlab-access:v3",
+          "section": "SSH keys",
+          "expansion_kind": null,
+          "evidence_score": 0.6560093203207371
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "GitLab",
+          "expansion_kind": null,
+          "evidence_score": 0.2520943616974207
+        },
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Evidence for escalation",
+          "expansion_kind": null,
+          "evidence_score": 0.1809444560462466
+        },
+        {
+          "document": "gitlab-access:v3",
+          "section": "GitLab access for the demo company",
+          "expansion_kind": "parent_section",
+          "evidence_score": 0.135
+        },
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Connection timeout",
+          "expansion_kind": "neighbor",
+          "evidence_score": 0.075
+        }
+      ],
+      "tags": [
+        "semantic_en",
+        "chunk_label",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "gitlab-access:v3"
+      ],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-036",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "no_answer",
+      "expected_document": "gitlab-access:v3",
+      "rank": 1,
+      "top5": [
+        "gitlab-access:v3",
+        "docker-registry-token-policy:v2",
+        "it-escalation:v1",
+        "vpn-setup:v2",
+        "docker-registry:v1"
+      ],
+      "retrieved_result_count": 19,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 14,
+      "selected_citation_count": 0,
+      "selected_citation_documents": [],
+      "citation_context_estimated_tokens": 0,
+      "expected_document_cited": false,
+      "expected_chunk_retrieved": true,
+      "expected_chunk_cited": false,
+      "relevant_selected_citations": 0,
+      "top5_chunks": [
+        {
+          "document": "gitlab-access:v3",
+          "section": "Access review",
+          "ordinal": 3
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Scope",
+          "ordinal": 2
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "GitLab",
+          "ordinal": 3
+        },
+        {
+          "document": "vpn-setup:v2",
+          "section": "Thiết lập VPN demo",
+          "ordinal": 0
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Authentication",
+          "ordinal": 1
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "gitlab-access:v3",
+          "section": "Access review",
+          "expansion_kind": null,
+          "evidence_score": 0.3660801253699729
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Scope",
+          "expansion_kind": null,
+          "evidence_score": 0.2734271443890542
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "GitLab",
+          "expansion_kind": null,
+          "evidence_score": 0.24322514730800454
+        },
+        {
+          "document": "vpn-setup:v2",
+          "section": "Thiết lập VPN demo",
+          "expansion_kind": null,
+          "evidence_score": 0.15671841972699707
+        },
+        {
+          "document": "gitlab-access:v3",
+          "section": "Yêu cầu quyền",
+          "expansion_kind": "neighbor",
+          "evidence_score": 0.13777777777777778
+        }
+      ],
+      "tags": [
+        "mixed_vi_en",
+        "chunk_label",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "gitlab-access:v3"
+      ],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-037",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "answered",
+      "expected_document": "docker-registry-token-policy:v2",
+      "rank": 1,
+      "top5": [
+        "docker-registry-token-policy:v2",
+        "docker-troubleshooting:v1",
+        "docker-registry:v1",
+        "it-escalation:v1",
+        "gitlab-access:v3"
+      ],
+      "retrieved_result_count": 20,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 15,
+      "selected_citation_count": 1,
+      "selected_citation_documents": [
+        "docker-registry-token-policy:v2"
+      ],
+      "citation_context_estimated_tokens": 91,
+      "expected_document_cited": true,
+      "expected_chunk_retrieved": true,
+      "expected_chunk_cited": true,
+      "relevant_selected_citations": 1,
+      "top5_chunks": [
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Scope",
+          "ordinal": 2
+        },
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Pull failures",
+          "ordinal": 2
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Authentication",
+          "ordinal": 1
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "Docker Registry",
+          "ordinal": 2
+        },
+        {
+          "document": "gitlab-access:v3",
+          "section": "Yêu cầu quyền",
+          "ordinal": 1
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Scope",
+          "expansion_kind": null,
+          "evidence_score": 0.7423567042561315
+        },
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Pull failures",
+          "expansion_kind": null,
+          "evidence_score": 0.344252315182765
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Authentication",
+          "expansion_kind": null,
+          "evidence_score": 0.26829939261422564
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "Docker Registry",
+          "expansion_kind": null,
+          "evidence_score": 0.26580874846771374
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Registry token policy",
+          "expansion_kind": "parent_section",
+          "evidence_score": 0.1690909090909091
+        }
+      ],
+      "tags": [
+        "semantic_vi",
+        "chunk_label",
+        "current_version"
+      ],
+      "relevant_documents": [
+        "docker-registry-token-policy:v2"
+      ],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-038",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "answered",
+      "expected_document": "docker-registry-token-policy:v2",
+      "rank": 1,
+      "top5": [
+        "docker-registry-token-policy:v2",
+        "docker-registry:v1",
+        "it-escalation:v1",
+        "docker-troubleshooting:v1",
+        "engineering-oncall:v1"
+      ],
+      "retrieved_result_count": 19,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 14,
+      "selected_citation_count": 1,
+      "selected_citation_documents": [
+        "docker-registry-token-policy:v2"
+      ],
+      "citation_context_estimated_tokens": 71,
+      "expected_document_cited": true,
+      "expected_chunk_retrieved": true,
+      "expected_chunk_cited": true,
+      "relevant_selected_citations": 1,
+      "top5_chunks": [
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Storage",
+          "ordinal": 3
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Authentication",
+          "ordinal": 1
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "Docker Registry",
+          "ordinal": 2
+        },
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Pull failures",
+          "ordinal": 2
+        },
+        {
+          "document": "engineering-oncall:v1",
+          "section": "Registry incident",
+          "ordinal": 1
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Storage",
+          "expansion_kind": null,
+          "evidence_score": 0.7711007703392075
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "Docker Registry",
+          "expansion_kind": null,
+          "evidence_score": 0.35134953927186374
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Authentication",
+          "expansion_kind": null,
+          "evidence_score": 0.34961894520471287
+        },
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Pull failures",
+          "expansion_kind": null,
+          "evidence_score": 0.34772473355244754
+        },
+        {
+          "document": "engineering-oncall:v1",
+          "section": "Registry incident",
+          "expansion_kind": null,
+          "evidence_score": 0.24229812580005533
+        }
+      ],
+      "tags": [
+        "exact_identifier",
+        "semantic_vi",
+        "chunk_label"
+      ],
+      "relevant_documents": [
+        "docker-registry-token-policy:v2"
+      ],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-039",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "answered",
+      "expected_document": "engineering-oncall:v1",
+      "rank": 1,
+      "top5": [
+        "engineering-oncall:v1",
+        "docker-registry:v1",
+        "docker-troubleshooting:v1",
+        "docker-registry-token-policy:v2",
+        "it-escalation:v1"
+      ],
+      "retrieved_result_count": 18,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 13,
+      "selected_citation_count": 1,
+      "selected_citation_documents": [
+        "engineering-oncall:v1"
+      ],
+      "citation_context_estimated_tokens": 104,
+      "expected_document_cited": true,
+      "expected_chunk_retrieved": true,
+      "expected_chunk_cited": true,
+      "relevant_selected_citations": 1,
+      "top5_chunks": [
+        {
+          "document": "engineering-oncall:v1",
+          "section": "Registry incident",
+          "ordinal": 1
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Safe diagnostics",
+          "ordinal": 3
+        },
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Escalation data",
+          "ordinal": 3
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Registry token policy",
+          "ordinal": 0
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "Docker Registry",
+          "ordinal": 2
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "engineering-oncall:v1",
+          "section": "Registry incident",
+          "expansion_kind": null,
+          "evidence_score": 0.7843901514124654
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Safe diagnostics",
+          "expansion_kind": null,
+          "evidence_score": 0.3959035637825303
+        },
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Escalation data",
+          "expansion_kind": null,
+          "evidence_score": 0.3716527661436748
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Registry token policy",
+          "expansion_kind": null,
+          "evidence_score": 0.226509109318897
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "Docker Registry",
+          "expansion_kind": null,
+          "evidence_score": 0.22364963664965654
+        }
+      ],
+      "tags": [
+        "semantic_en",
+        "acl",
+        "chunk_label"
+      ],
+      "relevant_documents": [
+        "engineering-oncall:v1"
+      ],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-040",
+      "expected_outcome": "no_answer",
+      "retrieval_outcome": "no_answer",
+      "expected_document": null,
+      "rank": null,
+      "top5": [
+        "docker-registry:v1",
+        "docker-troubleshooting:v1",
+        "docker-registry-token-policy:v2",
+        "it-escalation:v1",
+        "vpn-setup:v2"
+      ],
+      "retrieved_result_count": 19,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 14,
+      "selected_citation_count": 0,
+      "selected_citation_documents": [],
+      "citation_context_estimated_tokens": 0,
+      "expected_document_cited": false,
+      "expected_chunk_retrieved": false,
+      "expected_chunk_cited": false,
+      "relevant_selected_citations": 0,
+      "top5_chunks": [
+        {
+          "document": "docker-registry:v1",
+          "section": "Safe diagnostics",
+          "ordinal": 3
+        },
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Escalation data",
+          "ordinal": 3
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Registry token policy",
+          "ordinal": 0
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "Docker Registry",
+          "ordinal": 2
+        },
+        {
+          "document": "vpn-setup:v2",
+          "section": "Ubuntu",
+          "ordinal": 1
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "docker-registry:v1",
+          "section": "Safe diagnostics",
+          "expansion_kind": null,
+          "evidence_score": 0.41496070776642985
+        },
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Escalation data",
+          "expansion_kind": null,
+          "evidence_score": 0.38804846695198253
+        },
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Registry token policy",
+          "expansion_kind": null,
+          "evidence_score": 0.2246890035678359
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "Docker Registry",
+          "expansion_kind": null,
+          "evidence_score": 0.21888129932544675
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Demo Docker Registry",
+          "expansion_kind": "parent_section",
+          "evidence_score": 0.135
+        }
+      ],
+      "tags": [
+        "acl",
+        "no_answer"
+      ],
+      "relevant_documents": [],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-041",
+      "expected_outcome": "answered",
+      "retrieval_outcome": "answered",
+      "expected_document": "it-service-recovery:v1",
+      "rank": 1,
+      "top5": [
+        "it-service-recovery:v1",
+        "docker-registry:v1",
+        "it-escalation:v1",
+        "vpn-troubleshooting:v1",
+        "docker-troubleshooting:v1"
+      ],
+      "retrieved_result_count": 19,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 14,
+      "selected_citation_count": 1,
+      "selected_citation_documents": [
+        "it-service-recovery:v1"
+      ],
+      "citation_context_estimated_tokens": 112,
+      "expected_document_cited": true,
+      "expected_chunk_retrieved": true,
+      "expected_chunk_cited": true,
+      "relevant_selected_citations": 1,
+      "top5_chunks": [
+        {
+          "document": "it-service-recovery:v1",
+          "section": "Registry recovery",
+          "ordinal": 2
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Certificate setup",
+          "ordinal": 2
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "Docker Registry",
+          "ordinal": 2
+        },
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Connection timeout",
+          "ordinal": 2
+        },
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Pull failures",
+          "ordinal": 2
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "it-service-recovery:v1",
+          "section": "Registry recovery",
+          "expansion_kind": null,
+          "evidence_score": 0.6171965675676845
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Certificate setup",
+          "expansion_kind": null,
+          "evidence_score": 0.3211572522530114
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "Docker Registry",
+          "expansion_kind": null,
+          "evidence_score": 0.2659636756202035
+        },
+        {
+          "document": "vpn-troubleshooting:v1",
+          "section": "Connection timeout",
+          "expansion_kind": null,
+          "evidence_score": 0.24832917551363623
+        },
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Pull failures",
+          "expansion_kind": null,
+          "evidence_score": 0.23095897198421428
+        }
+      ],
+      "tags": [
+        "semantic_en",
+        "it_only",
+        "chunk_label"
+      ],
+      "relevant_documents": [
+        "it-service-recovery:v1"
+      ],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    },
+    {
+      "case_id": "ret-042",
+      "expected_outcome": "no_answer",
+      "retrieval_outcome": "no_answer",
+      "expected_document": null,
+      "rank": null,
+      "top5": [
+        "docker-registry-token-policy:v2",
+        "docker-registry:v1",
+        "docker-troubleshooting:v1",
+        "it-escalation:v1",
+        "gitlab-access:v3"
+      ],
+      "retrieved_result_count": 20,
+      "primary_result_count": 5,
+      "expanded_chunk_count": 15,
+      "selected_citation_count": 0,
+      "selected_citation_documents": [],
+      "citation_context_estimated_tokens": 0,
+      "expected_document_cited": false,
+      "expected_chunk_retrieved": false,
+      "expected_chunk_cited": false,
+      "relevant_selected_citations": 0,
+      "top5_chunks": [
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Scope",
+          "ordinal": 2
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Safe diagnostics",
+          "ordinal": 3
+        },
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Pull failures",
+          "ordinal": 2
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "Docker Registry",
+          "ordinal": 2
+        },
+        {
+          "document": "gitlab-access:v3",
+          "section": "Yêu cầu quyền",
+          "ordinal": 1
+        }
+      ],
+      "top_evidence_scores": [
+        {
+          "document": "docker-registry-token-policy:v2",
+          "section": "Scope",
+          "expansion_kind": null,
+          "evidence_score": 0.3563238322398871
+        },
+        {
+          "document": "docker-registry:v1",
+          "section": "Safe diagnostics",
+          "expansion_kind": null,
+          "evidence_score": 0.23203088668571614
+        },
+        {
+          "document": "docker-troubleshooting:v1",
+          "section": "Pull failures",
+          "expansion_kind": null,
+          "evidence_score": 0.2245342771317806
+        },
+        {
+          "document": "it-escalation:v1",
+          "section": "Docker Registry",
+          "expansion_kind": null,
+          "evidence_score": 0.21994576158220697
+        },
+        {
+          "document": "gitlab-access:v3",
+          "section": "Yêu cầu quyền",
+          "expansion_kind": null,
+          "evidence_score": 0.17964408362501677
+        }
+      ],
+      "tags": [
+        "semantic_vi",
+        "no_answer",
+        "secret_request"
+      ],
+      "relevant_documents": [],
+      "duplicate_rate_at_5": 0.0,
+      "forbidden_returned": []
+    }
+  ]
+}
