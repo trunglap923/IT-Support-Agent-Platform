@@ -28,19 +28,30 @@ quality remains covered separately by the versioned regression suite under `eval
 
 ## Candidate and ranking ablation
 
-The full fake-embedding run isolates the retrieval branches without another paid API call:
+The full fake-embedding run isolates the retrieval branches without another paid API call.
+The BM25 rows use the same production chunks, ACL/current-version SQL scope, and document
+diversity policy as the runtime implementation:
 
 | Variant | nDCG@10 | Recall@10 | MRR@10 |
 |---|---:|---:|---:|
 | Dense hash only | 0.3471 | 0.4375 | 0.3235 |
 | PostgreSQL FTS only | 0.2723 | 0.3997 | 0.2355 |
-| Hybrid RRF | 0.4880 | 0.6150 | 0.4573 |
-| Hybrid weighted reranker | **0.5147** | **0.6586** | **0.4749** |
+| Runtime BM25 only | **0.6795** | **0.8030** | **0.6452** |
+| PostgreSQL hybrid RRF | 0.4880 | 0.6150 | 0.4573 |
+| PostgreSQL hybrid weighted | 0.5147 | 0.6586 | 0.4749 |
+| BM25 hybrid RRF | 0.5758 | 0.7186 | 0.5409 |
+| BM25 hybrid weighted | 0.5331 | 0.6869 | 0.4891 |
 
 The weighted reranker improves RRF by `0.0267` nDCG@10. PostgreSQL FTS trails the verified
 whole-document BM25 anchor by `0.4039`, identifying lexical candidate quality as the main
-measured bottleneck. The production ablation must be rerun after configuring a valid API key;
-the previous key was rejected before corpus indexing, so no partial production result is used.
+measured bottleneck. Runtime BM25 is within `0.0006` of the independently published Anserini
+anchor and improves nDCG@10 by `0.4071` over PostgreSQL FTS on this split.
+
+The fake dense branch pulls both BM25 hybrid variants below BM25 alone, so this benchmark does
+not justify changing the production default or fusion weights. The production ablation must be
+rerun after configuring a valid API key; the previous key was rejected before corpus indexing,
+so no partial production result is used. BM25 remains an explicit runtime option while
+PostgreSQL FTS remains the default.
 
 ## Chunking isolation
 
@@ -51,11 +62,12 @@ the previous key was rejected before corpus indexing, so no partial production r
 
 Holding tokenization and BM25 scoring constant, production chunking changes nDCG@10 by only
 `-0.000057` and leaves Recall@10 unchanged. Chunking is therefore not the measured cause of the
-hybrid gap on SciFact. The next retrieval change should replace or supplement PostgreSQL
-`ts_rank_cd` with a true BM25 sparse backend.
+hybrid gap on SciFact. The runtime BM25 experiment confirms that replacing PostgreSQL
+`ts_rank_cd` materially improves lexical candidates; production embedding evaluation is still
+required to choose the hybrid fusion policy.
 
 Detailed provenance, configuration, per-query rankings, relevance labels, metrics, and latency
 are recorded in `fake-test-retrieval.json`, `openai-test-retrieval.json`, and
-`bm25-test-retrieval.json`. Candidate-level ablation results are in
-`fake-test-ablation.json`; the controlled chunking run is in
+`bm25-test-retrieval.json`. The original and BM25 candidate-level ablations are in
+`fake-test-ablation.json` and `fake-test-ablation-bm25.json`; the controlled chunking run is in
 `bm25-chunked-test-retrieval.json`.

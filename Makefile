@@ -82,7 +82,7 @@ help:
 	@echo "  make public-retrieval-benchmark  Run the complete official SciFact test split"
 	@echo "  make public-retrieval-bm25   Run the full whole-document SciFact BM25 anchor"
 	@echo "  make public-retrieval-bm25-chunked  Measure BM25 with production chunking"
-	@echo "  make public-retrieval-ablation-smoke  Run 10 SciFact queries across four variants"
+	@echo "  make public-retrieval-ablation-smoke  Run 10 SciFact queries across seven variants"
 	@echo "  make public-retrieval-ablation  Run full SciFact dense/sparse/fusion/rerank ablation"
 	@echo "  make db-up                  Start local PostgreSQL/pgvector and wait until healthy"
 	@echo "  make db-down                Stop containers; preserve the PostgreSQL volume"

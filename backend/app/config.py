@@ -29,6 +29,11 @@ class RetrievalReranker(StrEnum):
     CROSS_ENCODER = "cross_encoder"
 
 
+class RetrievalSparseBackend(StrEnum):
+    POSTGRES_FTS = "postgres_fts"
+    BM25 = "bm25"
+
+
 class Settings(BaseSettings):
     """Configuration read from process environment.
 
@@ -63,6 +68,7 @@ class Settings(BaseSettings):
     retrieval_result_limit: int = Field(default=5, ge=1, le=20)
     retrieval_rrf_k: int = Field(default=60, ge=1, le=1000)
     retrieval_max_primary_chunks_per_document: int = Field(default=1, ge=1, le=5)
+    retrieval_sparse_backend: RetrievalSparseBackend = RetrievalSparseBackend.POSTGRES_FTS
     retrieval_reranker: RetrievalReranker = RetrievalReranker.WEIGHTED
     retrieval_cross_encoder_model: str = "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"
     retrieval_cross_encoder_model_file: str = "onnx/model_quint8_avx2.onnx"

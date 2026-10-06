@@ -24,6 +24,7 @@ from app.providers.factory import (
     create_text_usage_ledger,
 )
 from app.rag.retrieval.rerank import create_reranker
+from app.rag.retrieval.sparse import create_sparse_retriever
 
 
 @shared_task(name="jobs.run_agent")  # type: ignore[untyped-decorator]
@@ -46,6 +47,9 @@ def run_agent(run_id: str) -> dict[str, str]:
             model_file=settings.retrieval_cross_encoder_model_file,
             max_candidates=settings.retrieval_cross_encoder_candidate_limit,
             timeout_seconds=settings.retrieval_cross_encoder_timeout_seconds,
+        )
+        retrieval_sparse_retriever = create_sparse_retriever(
+            strategy=settings.retrieval_sparse_backend.value
         )
         use_agents_sdk = settings.agent_runtime is AgentRuntime.OPENAI_AGENTS or (
             settings.agent_runtime is AgentRuntime.AUTO
@@ -87,6 +91,7 @@ def run_agent(run_id: str) -> dict[str, str]:
                     ),
                     retrieval_minimum_evidence_score=(settings.retrieval_minimum_evidence_score),
                     retrieval_reranker=retrieval_reranker,
+                    retrieval_sparse_retriever=retrieval_sparse_retriever,
                 )
             )
             return {key: str(value) for key, value in receipt.items()}

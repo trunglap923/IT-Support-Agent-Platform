@@ -29,7 +29,7 @@ from app.rag.retrieval.exact import PostgresExactRetriever
 from app.rag.retrieval.fusion import ReciprocalRankFusion
 from app.rag.retrieval.models import QuerySpec, RetrievalCandidate, RetrievalRequest
 from app.rag.retrieval.rerank import WeightedFeatureReranker
-from app.rag.retrieval.sparse import PostgresSparseRetriever
+from app.rag.retrieval.sparse import Bm25SparseRetriever, PostgresSparseRetriever
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -51,7 +51,15 @@ from evals.runner.public_retrieval import (
 )
 
 BRANCH_LIMIT = 100
-VARIANTS = ("dense_only", "postgres_fts_only", "hybrid_rrf", "hybrid_weighted")
+VARIANTS = (
+    "dense_only",
+    "postgres_fts_only",
+    "bm25_only",
+    "hybrid_postgres_rrf",
+    "hybrid_postgres_weighted",
+    "hybrid_bm25_rrf",
+    "hybrid_bm25_weighted",
+)
 
 
 def _rerank_dense_candidates(
@@ -79,8 +87,10 @@ async def _candidate_branches(
     query: PublicQuery,
     principal: Principal,
     query_provider: Any,
+    bm25_retriever: Bm25SparseRetriever,
 ) -> tuple[
     QuerySpec,
+    list[RetrievalCandidate],
     list[RetrievalCandidate],
     list[RetrievalCandidate],
     list[RetrievalCandidate],
@@ -113,7 +123,14 @@ async def _candidate_branches(
             ):
                 dense_by_chunk[candidate.chunk_id] = candidate
     dense = _rerank_dense_candidates(dense_by_chunk)
-    sparse = await PostgresSparseRetriever().retrieve(
+    postgres_sparse = await PostgresSparseRetriever().retrieve(
+        session,
+        raw_query=spec.sparse_query,
+        principal=principal,
+        now=EVALUATION_TIME,
+        limit=BRANCH_LIMIT,
+    )
+    bm25_sparse = await bm25_retriever.retrieve(
         session,
         raw_query=spec.sparse_query,
         principal=principal,
@@ -136,7 +153,7 @@ async def _candidate_branches(
         now=EVALUATION_TIME,
         limit=BRANCH_LIMIT,
     )
-    return spec, dense, sparse, exact
+    return spec, dense, postgres_sparse, bm25_sparse, exact
 
 
 async def evaluate_ablation(
@@ -190,6 +207,7 @@ async def evaluate_ablation(
         )
         fusion = ReciprocalRankFusion(k=60)
         reranker = WeightedFeatureReranker()
+        bm25_retriever = Bm25SparseRetriever()
         rankings: dict[str, dict[str, list[str]]] = {
             variant: {} for variant in VARIANTS
         }
@@ -197,23 +215,47 @@ async def evaluate_ablation(
         retrieval_started_at = time.monotonic()
         async with database.session() as session:
             for query_number, query in enumerate(selected_queries, start=1):
-                spec, dense, sparse, exact = await _candidate_branches(
+                (
+                    spec,
+                    dense,
+                    postgres_sparse,
+                    bm25_sparse,
+                    exact,
+                ) = await _candidate_branches(
                     session,
                     query=query,
                     principal=principal,
                     query_provider=query_provider,
+                    bm25_retriever=bm25_retriever,
                 )
-                fused = fusion.fuse(dense, sparse, exact)
-                weighted = await reranker.rerank(
+                postgres_fused = fusion.fuse(dense, postgres_sparse, exact)
+                bm25_fused = fusion.fuse(dense, bm25_sparse, exact)
+                postgres_weighted = await reranker.rerank(
                     spec.raw_query,
-                    fused[:CANDIDATE_LIMIT],
+                    postgres_fused[:CANDIDATE_LIMIT],
+                    analysis=spec,
+                )
+                bm25_weighted = await reranker.rerank(
+                    spec.raw_query,
+                    bm25_fused[:CANDIDATE_LIMIT],
                     analysis=spec,
                 )
                 selected_by_variant = {
                     "dense_only": diversity.select(dense, limit=RESULT_LIMIT),
-                    "postgres_fts_only": diversity.select(sparse, limit=RESULT_LIMIT),
-                    "hybrid_rrf": diversity.select(fused, limit=RESULT_LIMIT),
-                    "hybrid_weighted": diversity.select(weighted, limit=RESULT_LIMIT),
+                    "postgres_fts_only": diversity.select(
+                        postgres_sparse, limit=RESULT_LIMIT
+                    ),
+                    "bm25_only": diversity.select(bm25_sparse, limit=RESULT_LIMIT),
+                    "hybrid_postgres_rrf": diversity.select(
+                        postgres_fused, limit=RESULT_LIMIT
+                    ),
+                    "hybrid_postgres_weighted": diversity.select(
+                        postgres_weighted, limit=RESULT_LIMIT
+                    ),
+                    "hybrid_bm25_rrf": diversity.select(bm25_fused, limit=RESULT_LIMIT),
+                    "hybrid_bm25_weighted": diversity.select(
+                        bm25_weighted, limit=RESULT_LIMIT
+                    ),
                 }
                 case_variants: dict[str, Any] = {}
                 for variant, candidates in selected_by_variant.items():
@@ -253,7 +295,7 @@ async def evaluate_ablation(
         }
         full_split = len(selected_queries) == len(benchmark.queries)
         return {
-            "schema_version": "public-retrieval-ablation-v1",
+            "schema_version": "public-retrieval-ablation-v2",
             "dataset": {
                 "id": benchmark.manifest.dataset_id,
                 "split": benchmark.split,
@@ -276,6 +318,15 @@ async def evaluate_ablation(
                 "branch_limit": BRANCH_LIMIT,
                 "candidate_limit": CANDIDATE_LIMIT,
                 "result_limit": RESULT_LIMIT,
+                "sparse_backends": {
+                    "postgres_fts": "PostgreSQL simple text search",
+                    "bm25": {
+                        "implementation": "bm25s",
+                        "method": "lucene",
+                        "k1": 0.9,
+                        "b": 0.4,
+                    },
+                },
             },
             "variants": variant_metrics,
             "timing": {

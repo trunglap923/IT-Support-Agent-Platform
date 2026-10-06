@@ -54,6 +54,16 @@ class RecordingExactRetriever:
         return [self.result.with_exact(rank=1, score=0.75)]
 
 
+def test_result_limit_can_raise_the_internal_candidate_budget() -> None:
+    retriever = HybridRetriever(
+        embedding_provider=FakeEmbeddingProvider(dimensions=1536),
+        candidate_limit=5,
+        result_limit=10,
+    )
+
+    assert retriever._candidate_limit == 10
+
+
 def test_orchestrator_expands_dense_input_but_preserves_sparse_raw_query() -> None:
     async def scenario() -> None:
         candidate = RetrievalCandidate(

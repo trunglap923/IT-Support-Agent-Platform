@@ -87,7 +87,7 @@ class HybridRetriever:
         rrf_k: int = 60,
         log_prompts: bool = False,
     ) -> None:
-        if branch_limit < 1 or candidate_limit < result_limit or result_limit < 1:
+        if branch_limit < 1 or candidate_limit < 1 or result_limit < 1:
             raise ValueError("Retrieval limits must be positive")
         self._embedding_provider = embedding_provider
         self._query_analysis = query_analysis
@@ -104,7 +104,7 @@ class HybridRetriever:
         self._fusion_strategy = fusion_strategy or ReciprocalRankFusion(k=rrf_k)
         self._reranker = reranker or WeightedFeatureReranker()
         self._branch_limit = branch_limit
-        self._candidate_limit = candidate_limit
+        self._candidate_limit = max(candidate_limit, result_limit)
         self._result_limit = result_limit
         self._expansion_per_hit = max(0, expansion_per_hit)
         self._log_prompts = log_prompts
