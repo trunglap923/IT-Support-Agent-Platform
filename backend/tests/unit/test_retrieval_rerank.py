@@ -4,7 +4,12 @@ from dataclasses import replace
 from uuid import UUID
 
 from app.rag.retrieval.models import QuerySpec, RetrievalCandidate, RetrievalRequest
-from app.rag.retrieval.rerank import CrossEncoderReranker, WeightedFeatureReranker
+from app.rag.retrieval.rerank import (
+    CrossEncoderReranker,
+    FusionScoreReranker,
+    WeightedFeatureReranker,
+    create_reranker,
+)
 
 
 def _candidate(index: int, content: str) -> RetrievalCandidate:
@@ -122,5 +127,43 @@ def test_weighted_reranker_soft_boosts_matching_metadata() -> None:
         assert ranked[0].chunk_id == matching.chunk_id
         assert ranked[0].metadata_score == 1.0
         assert ranked[1].metadata_score == 0.0
+
+    asyncio.run(scenario())
+
+
+def test_fusion_score_reranker_preserves_calibrated_order() -> None:
+    async def scenario() -> None:
+        candidates = [_candidate(1, "first"), _candidate(2, "second")]
+
+        ranked = await FusionScoreReranker().rerank("ignored", candidates)
+
+        assert [item.chunk_id for item in ranked] == [UUID(int=1), UUID(int=2)]
+        assert [item.rerank_score for item in ranked] == [1.0, 0.5]
+
+    asyncio.run(scenario())
+
+
+def test_reranker_factory_supports_fusion_score_strategy() -> None:
+    reranker = create_reranker(
+        strategy="fusion",
+        model="unused",
+        model_file="unused",
+        max_candidates=20,
+        timeout_seconds=10,
+    )
+
+    assert isinstance(reranker, FusionScoreReranker)
+
+
+def test_fusion_score_reranker_normalizes_small_rrf_scores() -> None:
+    async def scenario() -> None:
+        candidates = [
+            replace(_candidate(1, "first"), fusion_score=0.02),
+            replace(_candidate(2, "second"), fusion_score=0.01),
+        ]
+
+        ranked = await FusionScoreReranker().rerank("ignored", candidates)
+
+        assert [item.rerank_score for item in ranked] == [1.0, 0.5]
 
     asyncio.run(scenario())

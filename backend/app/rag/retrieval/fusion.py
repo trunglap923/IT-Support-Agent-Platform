@@ -22,14 +22,28 @@ class FusionStrategy(Protocol):
 
 
 class ReciprocalRankFusion:
-    def __init__(self, *, k: int = 60) -> None:
+    def __init__(
+        self,
+        *,
+        k: int = 60,
+        dense_weight: float = 1.0,
+        sparse_weight: float = 1.0,
+        exact_weight: float = 1.0,
+    ) -> None:
         if k < 1:
             raise ValueError("RRF k must be positive")
+        weights = (dense_weight, sparse_weight, exact_weight)
+        if any(weight < 0 for weight in weights) or not any(weight > 0 for weight in weights):
+            raise ValueError("RRF branch weights must be non-negative with at least one positive")
         self._k = k
+        self._weights = weights
 
     @property
     def name(self) -> str:
-        return "rrf"
+        if self._weights == (1.0, 1.0, 1.0):
+            return "rrf"
+        dense, sparse, exact = self._weights
+        return f"weighted_rrf:dense={dense:g},sparse={sparse:g},exact={exact:g}"
 
     def fuse(
         self,
@@ -66,9 +80,13 @@ class ReciprocalRankFusion:
             replace(
                 item,
                 fusion_score=sum(
-                    1 / (self._k + rank)
-                    for rank in (item.dense_rank, item.sparse_rank, item.exact_rank)
-                    if rank is not None
+                    weight / (self._k + rank)
+                    for rank, weight in zip(
+                        (item.dense_rank, item.sparse_rank, item.exact_rank),
+                        self._weights,
+                        strict=True,
+                    )
+                    if rank is not None and weight > 0
                 ),
             )
             for item in candidates.values()

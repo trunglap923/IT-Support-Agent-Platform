@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Protocol
+from typing import Protocol, cast
 
 import bm25s  # type: ignore[import-untyped]
 import Stemmer  # type: ignore[import-not-found]
@@ -106,7 +106,7 @@ class Bm25SparseRetriever:
         )
         retriever = bm25s.BM25(k1=self._k1, b=self._b, method="lucene")
         retriever.index(corpus_tokens, show_progress=False)
-        return retriever
+        return cast(object, retriever)
 
     def _search(self, raw_query: str, limit: int) -> list[tuple[int, float]]:
         if self._retriever is None or not self._candidates:

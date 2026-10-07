@@ -106,6 +106,29 @@ class WeightedFeatureReranker:
         return _sort_candidates(ranked)
 
 
+class FusionScoreReranker:
+    """Preserve fusion order and expose a normalized score to evidence selection."""
+
+    @property
+    def name(self) -> str:
+        return "fusion_score"
+
+    async def rerank(
+        self,
+        query: str,
+        candidates: list[RetrievalCandidate],
+        *,
+        analysis: QuerySpec | None = None,
+    ) -> list[RetrievalCandidate]:
+        del query, analysis
+        max_score = max((candidate.fusion_score for candidate in candidates), default=0.0)
+        denominator = max_score or 1.0
+        return [
+            replace(candidate, rerank_score=candidate.fusion_score / denominator)
+            for candidate in candidates
+        ]
+
+
 class OnnxCrossEncoderScorer:
     """Lazy CPU adapter for a Hugging Face cross encoder exported to ONNX."""
 
@@ -239,6 +262,8 @@ def create_reranker(
 ) -> Reranker:
     """Construct the configured reranker without importing optional ML packages."""
 
+    if strategy == "fusion":
+        return FusionScoreReranker()
     if strategy == "weighted":
         return WeightedFeatureReranker()
     if strategy == "cross_encoder":

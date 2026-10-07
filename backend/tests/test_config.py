@@ -10,9 +10,12 @@ def test_fake_provider_is_safe_default() -> None:
     assert settings.text_provider is AIProvider.FAKE
     assert settings.embedding_provider is AIProvider.FAKE
     assert settings.openai_api_key is None
-    assert settings.retrieval_reranker is RetrievalReranker.WEIGHTED
-    assert settings.retrieval_sparse_backend is RetrievalSparseBackend.POSTGRES_FTS
-    assert settings.retrieval_minimum_evidence_score == 0.45
+    assert settings.retrieval_reranker is RetrievalReranker.FUSION
+    assert settings.retrieval_sparse_backend is RetrievalSparseBackend.BM25
+    assert settings.retrieval_rrf_dense_weight == 1.0
+    assert settings.retrieval_rrf_sparse_weight == 0.25
+    assert settings.retrieval_rrf_exact_weight == 0.0
+    assert settings.retrieval_minimum_evidence_score == 0.50
     assert "openai_api_key" not in settings.public_summary()
 
 
@@ -54,6 +57,15 @@ def test_current_vector_schema_requires_1536_dimensions() -> None:
 def test_evidence_score_threshold_is_bounded() -> None:
     with pytest.raises(ValidationError, match="less than or equal to 1"):
         Settings(retrieval_minimum_evidence_score=1.1)
+
+
+def test_at_least_one_rrf_branch_weight_must_be_positive() -> None:
+    with pytest.raises(ValidationError, match="At least one RETRIEVAL_RRF"):
+        Settings(
+            retrieval_rrf_dense_weight=0,
+            retrieval_rrf_sparse_weight=0,
+            retrieval_rrf_exact_weight=0,
+        )
 
 
 def test_redis_url_is_validated_and_kept_secret() -> None:

@@ -48,7 +48,47 @@ def test_rrf_merges_exact_branch_rank_and_score() -> None:
     assert fused[0].fusion_score == pytest.approx(2 / 61)
 
 
+def test_weighted_rrf_can_prioritize_a_stronger_dense_branch() -> None:
+    dense_only = candidate(1, "dense").with_dense(rank=1, score=0.99)
+    shared = candidate(2, "shared").with_dense(rank=20, score=0.5)
+    sparse_shared = candidate(2, "shared").with_sparse(rank=20, score=0.8)
+
+    equal = ReciprocalRankFusion(k=60).fuse([dense_only, shared], [sparse_shared])
+    weighted = ReciprocalRankFusion(
+        k=60,
+        dense_weight=1.0,
+        sparse_weight=0.25,
+        exact_weight=0.0,
+    ).fuse([dense_only, shared], [sparse_shared])
+
+    assert equal[0].document_key == "shared"
+    assert weighted[0].document_key == "dense"
+    assert weighted[0].fusion_score == pytest.approx(1 / 61)
+    assert weighted[0].fusion_score > weighted[1].fusion_score
+    assert weighted[0].dense_rank == 1
+    assert weighted[0].sparse_rank is None
+    assert weighted[1].fusion_score == pytest.approx(1.25 / 80)
+    assert weighted[1].dense_rank == weighted[1].sparse_rank == 20
+    assert (
+        ReciprocalRankFusion(dense_weight=1.0, sparse_weight=0.25, exact_weight=0.0).name
+        == "weighted_rrf:dense=1,sparse=0.25,exact=0"
+    )
+
+
 @pytest.mark.parametrize("value", [0, -1])
 def test_rrf_rejects_non_positive_k(value: int) -> None:
     with pytest.raises(ValueError, match="positive"):
         ReciprocalRankFusion(k=value)
+
+
+@pytest.mark.parametrize(
+    ("weights", "message"),
+    [((-1.0, 1.0, 1.0), "non-negative"), ((0.0, 0.0, 0.0), "positive")],
+)
+def test_rrf_rejects_invalid_branch_weights(
+    weights: tuple[float, float, float], message: str
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        ReciprocalRankFusion(
+            dense_weight=weights[0], sparse_weight=weights[1], exact_weight=weights[2]
+        )

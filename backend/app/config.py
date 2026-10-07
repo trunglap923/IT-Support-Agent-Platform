@@ -25,6 +25,7 @@ class AgentRuntime(StrEnum):
 
 
 class RetrievalReranker(StrEnum):
+    FUSION = "fusion"
     WEIGHTED = "weighted"
     CROSS_ENCODER = "cross_encoder"
 
@@ -67,14 +68,17 @@ class Settings(BaseSettings):
     retrieval_branch_limit: int = Field(default=20, ge=5, le=100)
     retrieval_result_limit: int = Field(default=5, ge=1, le=20)
     retrieval_rrf_k: int = Field(default=60, ge=1, le=1000)
+    retrieval_rrf_dense_weight: float = Field(default=1.0, ge=0)
+    retrieval_rrf_sparse_weight: float = Field(default=0.25, ge=0)
+    retrieval_rrf_exact_weight: float = Field(default=0.0, ge=0)
     retrieval_max_primary_chunks_per_document: int = Field(default=1, ge=1, le=5)
-    retrieval_sparse_backend: RetrievalSparseBackend = RetrievalSparseBackend.POSTGRES_FTS
-    retrieval_reranker: RetrievalReranker = RetrievalReranker.WEIGHTED
+    retrieval_sparse_backend: RetrievalSparseBackend = RetrievalSparseBackend.BM25
+    retrieval_reranker: RetrievalReranker = RetrievalReranker.FUSION
     retrieval_cross_encoder_model: str = "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"
     retrieval_cross_encoder_model_file: str = "onnx/model_quint8_avx2.onnx"
     retrieval_cross_encoder_candidate_limit: int = Field(default=20, ge=1, le=100)
     retrieval_cross_encoder_timeout_seconds: float = Field(default=10.0, gt=0, le=300)
-    retrieval_minimum_evidence_score: float = Field(default=0.45, ge=0, le=1)
+    retrieval_minimum_evidence_score: float = Field(default=0.50, ge=0, le=1)
 
     database_url: SecretStr | None = None
     migration_database_url: SecretStr | None = None
@@ -136,6 +140,15 @@ class Settings(BaseSettings):
             raise ValueError(
                 "EMBEDDING_DIMENSIONS must remain 1536 for the current pgvector schema"
             )
+        if not any(
+            weight > 0
+            for weight in (
+                self.retrieval_rrf_dense_weight,
+                self.retrieval_rrf_sparse_weight,
+                self.retrieval_rrf_exact_weight,
+            )
+        ):
+            raise ValueError("At least one RETRIEVAL_RRF_*_WEIGHT must be positive")
         if (
             self.agent_runtime is AgentRuntime.OPENAI_AGENTS
             and self.text_provider is not AIProvider.OPENAI

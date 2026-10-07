@@ -30,6 +30,7 @@ FRONTEND_DOCKER = docker run --rm --user $(PROJECT_UID):$(PROJECT_GID) -e npm_co
 	public-retrieval-smoke public-retrieval-benchmark public-retrieval-bm25 \
 	public-retrieval-bm25-chunked \
 	public-retrieval-ablation-smoke public-retrieval-ablation \
+	public-retrieval-fusion-tuning \
 	wp13-gate-tests quality-report \
 	db-up db-down db-status redis-up redis-down redis-status services-up services-down \
 	migrate seed seed-dry-run seed-demo-user wp02-integration-check wp03-integration-check \
@@ -82,8 +83,9 @@ help:
 	@echo "  make public-retrieval-benchmark  Run the complete official SciFact test split"
 	@echo "  make public-retrieval-bm25   Run the full whole-document SciFact BM25 anchor"
 	@echo "  make public-retrieval-bm25-chunked  Measure BM25 with production chunking"
-	@echo "  make public-retrieval-ablation-smoke  Run 10 SciFact queries across seven variants"
+	@echo "  make public-retrieval-ablation-smoke  Run 10 SciFact queries across eight variants"
 	@echo "  make public-retrieval-ablation  Run full SciFact dense/sparse/fusion/rerank ablation"
+	@echo "  make public-retrieval-fusion-tuning  Tune weighted RRF on the SciFact train split"
 	@echo "  make db-up                  Start local PostgreSQL/pgvector and wait until healthy"
 	@echo "  make db-down                Stop containers; preserve the PostgreSQL volume"
 	@echo "  make db-status              Show local Compose service status"
@@ -171,7 +173,7 @@ backend-check:
 	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --directory backend --frozen ruff format --check .
 	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --directory backend --frozen ruff check .
 	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --directory backend --frozen mypy app
-	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --directory backend --frozen pytest
+	PYTHONPATH=$(CURDIR)/backend:$(CURDIR) UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --project backend --frozen pytest backend/tests
 
 wp02-integration-check:
 	RUN_FRONTEND=0 bash $(CURDIR)/infra/scripts/run-tests.sh /app/tests/integration/test_migrations.py /app/tests/integration/test_user_repository.py /app/tests/integration/test_auth_api.py /app/tests/integration/test_conversation_ownership.py
@@ -277,8 +279,8 @@ eval-agent-live: eval-validate
 knowledge-validate:
 	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --directory backend --frozen python ../data/manifests/validate_corpus.py
 
-retrieval-baseline:
-	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --project backend --frozen --env-file $(COMPOSE_ENV_FILE) python -m evals.runner.retrieval_baseline
+retrieval-baseline: db-up
+	$(STACK_COMPOSE) run --rm --no-deps --user $(PROJECT_UID):$(PROJECT_GID) -e PYTHONPATH=/workspace/backend:/workspace -e RETRIEVAL_REPORT_DIR=/workspace/reports/phase5/runtime_tuned -e RETRIEVAL_BENCHMARK_EMBEDDING_PROVIDER=fake -e RUN_PAID_RETRIEVAL_BENCHMARK=false -e RETRIEVAL_BENCHMARK_CHUNK_TARGET_TOKENS=500 -e RETRIEVAL_BENCHMARK_CHUNK_OVERLAP_TOKENS=60 -e RETRIEVAL_BENCHMARK_SPARSE_BACKEND=bm25 -e RETRIEVAL_BENCHMARK_RERANKER=fusion -e RETRIEVAL_RRF_DENSE_WEIGHT=1.0 -e RETRIEVAL_RRF_SPARSE_WEIGHT=0.25 -e RETRIEVAL_RRF_EXACT_WEIGHT=0.0 -e RETRIEVAL_BENCHMARK_EVIDENCE_THRESHOLD=0.50 -v $(CURDIR):/workspace -w /workspace api sh -c 'TEST_DATABASE_ADMIN_URL="$$DATABASE_URL" exec /opt/venv/bin/python -m evals.runner.retrieval_baseline'
 
 public-retrieval-smoke: db-up
 	$(STACK_COMPOSE) run --rm --no-deps --user $(PROJECT_UID):$(PROJECT_GID) -e PYTHONPATH=/workspace/backend:/workspace -e SSL_CERT_FILE=/tmp/host-ca.crt -v $(HOST_CA_BUNDLE):/tmp/host-ca.crt:ro -v $(CURDIR):/workspace -w /workspace api python -m evals.runner.public_retrieval --dataset scifact --split test --embedding-provider fake --query-limit 10
@@ -297,6 +299,9 @@ public-retrieval-ablation-smoke: db-up
 
 public-retrieval-ablation: db-up
 	$(STACK_COMPOSE) run --rm --no-deps --user $(PROJECT_UID):$(PROJECT_GID) -e PYTHONPATH=/workspace/backend:/workspace -e SSL_CERT_FILE=/tmp/host-ca.crt -e PUBLIC_RETRIEVAL_EMBEDDING_PROVIDER -e RUN_PAID_PUBLIC_RETRIEVAL_BENCHMARK -v $(HOST_CA_BUNDLE):/tmp/host-ca.crt:ro -v $(CURDIR):/workspace -w /workspace api python -m evals.runner.public_ablation --dataset scifact --split test --embedding-provider "$${PUBLIC_RETRIEVAL_EMBEDDING_PROVIDER:-fake}"
+
+public-retrieval-fusion-tuning: db-up
+	$(STACK_COMPOSE) run --rm --no-deps --user $(PROJECT_UID):$(PROJECT_GID) -e PYTHONPATH=/workspace/backend:/workspace -e SSL_CERT_FILE=/tmp/host-ca.crt -e PUBLIC_RETRIEVAL_EMBEDDING_PROVIDER -e RUN_PAID_PUBLIC_RETRIEVAL_BENCHMARK -v $(HOST_CA_BUNDLE):/tmp/host-ca.crt:ro -v $(CURDIR):/workspace -w /workspace api python -m evals.runner.public_ablation --dataset scifact --split train --embedding-provider "$${PUBLIC_RETRIEVAL_EMBEDDING_PROVIDER:-fake}" --tune-fusion
 
 wp13-gate-tests:
 	UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --project backend --frozen --env-file $(COMPOSE_ENV_FILE) python -m evals.runner.gate_tests

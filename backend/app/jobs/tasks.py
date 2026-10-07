@@ -23,6 +23,7 @@ from app.providers.factory import (
     create_provider,
     create_text_usage_ledger,
 )
+from app.rag.retrieval.fusion import ReciprocalRankFusion
 from app.rag.retrieval.rerank import create_reranker
 from app.rag.retrieval.sparse import create_sparse_retriever
 
@@ -50,6 +51,12 @@ def run_agent(run_id: str) -> dict[str, str]:
         )
         retrieval_sparse_retriever = create_sparse_retriever(
             strategy=settings.retrieval_sparse_backend.value
+        )
+        retrieval_fusion_strategy = ReciprocalRankFusion(
+            k=settings.retrieval_rrf_k,
+            dense_weight=settings.retrieval_rrf_dense_weight,
+            sparse_weight=settings.retrieval_rrf_sparse_weight,
+            exact_weight=settings.retrieval_rrf_exact_weight,
         )
         use_agents_sdk = settings.agent_runtime is AgentRuntime.OPENAI_AGENTS or (
             settings.agent_runtime is AgentRuntime.AUTO
@@ -90,6 +97,7 @@ def run_agent(run_id: str) -> dict[str, str]:
                         settings.retrieval_max_primary_chunks_per_document
                     ),
                     retrieval_minimum_evidence_score=(settings.retrieval_minimum_evidence_score),
+                    retrieval_fusion_strategy=retrieval_fusion_strategy,
                     retrieval_reranker=retrieval_reranker,
                     retrieval_sparse_retriever=retrieval_sparse_retriever,
                 )

@@ -51,6 +51,7 @@ from evals.runner.public_retrieval import (
 )
 
 BRANCH_LIMIT = 100
+TRAIN_SELECTED_FUSION_WEIGHTS = (1.0, 0.25, 0.0)
 VARIANTS = (
     "dense_only",
     "postgres_fts_only",
@@ -59,7 +60,18 @@ VARIANTS = (
     "hybrid_postgres_weighted",
     "hybrid_bm25_rrf",
     "hybrid_bm25_weighted",
+    "hybrid_bm25_train_tuned",
 )
+FUSION_WEIGHT_GRID = tuple(
+    (1.0, sparse_weight, exact_weight)
+    for sparse_weight in (0.0, 0.25, 0.5, 0.75, 1.0, 1.5)
+    for exact_weight in (0.0, 0.25, 0.5, 1.0)
+)
+
+
+def _weight_key(weights: tuple[float, float, float]) -> str:
+    dense, sparse, exact = weights
+    return f"dense={dense:g},sparse={sparse:g},exact={exact:g}"
 
 
 def _rerank_dense_candidates(
@@ -163,6 +175,7 @@ async def evaluate_ablation(
     provider_name: str,
     query_limit: int | None,
     chunking: ChunkingConfig,
+    tune_fusion: bool = False,
 ) -> dict[str, Any]:
     database = Database(database_url)
     provider, embedding_model = _embedding_provider(database, provider_name)
@@ -211,6 +224,11 @@ async def evaluate_ablation(
         rankings: dict[str, dict[str, list[str]]] = {
             variant: {} for variant in VARIANTS
         }
+        fusion_rankings: dict[str, dict[str, list[str]]] = (
+            {_weight_key(weights): {} for weights in FUSION_WEIGHT_GRID}
+            if tune_fusion
+            else {}
+        )
         cases: list[dict[str, Any]] = []
         retrieval_started_at = time.monotonic()
         async with database.session() as session:
@@ -240,6 +258,12 @@ async def evaluate_ablation(
                     bm25_fused[:CANDIDATE_LIMIT],
                     analysis=spec,
                 )
+                train_tuned_fused = ReciprocalRankFusion(
+                    k=60,
+                    dense_weight=TRAIN_SELECTED_FUSION_WEIGHTS[0],
+                    sparse_weight=TRAIN_SELECTED_FUSION_WEIGHTS[1],
+                    exact_weight=TRAIN_SELECTED_FUSION_WEIGHTS[2],
+                ).fuse(dense, bm25_sparse, exact)
                 selected_by_variant = {
                     "dense_only": diversity.select(dense, limit=RESULT_LIMIT),
                     "postgres_fts_only": diversity.select(
@@ -256,6 +280,9 @@ async def evaluate_ablation(
                     "hybrid_bm25_weighted": diversity.select(
                         bm25_weighted, limit=RESULT_LIMIT
                     ),
+                    "hybrid_bm25_train_tuned": diversity.select(
+                        train_tuned_fused[:CANDIDATE_LIMIT], limit=RESULT_LIMIT
+                    ),
                 }
                 case_variants: dict[str, Any] = {}
                 for variant, candidates in selected_by_variant.items():
@@ -269,6 +296,20 @@ async def evaluate_ablation(
                             query_metrics(ranking, selected_qrels[query.query_id])
                         ),
                     }
+                for weights in FUSION_WEIGHT_GRID if tune_fusion else ():
+                    key = _weight_key(weights)
+                    weighted_fusion = ReciprocalRankFusion(
+                        k=60,
+                        dense_weight=weights[0],
+                        sparse_weight=weights[1],
+                        exact_weight=weights[2],
+                    ).fuse(dense, bm25_sparse, exact)
+                    selected = diversity.select(
+                        weighted_fusion[:CANDIDATE_LIMIT], limit=RESULT_LIMIT
+                    )
+                    fusion_rankings[key][query.query_id] = [
+                        key_to_official_id[item.document_key] for item in selected
+                    ]
                 cases.append(
                     {
                         "query_id": query.query_id,
@@ -293,9 +334,36 @@ async def evaluate_ablation(
             variant: aggregate_metrics(variant_rankings, selected_qrels)
             for variant, variant_rankings in rankings.items()
         }
+        fusion_grid = [
+            {
+                "weights": {
+                    "dense": weights[0],
+                    "sparse": weights[1],
+                    "exact": weights[2],
+                },
+                "metrics": aggregate_metrics(
+                    fusion_rankings[_weight_key(weights)], selected_qrels
+                ),
+            }
+            for weights in FUSION_WEIGHT_GRID
+            if tune_fusion
+        ]
+        selected_fusion = (
+            max(
+                fusion_grid,
+                key=lambda item: (
+                    item["metrics"]["ndcg_at_10"],
+                    item["metrics"]["map_at_10"],
+                    item["metrics"]["recall_at_10"],
+                    item["metrics"]["mrr_at_10"],
+                ),
+            )
+            if fusion_grid
+            else None
+        )
         full_split = len(selected_queries) == len(benchmark.queries)
         return {
-            "schema_version": "public-retrieval-ablation-v2",
+            "schema_version": "public-retrieval-ablation-v3",
             "dataset": {
                 "id": benchmark.manifest.dataset_id,
                 "split": benchmark.split,
@@ -327,17 +395,40 @@ async def evaluate_ablation(
                         "b": 0.4,
                     },
                 },
+                "train_selected_fusion": {
+                    "selection_dataset": benchmark.manifest.dataset_id,
+                    "selection_split": "train",
+                    "objective": "ndcg_at_10",
+                    "dense_weight": TRAIN_SELECTED_FUSION_WEIGHTS[0],
+                    "sparse_weight": TRAIN_SELECTED_FUSION_WEIGHTS[1],
+                    "exact_weight": TRAIN_SELECTED_FUSION_WEIGHTS[2],
+                    "reranker": "fusion_score",
+                },
             },
             "variants": variant_metrics,
+            "fusion_tuning": (
+                {
+                    "selection_split": benchmark.split,
+                    "objective": "ndcg_at_10",
+                    "grid": fusion_grid,
+                    "selected": selected_fusion,
+                }
+                if tune_fusion
+                else None
+            ),
             "timing": {
                 "retrieval_seconds": time.monotonic() - retrieval_started_at,
                 "total_seconds": time.monotonic() - started_at,
             },
             "cases": cases,
             "report_usage": (
-                "Comparable full-split public benchmark run"
-                if full_split
-                else "Smoke test only; do not report these metrics as a benchmark result"
+                "Development split tuning only; do not report as held-out performance"
+                if tune_fusion
+                else (
+                    "Comparable full-split public benchmark run"
+                    if full_split
+                    else "Smoke test only; do not report these metrics as a benchmark result"
+                )
             ),
         }
     finally:
@@ -367,6 +458,27 @@ def write_report(report: dict[str, Any], output: Path) -> None:
         + " |"
         for variant, metrics in report["variants"].items()
     )
+    tuning = report.get("fusion_tuning")
+    tuning_section = ""
+    if tuning:
+        selected = tuning["selected"]
+        weights = selected["weights"]
+        metrics = selected["metrics"]
+        tuning_section = "\n".join(
+            (
+                "",
+                "## Selected fusion weights",
+                "",
+                f"- Selection split: `{tuning['selection_split']}`",
+                f"- Objective: `{tuning['objective']}`",
+                f"- Dense weight: `{weights['dense']}`",
+                f"- Sparse weight: `{weights['sparse']}`",
+                f"- Exact weight: `{weights['exact']}`",
+                f"- nDCG@10: `{metrics['ndcg_at_10']:.4f}`",
+                f"- Recall@10: `{metrics['recall_at_10']:.4f}`",
+                "",
+            )
+        )
     output.with_suffix(".md").write_text(
         "\n".join(
             (
@@ -378,6 +490,7 @@ def write_report(report: dict[str, Any], output: Path) -> None:
                 "|---|---:|---:|---:|---:|---:|",
                 rows,
                 "",
+                tuning_section,
             )
         ),
         encoding="utf-8",
@@ -399,6 +512,11 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--output", type=Path)
     parser.add_argument("--chunk-target-tokens", type=int, default=500)
     parser.add_argument("--chunk-overlap-tokens", type=int, default=60)
+    parser.add_argument(
+        "--tune-fusion",
+        action="store_true",
+        help="Evaluate the fixed weighted-RRF grid on a development split",
+    )
     return parser.parse_args()
 
 
@@ -452,12 +570,17 @@ def main() -> None:
                     target_tokens=args.chunk_target_tokens,
                     overlap_tokens=args.chunk_overlap_tokens,
                 ),
+                tune_fusion=args.tune_fusion,
             )
         )
         output = args.output or (
             DEFAULT_REPORT_DIR
             / args.dataset
-            / f"{args.embedding_provider}-{args.split}-ablation.json"
+            / (
+                f"{args.embedding_provider}-{args.split}-fusion-tuning.json"
+                if args.tune_fusion
+                else f"{args.embedding_provider}-{args.split}-ablation.json"
+            )
         )
         write_report(report, output)
     finally:
@@ -468,6 +591,12 @@ def main() -> None:
                 )
         admin_engine.dispose()
     print(json.dumps(report["variants"], indent=2))
+    if report.get("fusion_tuning"):
+        print(
+            json.dumps(
+                {"selected_fusion": report["fusion_tuning"]["selected"]}, indent=2
+            )
+        )
 
 
 if __name__ == "__main__":

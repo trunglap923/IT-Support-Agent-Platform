@@ -42,6 +42,15 @@ RUN_PAID_PUBLIC_RETRIEVAL_BENCHMARK=true \
 make public-retrieval-ablation
 ```
 
+Select weighted RRF parameters on the official train split before evaluating the locked
+configuration on the test split:
+
+```bash
+PUBLIC_RETRIEVAL_EMBEDDING_PROVIDER=openai \
+RUN_PAID_PUBLIC_RETRIEVAL_BENCHMARK=true \
+make public-retrieval-fusion-tuning
+```
+
 Run the complete split with the configured production OpenAI embedding model:
 
 ```bash

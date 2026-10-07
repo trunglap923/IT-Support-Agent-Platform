@@ -35,6 +35,7 @@ from app.providers.base import StructuredResponseProvider
 from app.providers.embeddings import EmbeddingProvider, FakeEmbeddingProvider
 from app.providers.fake import FakeTextProvider
 from app.providers.structured import IncompleteStructuredResponseError
+from app.rag.retrieval.fusion import FusionStrategy
 from app.rag.retrieval.query import HybridRetriever
 from app.rag.retrieval.rerank import Reranker
 from app.rag.retrieval.sparse import SparseRetriever
@@ -88,6 +89,7 @@ async def execute_support_run(
     retrieval_rrf_k: int = 60,
     retrieval_max_primary_chunks_per_document: int = 1,
     retrieval_minimum_evidence_score: float = 0.45,
+    retrieval_fusion_strategy: FusionStrategy | None = None,
     retrieval_reranker: Reranker | None = None,
     retrieval_sparse_retriever: SparseRetriever | None = None,
 ) -> WorkerResult:
@@ -337,6 +339,7 @@ async def execute_support_run(
                 branch_limit=retrieval_branch_limit,
                 result_limit=retrieval_result_limit,
                 rrf_k=retrieval_rrf_k,
+                fusion_strategy=retrieval_fusion_strategy,
                 max_primary_chunks_per_document=(retrieval_max_primary_chunks_per_document),
                 reranker=retrieval_reranker,
                 sparse_retriever=retrieval_sparse_retriever,

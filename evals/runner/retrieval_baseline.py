@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-from uuid import uuid4
+from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from app.auth.principal import Principal
 from app.config import AIProvider, Settings
@@ -39,8 +39,10 @@ from app.rag.chunking.splitter import (
 )
 from app.rag.citations.sources import build_evidence_output
 from app.rag.ingestion.markdown_parser import MARKDOWN_PARSER_VERSION, MarkdownParser
+from app.rag.retrieval.fusion import ReciprocalRankFusion
 from app.rag.retrieval.query import HybridRetriever
 from app.rag.retrieval.rerank import CrossEncoderReranker, create_reranker
+from app.rag.retrieval.sparse import create_sparse_retriever
 from jsonschema import Draft202012Validator  # type: ignore[import-untyped]
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
@@ -75,7 +77,17 @@ CHUNKING_CONFIG = ChunkingConfig(
 BENCHMARK_EMBEDDING_PROVIDER = os.getenv(
     "RETRIEVAL_BENCHMARK_EMBEDDING_PROVIDER", "fake"
 ).casefold()
-RERANKER_STRATEGY = os.getenv("RETRIEVAL_BENCHMARK_RERANKER", "weighted")
+SPARSE_BACKEND = os.getenv(
+    "RETRIEVAL_BENCHMARK_SPARSE_BACKEND",
+    os.getenv("RETRIEVAL_SPARSE_BACKEND", "postgres_fts"),
+)
+RERANKER_STRATEGY = os.getenv(
+    "RETRIEVAL_BENCHMARK_RERANKER",
+    os.getenv("RETRIEVAL_RERANKER", "weighted"),
+)
+RRF_DENSE_WEIGHT = float(os.getenv("RETRIEVAL_RRF_DENSE_WEIGHT", "1.0"))
+RRF_SPARSE_WEIGHT = float(os.getenv("RETRIEVAL_RRF_SPARSE_WEIGHT", "1.0"))
+RRF_EXACT_WEIGHT = float(os.getenv("RETRIEVAL_RRF_EXACT_WEIGHT", "1.0"))
 CROSS_ENCODER_MODEL = os.getenv(
     "RETRIEVAL_CROSS_ENCODER_MODEL",
     "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1",
@@ -492,20 +504,37 @@ async def evaluate(database_url: str) -> dict[str, Any]:
             max_candidates=20,
             timeout_seconds=CROSS_ENCODER_TIMEOUT_SECONDS,
         )
-        retriever = HybridRetriever(
-            embedding_provider=provider,
-            branch_limit=BRANCH_LIMIT,
-            result_limit=RESULT_LIMIT,
-            candidate_limit=20,
-            expansion_per_hit=2,
-            rrf_k=RRF_K,
-            reranker=reranker,
-        )
+        retrievers: dict[tuple[str, str], HybridRetriever] = {}
         async with database.session() as session:
             for case in cases:
+                retrieval_scope = (case.role, case.department_key)
+                retriever = retrievers.get(retrieval_scope)
+                if retriever is None:
+                    retriever = HybridRetriever(
+                        embedding_provider=provider,
+                        branch_limit=BRANCH_LIMIT,
+                        result_limit=RESULT_LIMIT,
+                        candidate_limit=20,
+                        expansion_per_hit=2,
+                        rrf_k=RRF_K,
+                        fusion_strategy=ReciprocalRankFusion(
+                            k=RRF_K,
+                            dense_weight=RRF_DENSE_WEIGHT,
+                            sparse_weight=RRF_SPARSE_WEIGHT,
+                            exact_weight=RRF_EXACT_WEIGHT,
+                        ),
+                        reranker=reranker,
+                        sparse_retriever=create_sparse_retriever(
+                            strategy=SPARSE_BACKEND
+                        ),
+                    )
+                    retrievers[retrieval_scope] = retriever
                 department = departments[case.department_key]
                 principal = Principal(
-                    user_id=uuid4(),
+                    user_id=uuid5(
+                        NAMESPACE_URL,
+                        f"retrieval-baseline:{case.role}:{case.department_key}",
+                    ),
                     session_id=uuid4(),
                     email=f"{case.case_id}@example.com",
                     display_name=case.case_id,
@@ -798,7 +827,7 @@ async def evaluate(database_url: str) -> dict[str, Any]:
         }
         if isinstance(reranker, CrossEncoderReranker):
             reranker_configuration["runtime"] = reranker_runtime
-        else:
+        elif RERANKER_STRATEGY == "weighted":
             reranker_configuration["weights"] = {
                 "query_term_coverage": 0.50,
                 "exact_identifier_match": 0.20,
@@ -807,6 +836,8 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                 "exact_branch_score": 0.05,
                 "metadata_soft_boost": 0.05,
             }
+        else:
+            reranker_configuration["normalization"] = "max_fusion_score_per_query"
         return {
             "report_version": "retrieval-baseline-v3",
             "evaluated_at": EVALUATION_TIME.isoformat(),
@@ -841,7 +872,7 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                 },
                 "dense": {"strategy": "exact_cosine", "candidate_limit": BRANCH_LIMIT},
                 "sparse": {
-                    "strategy": "postgres_simple_fts_or_terms",
+                    "strategy": SPARSE_BACKEND,
                     "candidate_limit": BRANCH_LIMIT,
                     "preserves_original_query": True,
                 },
@@ -850,8 +881,11 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                     "candidate_limit": BRANCH_LIMIT,
                 },
                 "fusion": {
-                    "strategy": "reciprocal_rank_fusion",
+                    "strategy": "weighted_reciprocal_rank_fusion",
                     "rrf_k": RRF_K,
+                    "dense_weight": RRF_DENSE_WEIGHT,
+                    "sparse_weight": RRF_SPARSE_WEIGHT,
+                    "exact_weight": RRF_EXACT_WEIGHT,
                 },
                 "reranker": reranker_configuration,
                 "primary_diversity": {
