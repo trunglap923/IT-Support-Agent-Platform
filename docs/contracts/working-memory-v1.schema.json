@@ -1,0 +1,630 @@
+{
+  "$defs": {
+    "PendingAction": {
+      "additionalProperties": false,
+      "properties": {
+        "action_id": {
+          "maxLength": 160,
+          "minLength": 1,
+          "title": "Action Id",
+          "type": "string"
+        },
+        "arguments_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Arguments Hash",
+          "type": "string"
+        },
+        "plan_step_id": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Plan Step Id",
+          "type": "string"
+        },
+        "requires_approval": {
+          "title": "Requires Approval",
+          "type": "boolean"
+        },
+        "tool_name": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Tool Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action_id",
+        "plan_step_id",
+        "tool_name",
+        "arguments_hash",
+        "requires_approval"
+      ],
+      "title": "PendingAction",
+      "type": "object"
+    },
+    "VerificationRequirement": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_refs": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "requirement_id": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Requirement Id",
+          "type": "string"
+        },
+        "statement": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Statement",
+          "type": "string"
+        },
+        "status": {
+          "default": "pending",
+          "enum": [
+            "pending",
+            "satisfied",
+            "failed"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "requirement_id",
+        "statement"
+      ],
+      "title": "VerificationRequirement",
+      "type": "object"
+    },
+    "WorkingCompactionState": {
+      "additionalProperties": false,
+      "properties": {
+        "last_compacted_event_sequence": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Last Compacted Event Sequence",
+          "type": "integer"
+        },
+        "source_event_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 200,
+          "title": "Source Event Ids",
+          "type": "array"
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "maxLength": 8000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Summary"
+        },
+        "summary_version": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Summary Version",
+          "type": "integer"
+        }
+      },
+      "title": "WorkingCompactionState",
+      "type": "object"
+    },
+    "WorkingCounters": {
+      "additionalProperties": false,
+      "properties": {
+        "model_calls": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Model Calls",
+          "type": "integer"
+        },
+        "retrieval_calls": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Retrieval Calls",
+          "type": "integer"
+        },
+        "tool_calls": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Tool Calls",
+          "type": "integer"
+        }
+      },
+      "title": "WorkingCounters",
+      "type": "object"
+    },
+    "WorkingEntities": {
+      "additionalProperties": false,
+      "properties": {
+        "device_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Device Id"
+        },
+        "service_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 10,
+          "title": "Service Ids",
+          "type": "array"
+        },
+        "user_id": {
+          "format": "uuid",
+          "title": "User Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "user_id"
+      ],
+      "title": "WorkingEntities",
+      "type": "object"
+    },
+    "WorkingGoal": {
+      "additionalProperties": false,
+      "properties": {
+        "constraints": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Constraints",
+          "type": "array"
+        },
+        "statement": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Statement",
+          "type": "string"
+        },
+        "success_criteria": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 12,
+          "minItems": 1,
+          "title": "Success Criteria",
+          "type": "array"
+        }
+      },
+      "required": [
+        "statement",
+        "success_criteria"
+      ],
+      "title": "WorkingGoal",
+      "type": "object"
+    },
+    "WorkingHypothesis": {
+      "additionalProperties": false,
+      "properties": {
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "evidence_refs": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "hypothesis_id": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Hypothesis Id",
+          "type": "string"
+        },
+        "statement": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Statement",
+          "type": "string"
+        },
+        "status": {
+          "default": "active",
+          "enum": [
+            "active",
+            "supported",
+            "rejected"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "hypothesis_id",
+        "statement",
+        "confidence"
+      ],
+      "title": "WorkingHypothesis",
+      "type": "object"
+    },
+    "WorkingObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "observation_id": {
+          "maxLength": 160,
+          "minLength": 1,
+          "title": "Observation Id",
+          "type": "string"
+        },
+        "observed_at": {
+          "format": "date-time",
+          "title": "Observed At",
+          "type": "string"
+        },
+        "raw_artifact_ref": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Raw Artifact Ref"
+        },
+        "reliability": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Reliability",
+          "type": "number"
+        },
+        "source_ref": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Source Ref",
+          "type": "string"
+        },
+        "source_type": {
+          "enum": [
+            "user",
+            "tool",
+            "knowledge",
+            "system"
+          ],
+          "title": "Source Type",
+          "type": "string"
+        },
+        "summary": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        },
+        "supersedes": {
+          "anyOf": [
+            {
+              "maxLength": 160,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Supersedes"
+        }
+      },
+      "required": [
+        "observation_id",
+        "source_type",
+        "source_ref",
+        "summary",
+        "observed_at",
+        "reliability"
+      ],
+      "title": "WorkingObservation",
+      "type": "object"
+    },
+    "WorkingPlan": {
+      "additionalProperties": false,
+      "properties": {
+        "steps": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/WorkingPlanStep"
+          },
+          "maxItems": 40,
+          "title": "Steps",
+          "type": "array"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "version"
+      ],
+      "title": "WorkingPlan",
+      "type": "object"
+    },
+    "WorkingPlanStep": {
+      "additionalProperties": false,
+      "properties": {
+        "depends_on": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Depends On",
+          "type": "array"
+        },
+        "kind": {
+          "enum": [
+            "inspect",
+            "retrieve",
+            "diagnose",
+            "action",
+            "verify",
+            "communicate"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "requires_approval": {
+          "default": false,
+          "title": "Requires Approval",
+          "type": "boolean"
+        },
+        "status": {
+          "default": "pending",
+          "enum": [
+            "pending",
+            "running",
+            "succeeded",
+            "failed",
+            "skipped",
+            "blocked"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "step_id": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Step Id",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 240,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "tool_name": {
+          "anyOf": [
+            {
+              "maxLength": 80,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tool Name"
+        }
+      },
+      "required": [
+        "step_id",
+        "title",
+        "kind"
+      ],
+      "title": "WorkingPlanStep",
+      "type": "object"
+    }
+  },
+  "$id": "urn:it-support-agent:schema:working-memory-v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Complete durable task state, distinct from the selected active context.",
+  "properties": {
+    "compaction": {
+      "$ref": "#/$defs/WorkingCompactionState",
+      "default": {
+        "last_compacted_event_sequence": 0,
+        "source_event_ids": [],
+        "summary": null,
+        "summary_version": 0
+      }
+    },
+    "conversation_id": {
+      "format": "uuid",
+      "title": "Conversation Id",
+      "type": "string"
+    },
+    "counters": {
+      "$ref": "#/$defs/WorkingCounters",
+      "default": {
+        "model_calls": 0,
+        "retrieval_calls": 0,
+        "tool_calls": 0
+      }
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "entities": {
+      "$ref": "#/$defs/WorkingEntities"
+    },
+    "goal": {
+      "$ref": "#/$defs/WorkingGoal"
+    },
+    "hypotheses": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/WorkingHypothesis"
+      },
+      "maxItems": 20,
+      "title": "Hypotheses",
+      "type": "array"
+    },
+    "incident_key": {
+      "anyOf": [
+        {
+          "maxLength": 160,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Incident Key"
+    },
+    "observations": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/WorkingObservation"
+      },
+      "maxItems": 100,
+      "title": "Observations",
+      "type": "array"
+    },
+    "owner_id": {
+      "format": "uuid",
+      "title": "Owner Id",
+      "type": "string"
+    },
+    "pending_actions": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/PendingAction"
+      },
+      "maxItems": 10,
+      "title": "Pending Actions",
+      "type": "array"
+    },
+    "plan": {
+      "$ref": "#/$defs/WorkingPlan"
+    },
+    "run_id": {
+      "format": "uuid",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "working-memory-v1",
+      "default": "working-memory-v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "active",
+        "waiting_input",
+        "waiting_approval",
+        "verifying",
+        "completed",
+        "failed",
+        "cancelled"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "tenant_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Tenant Id"
+    },
+    "ticket_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Ticket Id"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    },
+    "verification_requirements": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/VerificationRequirement"
+      },
+      "maxItems": 20,
+      "title": "Verification Requirements",
+      "type": "array"
+    },
+    "version": {
+      "minimum": 1,
+      "title": "Version",
+      "type": "integer"
+    },
+    "working_memory_id": {
+      "format": "uuid",
+      "title": "Working Memory Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "working_memory_id",
+    "run_id",
+    "conversation_id",
+    "owner_id",
+    "status",
+    "goal",
+    "entities",
+    "plan",
+    "version",
+    "created_at",
+    "updated_at"
+  ],
+  "title": "WorkingMemorySnapshot",
+  "type": "object"
+}

@@ -1,0 +1,214 @@
+{
+  "$defs": {
+    "BaselineExpectations": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_error": {
+          "anyOf": [
+            {
+              "maxLength": 120,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expected Error"
+        },
+        "forbidden_confirmed_attempt_terms": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Forbidden Confirmed Attempt Terms",
+          "type": "array"
+        },
+        "forbidden_context_terms": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 30,
+          "title": "Forbidden Context Terms",
+          "type": "array"
+        },
+        "must_summarize": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Must Summarize"
+        },
+        "must_truncate": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Must Truncate"
+        },
+        "required_confirmed_attempt_terms": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Required Confirmed Attempt Terms",
+          "type": "array"
+        },
+        "required_context_terms": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 30,
+          "title": "Required Context Terms",
+          "type": "array"
+        }
+      },
+      "title": "BaselineExpectations",
+      "type": "object"
+    },
+    "BaselineHistoryMessage": {
+      "additionalProperties": false,
+      "properties": {
+        "content": {
+          "maxLength": 32000,
+          "minLength": 1,
+          "title": "Content",
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "user",
+            "assistant",
+            "memory"
+          ],
+          "title": "Role",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "content"
+      ],
+      "title": "BaselineHistoryMessage",
+      "type": "object"
+    },
+    "BuilderOptions": {
+      "additionalProperties": false,
+      "properties": {
+        "max_input_tokens": {
+          "default": 10000,
+          "minimum": 1,
+          "title": "Max Input Tokens",
+          "type": "integer"
+        },
+        "recent_messages_after_summary": {
+          "default": 12,
+          "minimum": 1,
+          "title": "Recent Messages After Summary",
+          "type": "integer"
+        },
+        "summary_trigger_messages": {
+          "default": 20,
+          "minimum": 1,
+          "title": "Summary Trigger Messages",
+          "type": "integer"
+        },
+        "summary_trigger_tokens": {
+          "default": 6000,
+          "minimum": 1,
+          "title": "Summary Trigger Tokens",
+          "type": "integer"
+        }
+      },
+      "title": "BuilderOptions",
+      "type": "object"
+    }
+  },
+  "$id": "urn:it-support-agent:schema:context-baseline-case-v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "builder_options": {
+      "$ref": "#/$defs/BuilderOptions",
+      "default": {
+        "max_input_tokens": 10000,
+        "recent_messages_after_summary": 12,
+        "summary_trigger_messages": 20,
+        "summary_trigger_tokens": 6000
+      }
+    },
+    "case_id": {
+      "pattern": "^ctx-[0-9]{3}$",
+      "title": "Case Id",
+      "type": "string"
+    },
+    "category": {
+      "enum": [
+        "latest_request",
+        "follow_up",
+        "exact_token",
+        "attempt_state",
+        "memory_selection",
+        "token_budget",
+        "compaction",
+        "prompt_injection",
+        "input_guard"
+      ],
+      "title": "Category",
+      "type": "string"
+    },
+    "current_query": {
+      "maxLength": 40000,
+      "minLength": 1,
+      "title": "Current Query",
+      "type": "string"
+    },
+    "description": {
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Description",
+      "type": "string"
+    },
+    "expectations": {
+      "$ref": "#/$defs/BaselineExpectations"
+    },
+    "history": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/BaselineHistoryMessage"
+      },
+      "maxItems": 160,
+      "title": "History",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "context-baseline-case-v1",
+      "default": "context-baseline-case-v1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "case_id",
+    "category",
+    "description",
+    "current_query",
+    "expectations"
+  ],
+  "title": "ContextBaselineCase",
+  "type": "object"
+}

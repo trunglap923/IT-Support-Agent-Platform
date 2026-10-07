@@ -1412,6 +1412,10 @@ Không rollout toàn bộ cùng lúc. Mỗi phase chạy shadow/evaluation trư�
 
 ### Phase 0 — Contracts, threat model và baseline
 
+Trạng thái triển khai: **đã hoàn thành ngày 2026-10-07**. Artifacts gồm versioned contracts,
+JSON Schemas, threat model, 12 frozen scenarios và deterministic baseline của context builder hiện
+tại. Phase 0 không thay đổi serving behavior hoặc database schema.
+
 **Objective**: khóa taxonomy, interfaces, metrics và security invariants trước migration.
 
 - **Architecture changes**: thêm design contracts và eval harness; không đổi serving behavior.
@@ -1647,4 +1651,3 @@ Các câu hỏi dưới đây cần product/security/operations quyết định 
 - Sikuan Yan et al., [Memory-R1: Enhancing Large Language Model Agents to Manage and Utilize Memories via Reinforcement Learning](https://aclanthology.org/2026.acl-long.583/), ACL 2026.
 - Runnan Fang et al., [Memp: Exploring Agent Procedural Memory](https://arxiv.org/abs/2508.06433), Findings of ACL 2026.
 - Saurabh Jha et al., [ITBench: Evaluating AI Agents across Diverse Real-World IT Automation Tasks](https://proceedings.mlr.press/v267/jha25a.html), ICML 2025.
-

@@ -1,0 +1,114 @@
+{
+  "$id": "urn:it-support-agent:schema:memory-decision-v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Outcome after deterministic validation and any required human gate.",
+  "properties": {
+    "decided_at": {
+      "format": "date-time",
+      "title": "Decided At",
+      "type": "string"
+    },
+    "decided_by_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Decided By Id"
+    },
+    "decided_by_type": {
+      "enum": [
+        "system",
+        "user",
+        "it_reviewer",
+        "connector"
+      ],
+      "title": "Decided By Type",
+      "type": "string"
+    },
+    "decision_id": {
+      "format": "uuid",
+      "title": "Decision Id",
+      "type": "string"
+    },
+    "operation": {
+      "enum": [
+        "add",
+        "update",
+        "delete",
+        "noop"
+      ],
+      "title": "Operation",
+      "type": "string"
+    },
+    "owner_id": {
+      "format": "uuid",
+      "title": "Owner Id",
+      "type": "string"
+    },
+    "policy_version": {
+      "maxLength": 80,
+      "minLength": 1,
+      "title": "Policy Version",
+      "type": "string"
+    },
+    "proposal_id": {
+      "format": "uuid",
+      "title": "Proposal Id",
+      "type": "string"
+    },
+    "reason_code": {
+      "maxLength": 80,
+      "minLength": 1,
+      "title": "Reason Code",
+      "type": "string"
+    },
+    "resulting_memory_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Resulting Memory Id"
+    },
+    "schema_version": {
+      "const": "memory-decision-v1",
+      "default": "memory-decision-v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "accepted",
+        "rejected",
+        "quarantined"
+      ],
+      "title": "Status",
+      "type": "string"
+    }
+  },
+  "required": [
+    "decision_id",
+    "proposal_id",
+    "owner_id",
+    "operation",
+    "status",
+    "decided_by_type",
+    "policy_version",
+    "reason_code",
+    "decided_at"
+  ],
+  "title": "MemoryDecisionRecord",
+  "type": "object"
+}

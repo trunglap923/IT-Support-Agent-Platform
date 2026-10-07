@@ -1,0 +1,304 @@
+{
+  "$defs": {
+    "ContextCandidate": {
+      "additionalProperties": false,
+      "description": "A scoped item eligible for selection into one model invocation.",
+      "properties": {
+        "candidate_id": {
+          "maxLength": 160,
+          "minLength": 1,
+          "title": "Candidate Id",
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "conflicts_with": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Conflicts With",
+          "type": "array"
+        },
+        "content": {
+          "maxLength": 32000,
+          "minLength": 1,
+          "title": "Content",
+          "type": "string"
+        },
+        "importance": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Importance",
+          "type": "number"
+        },
+        "kind": {
+          "enum": [
+            "system_policy",
+            "tool_schema",
+            "current_request",
+            "working_memory",
+            "conversation_history",
+            "semantic_memory",
+            "episodic_memory",
+            "procedural_memory",
+            "knowledge",
+            "tool_observation"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "provenance_refs": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Provenance Refs",
+          "type": "array"
+        },
+        "relevance": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Relevance",
+          "type": "number"
+        },
+        "required": {
+          "default": false,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "schema_version": {
+          "const": "context-candidate-v1",
+          "default": "context-candidate-v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/ContextScope"
+        },
+        "sensitivity": {
+          "default": "internal",
+          "enum": [
+            "public",
+            "internal",
+            "confidential",
+            "restricted"
+          ],
+          "title": "Sensitivity",
+          "type": "string"
+        },
+        "source_ref": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Source Ref",
+          "type": "string"
+        },
+        "source_reliability": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Source Reliability",
+          "type": "number"
+        },
+        "task_utility": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Task Utility",
+          "type": "number"
+        },
+        "temporal_validity": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Temporal Validity",
+          "type": "number"
+        },
+        "token_cost": {
+          "minimum": 1,
+          "title": "Token Cost",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "candidate_id",
+        "kind",
+        "content",
+        "source_ref",
+        "scope",
+        "relevance",
+        "importance",
+        "source_reliability",
+        "confidence",
+        "temporal_validity",
+        "task_utility",
+        "token_cost"
+      ],
+      "title": "ContextCandidate",
+      "type": "object"
+    },
+    "ContextScope": {
+      "additionalProperties": false,
+      "description": "Server-derived isolation envelope attached before context selection.",
+      "properties": {
+        "agent_namespace": {
+          "default": "it_support",
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Agent Namespace",
+          "type": "string"
+        },
+        "department_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Department Id"
+        },
+        "owner_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Owner Id"
+        },
+        "tenant_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tenant Id"
+        }
+      },
+      "title": "ContextScope",
+      "type": "object"
+    },
+    "ContextTokenBudget": {
+      "additionalProperties": false,
+      "properties": {
+        "input_token_limit": {
+          "minimum": 1,
+          "title": "Input Token Limit",
+          "type": "integer"
+        },
+        "model_context_limit": {
+          "minimum": 1,
+          "title": "Model Context Limit",
+          "type": "integer"
+        },
+        "reserved_output_tokens": {
+          "minimum": 0,
+          "title": "Reserved Output Tokens",
+          "type": "integer"
+        },
+        "safety_margin_tokens": {
+          "minimum": 0,
+          "title": "Safety Margin Tokens",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "model_context_limit",
+        "reserved_output_tokens",
+        "safety_margin_tokens",
+        "input_token_limit"
+      ],
+      "title": "ContextTokenBudget",
+      "type": "object"
+    }
+  },
+  "$id": "urn:it-support-agent:schema:context-build-request-v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Provider-neutral input for selecting one bounded active context.",
+  "properties": {
+    "call_sequence": {
+      "minimum": 1,
+      "title": "Call Sequence",
+      "type": "integer"
+    },
+    "candidates": {
+      "items": {
+        "$ref": "#/$defs/ContextCandidate"
+      },
+      "maxItems": 500,
+      "minItems": 1,
+      "title": "Candidates",
+      "type": "array"
+    },
+    "current_request": {
+      "maxLength": 32000,
+      "minLength": 1,
+      "title": "Current Request",
+      "type": "string"
+    },
+    "current_request_candidate_id": {
+      "maxLength": 160,
+      "minLength": 1,
+      "title": "Current Request Candidate Id",
+      "type": "string"
+    },
+    "policy_version": {
+      "maxLength": 80,
+      "minLength": 1,
+      "title": "Policy Version",
+      "type": "string"
+    },
+    "purpose": {
+      "enum": [
+        "plan",
+        "tool_selection",
+        "answer",
+        "verify",
+        "memory_decision"
+      ],
+      "title": "Purpose",
+      "type": "string"
+    },
+    "run_id": {
+      "format": "uuid",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "context-build-request-v1",
+      "default": "context-build-request-v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "token_budget": {
+      "$ref": "#/$defs/ContextTokenBudget"
+    }
+  },
+  "required": [
+    "run_id",
+    "call_sequence",
+    "purpose",
+    "current_request",
+    "current_request_candidate_id",
+    "candidates",
+    "token_budget",
+    "policy_version"
+  ],
+  "title": "ContextBuildRequest",
+  "type": "object"
+}

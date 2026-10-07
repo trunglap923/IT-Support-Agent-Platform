@@ -1,0 +1,167 @@
+{
+  "$defs": {
+    "MemorySourceReference": {
+      "additionalProperties": false,
+      "properties": {
+        "authority_tier": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Authority Tier",
+          "type": "integer"
+        },
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "observed_at": {
+          "format": "date-time",
+          "title": "Observed At",
+          "type": "string"
+        },
+        "source_ref": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Source Ref",
+          "type": "string"
+        },
+        "source_type": {
+          "enum": [
+            "cmdb",
+            "idp",
+            "mdm",
+            "tool",
+            "user_confirmed",
+            "ticket",
+            "ai_inferred"
+          ],
+          "title": "Source Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_type",
+        "source_ref",
+        "content_hash",
+        "observed_at",
+        "authority_tier"
+      ],
+      "title": "MemorySourceReference",
+      "type": "object"
+    }
+  },
+  "$id": "urn:it-support-agent:schema:memory-mutation-proposal-v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A model/rule proposal. It grants no permission and performs no write.",
+  "properties": {
+    "confidence": {
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Confidence",
+      "type": "number"
+    },
+    "evidence": {
+      "items": {
+        "$ref": "#/$defs/MemorySourceReference"
+      },
+      "maxItems": 20,
+      "minItems": 1,
+      "title": "Evidence",
+      "type": "array"
+    },
+    "operation": {
+      "enum": [
+        "add",
+        "update",
+        "delete",
+        "noop"
+      ],
+      "title": "Operation",
+      "type": "string"
+    },
+    "owner_id": {
+      "format": "uuid",
+      "title": "Owner Id",
+      "type": "string"
+    },
+    "predicate": {
+      "maxLength": 120,
+      "minLength": 1,
+      "title": "Predicate",
+      "type": "string"
+    },
+    "proposal_id": {
+      "format": "uuid",
+      "title": "Proposal Id",
+      "type": "string"
+    },
+    "proposed_value": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Proposed Value"
+    },
+    "reason_code": {
+      "maxLength": 80,
+      "minLength": 1,
+      "title": "Reason Code",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "memory-mutation-proposal-v1",
+      "default": "memory-mutation-proposal-v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "subject_id": {
+      "maxLength": 160,
+      "minLength": 1,
+      "title": "Subject Id",
+      "type": "string"
+    },
+    "subject_type": {
+      "enum": [
+        "user",
+        "device",
+        "account",
+        "service"
+      ],
+      "title": "Subject Type",
+      "type": "string"
+    },
+    "target_memory_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Target Memory Id"
+    }
+  },
+  "required": [
+    "proposal_id",
+    "owner_id",
+    "operation",
+    "subject_type",
+    "subject_id",
+    "predicate",
+    "evidence",
+    "confidence",
+    "reason_code"
+  ],
+  "title": "MemoryMutationProposal",
+  "type": "object"
+}

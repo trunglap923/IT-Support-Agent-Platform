@@ -1,0 +1,292 @@
+{
+  "$defs": {
+    "ActiveContextMessage": {
+      "additionalProperties": false,
+      "properties": {
+        "candidate_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Candidate Ids",
+          "type": "array"
+        },
+        "content": {
+          "maxLength": 64000,
+          "minLength": 1,
+          "title": "Content",
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "system",
+            "user",
+            "assistant",
+            "tool"
+          ],
+          "title": "Role",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "content"
+      ],
+      "title": "ActiveContextMessage",
+      "type": "object"
+    },
+    "ContextConflict": {
+      "additionalProperties": false,
+      "properties": {
+        "candidate_ids": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 2,
+          "title": "Candidate Ids",
+          "type": "array"
+        },
+        "predicate": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Predicate",
+          "type": "string"
+        },
+        "resolution": {
+          "enum": [
+            "authoritative_source",
+            "newest_valid",
+            "clarification_required",
+            "quarantined"
+          ],
+          "title": "Resolution",
+          "type": "string"
+        },
+        "selected_candidate_id": {
+          "anyOf": [
+            {
+              "maxLength": 160,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Selected Candidate Id"
+        },
+        "subject": {
+          "maxLength": 240,
+          "minLength": 1,
+          "title": "Subject",
+          "type": "string"
+        }
+      },
+      "required": [
+        "subject",
+        "predicate",
+        "candidate_ids",
+        "resolution"
+      ],
+      "title": "ContextConflict",
+      "type": "object"
+    },
+    "ContextSelection": {
+      "additionalProperties": false,
+      "description": "Auditable selection decision; dropped content is not copied into the record.",
+      "properties": {
+        "action": {
+          "enum": [
+            "keep",
+            "drop",
+            "summarize",
+            "retrieve",
+            "compress"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "allocated_tokens": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Allocated Tokens",
+          "type": "integer"
+        },
+        "candidate_id": {
+          "maxLength": 160,
+          "minLength": 1,
+          "title": "Candidate Id",
+          "type": "string"
+        },
+        "derived_artifact_ref": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Derived Artifact Ref"
+        },
+        "reason_code": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Reason Code",
+          "type": "string"
+        },
+        "utility_score": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": -1,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Utility Score"
+        }
+      },
+      "required": [
+        "candidate_id",
+        "action",
+        "reason_code"
+      ],
+      "title": "ContextSelection",
+      "type": "object"
+    },
+    "ContextTokenBudget": {
+      "additionalProperties": false,
+      "properties": {
+        "input_token_limit": {
+          "minimum": 1,
+          "title": "Input Token Limit",
+          "type": "integer"
+        },
+        "model_context_limit": {
+          "minimum": 1,
+          "title": "Model Context Limit",
+          "type": "integer"
+        },
+        "reserved_output_tokens": {
+          "minimum": 0,
+          "title": "Reserved Output Tokens",
+          "type": "integer"
+        },
+        "safety_margin_tokens": {
+          "minimum": 0,
+          "title": "Safety Margin Tokens",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "model_context_limit",
+        "reserved_output_tokens",
+        "safety_margin_tokens",
+        "input_token_limit"
+      ],
+      "title": "ContextTokenBudget",
+      "type": "object"
+    }
+  },
+  "$id": "urn:it-support-agent:schema:active-context-v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Immutable context bundle for exactly one model call.",
+  "properties": {
+    "bundle_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Bundle Hash",
+      "type": "string"
+    },
+    "call_sequence": {
+      "minimum": 1,
+      "title": "Call Sequence",
+      "type": "integer"
+    },
+    "conflicts": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ContextConflict"
+      },
+      "title": "Conflicts",
+      "type": "array"
+    },
+    "current_request": {
+      "maxLength": 32000,
+      "minLength": 1,
+      "title": "Current Request",
+      "type": "string"
+    },
+    "estimated_input_tokens": {
+      "minimum": 1,
+      "title": "Estimated Input Tokens",
+      "type": "integer"
+    },
+    "messages": {
+      "items": {
+        "$ref": "#/$defs/ActiveContextMessage"
+      },
+      "minItems": 1,
+      "title": "Messages",
+      "type": "array"
+    },
+    "policy_version": {
+      "maxLength": 80,
+      "minLength": 1,
+      "title": "Policy Version",
+      "type": "string"
+    },
+    "purpose": {
+      "enum": [
+        "plan",
+        "tool_selection",
+        "answer",
+        "verify",
+        "memory_decision"
+      ],
+      "title": "Purpose",
+      "type": "string"
+    },
+    "run_id": {
+      "format": "uuid",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "active-context-v1",
+      "default": "active-context-v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "selections": {
+      "items": {
+        "$ref": "#/$defs/ContextSelection"
+      },
+      "title": "Selections",
+      "type": "array"
+    },
+    "token_budget": {
+      "$ref": "#/$defs/ContextTokenBudget"
+    }
+  },
+  "required": [
+    "run_id",
+    "call_sequence",
+    "purpose",
+    "current_request",
+    "messages",
+    "selections",
+    "token_budget",
+    "estimated_input_tokens",
+    "bundle_hash",
+    "policy_version"
+  ],
+  "title": "ActiveContext",
+  "type": "object"
+}
