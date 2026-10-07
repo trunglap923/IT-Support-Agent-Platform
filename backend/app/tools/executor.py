@@ -17,6 +17,7 @@ from app.tools.registry import TOOL_REGISTRY
 from app.tools.results import ToolError, ToolResult
 
 LocalSearch = Callable[[str, int], Awaitable[dict[str, Any]]]
+ObservationCallback = Callable[[ToolResult, dict[str, Any]], Awaitable[None]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,9 +35,16 @@ class ToolExecutor:
     timeout_seconds: float = 5.0
     max_result_bytes: int = 32_000
     policy: ToolPolicyEngine = field(default_factory=ToolPolicyEngine)
+    observation_callback: ObservationCallback | None = None
     _executed_arguments: set[str] = field(default_factory=set, init=False)
 
     async def execute(self, *, call_id: str, name: str, arguments: dict[str, Any]) -> ToolResult:
+        result = await self._execute(call_id=call_id, name=name, arguments=arguments)
+        if self.observation_callback is not None:
+            await self.observation_callback(result, arguments)
+        return result
+
+    async def _execute(self, *, call_id: str, name: str, arguments: dict[str, Any]) -> ToolResult:
         spec = TOOL_REGISTRY.get(name)
         if spec is None:
             return self._failed(call_id, name, "tool_not_allowed")

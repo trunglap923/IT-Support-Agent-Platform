@@ -4,6 +4,9 @@ These JSON Schemas are generated from the provider-neutral Pydantic contracts us
 memory and context architecture boundary. They document Phase 0 interfaces; they are not database
 schemas and do not enable serving behavior by themselves.
 
+Phase 1 adds the `tool-observation-v1` projection used to persist bounded tool outcomes without
+copying raw tool payloads into working-memory snapshots.
+
 Regenerate them from the repository root:
 
 ```bash

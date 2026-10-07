@@ -550,6 +550,110 @@ class AgentRuntimeState(Base):
     )
 
 
+class WorkingMemorySnapshotRecord(Base):
+    __tablename__ = "working_memory_snapshots"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('active', 'waiting_input', 'waiting_approval', 'verifying', "
+            "'completed', 'failed', 'cancelled')",
+            name="working_memory_status_allowlist",
+        ),
+        CheckConstraint("version >= 1", name="working_memory_version_positive"),
+        CheckConstraint("event_sequence >= 1", name="working_memory_event_sequence_positive"),
+        UniqueConstraint("run_id", name="uq_working_memory_snapshots_run_id"),
+        Index("ix_working_memory_snapshots_run_id", "run_id"),
+        Index("ix_working_memory_owner_status", "owner_id", "status"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    tenant_id: Mapped[UUID | None] = mapped_column(index=True)
+    run_id: Mapped[UUID] = mapped_column(ForeignKey("agent_runs.id", ondelete="CASCADE"))
+    conversation_id: Mapped[UUID] = mapped_column(
+        ForeignKey("conversations.id", ondelete="CASCADE"), index=True
+    )
+    owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    ticket_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("tickets.id", ondelete="SET NULL"), index=True
+    )
+    incident_key: Mapped[str | None] = mapped_column(String(160), index=True)
+    status: Mapped[str] = mapped_column(String(24), default="active", server_default="active")
+    schema_version: Mapped[str] = mapped_column(
+        String(40), default="working-memory-v1", server_default="working-memory-v1"
+    )
+    snapshot: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    event_sequence: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class WorkingMemoryEvent(Base):
+    __tablename__ = "working_memory_events"
+    __table_args__ = (
+        UniqueConstraint("working_memory_id", "sequence", name="uq_working_memory_events_sequence"),
+        UniqueConstraint(
+            "working_memory_id", "operation_id", name="uq_working_memory_events_operation"
+        ),
+        CheckConstraint("sequence >= 1", name="working_memory_event_sequence_positive"),
+        Index("ix_working_memory_events_run_created", "run_id", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    working_memory_id: Mapped[UUID] = mapped_column(
+        ForeignKey("working_memory_snapshots.id", ondelete="CASCADE"), index=True
+    )
+    run_id: Mapped[UUID] = mapped_column(
+        ForeignKey("agent_runs.id", ondelete="CASCADE"), index=True
+    )
+    sequence: Mapped[int] = mapped_column(Integer)
+    event_type: Mapped[str] = mapped_column(String(60))
+    operation_id: Mapped[str] = mapped_column(String(180))
+    from_status: Mapped[str | None] = mapped_column(String(24))
+    to_status: Mapped[str] = mapped_column(String(24))
+    snapshot_version: Mapped[int] = mapped_column(Integer)
+    safe_payload: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, server_default="{}")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ToolObservation(Base):
+    __tablename__ = "tool_observations"
+    __table_args__ = (
+        UniqueConstraint("run_id", "call_id", name="uq_tool_observations_run_call"),
+        CheckConstraint(
+            "status IN ('success', 'failed', 'unknown')",
+            name="tool_observation_status_allowlist",
+        ),
+        CheckConstraint("length(arguments_hash) = 64", name="tool_observation_args_hash_length"),
+        CheckConstraint("length(result_hash) = 64", name="tool_observation_result_hash_length"),
+        Index("ix_tool_observations_owner_created", "owner_id", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    working_memory_id: Mapped[UUID] = mapped_column(
+        ForeignKey("working_memory_snapshots.id", ondelete="CASCADE"), index=True
+    )
+    run_id: Mapped[UUID] = mapped_column(
+        ForeignKey("agent_runs.id", ondelete="CASCADE"), index=True
+    )
+    owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    call_id: Mapped[str] = mapped_column(String(160))
+    tool_name: Mapped[str] = mapped_column(String(80))
+    status: Mapped[str] = mapped_column(String(20))
+    error_code: Mapped[str | None] = mapped_column(String(80))
+    summary: Mapped[str] = mapped_column(String(1000))
+    arguments_hash: Mapped[str] = mapped_column(String(64))
+    result_hash: Mapped[str] = mapped_column(String(64))
+    artifact_ref: Mapped[str | None] = mapped_column(String(500))
+    receipt_ref: Mapped[str | None] = mapped_column(String(500))
+    safe_metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, server_default="{}")
+    schema_version: Mapped[str] = mapped_column(
+        String(40), default="tool-observation-v1", server_default="tool-observation-v1"
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class RunEvent(Base):
     __tablename__ = "run_events"
     __table_args__ = (

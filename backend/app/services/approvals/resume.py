@@ -8,12 +8,15 @@ from uuid import UUID
 from sqlalchemy import select
 
 from app.agent.approval_checkpoint import resume_ticket_approval
+from app.agent.working_memory.observations import normalize_tool_result
+from app.agent.working_memory.service import WorkingMemoryService
 from app.db import Database
 from app.db.models import ApprovalRequest, ApprovalStatus, Message, RunStatus
 from app.repositories.conversations import ConversationRepository
 from app.repositories.runs import RunRepository
 from app.services.conversations.run_state import RunStateService
 from app.services.tickets import TicketWriteService
+from app.tools.results import ToolResult
 
 
 async def execute_approval_resume_run(
@@ -83,6 +86,32 @@ async def execute_approval_resume_run(
                 owner_id=actor_id,
             )
         final_outcome = "ticket_created" if ticket_receipt is not None else "approval_rejected"
+        working_memory = WorkingMemoryService()
+        await working_memory.resume(
+            session,
+            run_id=run_id,
+            owner_id=actor_id,
+            action_id=f"agent-ticket:{run_id}",
+            approved=ticket_receipt is not None,
+        )
+        if ticket_receipt is not None:
+            tool_result = ToolResult(
+                call_id=f"approval:{approval.id}:create_ticket",
+                name="create_ticket",
+                status="success",
+                data={
+                    "ticket": {
+                        "id": str(ticket_receipt.ticket_id),
+                        "display_key": ticket_receipt.display_key,
+                    }
+                },
+            )
+            await working_memory.record_observation(
+                session,
+                run_id=run_id,
+                owner_id=actor_id,
+                observation=normalize_tool_result(tool_result, approval.canonical_args),
+            )
         existing_message = await session.scalar(
             select(Message.id).where(
                 Message.run_id == run_id,
@@ -116,5 +145,13 @@ async def execute_approval_resume_run(
                 "approval_id": str(approval.id),
                 "ticket_id": str(ticket_receipt.ticket_id) if ticket_receipt is not None else None,
             },
+        )
+        await working_memory.complete(
+            session,
+            run_id=run_id,
+            owner_id=actor_id,
+            operation_id=f"working-memory-complete:{approval.id}",
+            outcome=final_outcome,
+            ticket_id=ticket_receipt.ticket_id if ticket_receipt is not None else None,
         )
     return "resumed"

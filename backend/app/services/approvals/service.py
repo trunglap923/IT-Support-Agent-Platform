@@ -11,6 +11,7 @@ from uuid import UUID
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agent.working_memory.service import WorkingMemoryService
 from app.db.models import AgentRun, ApprovalRequest, ApprovalStatus, RunStatus, UserDevice
 from app.services.conversations.agent_runtime_state import AgentRuntimeStateService
 from app.services.conversations.run_state import RunStateService
@@ -68,6 +69,21 @@ class ApprovalService:
                 now=now,
             )
             await AgentRuntimeStateService().complete(session, run_id=approval.run_id)
+            working_memory = WorkingMemoryService()
+            snapshot = await working_memory.load(
+                session,
+                run_id=approval.run_id,
+                owner_id=approval.owner_id,
+            )
+            if snapshot is not None:
+                await working_memory.apply_transition(
+                    session,
+                    run_id=approval.run_id,
+                    owner_id=approval.owner_id,
+                    target="cancelled",
+                    operation_id=f"working-memory-approval-expired:{approval.id}",
+                    safe_payload={"reason": "approval_expired"},
+                )
         await session.flush()
         return True
 

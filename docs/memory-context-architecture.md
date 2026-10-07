@@ -1431,6 +1431,11 @@ tại. Phase 0 không thay đổi serving behavior hoặc database schema.
 
 ### Phase 1 — Durable Working Memory
 
+Trạng thái triển khai: **đã hoàn thành ngày 2026-10-07**. Worker hiện tạo hoặc phục hồi một
+snapshot cho mỗi run, ghi append-only event và normalized tool observation, đồng thời đồng bộ
+pause/resume/completed/failed với run lifecycle. Đây là shadow state: Phase 1 chưa đưa working
+memory vào model context và chưa thay đổi câu trả lời của Agent.
+
 **Objective**: task dài không quên goal/plan/observations và resume được sau crash/approval.
 
 - **Architecture changes**: app-owned snapshot + append-only state events quanh cả hai runtime.

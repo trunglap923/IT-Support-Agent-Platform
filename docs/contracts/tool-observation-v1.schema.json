@@ -1,0 +1,133 @@
+{
+  "$id": "urn:it-support-agent:schema:tool-observation-v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Bounded durable projection of a tool result; raw payloads stay outside snapshots.",
+  "properties": {
+    "arguments_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Arguments Hash",
+      "type": "string"
+    },
+    "artifact_ref": {
+      "anyOf": [
+        {
+          "maxLength": 500,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Artifact Ref"
+    },
+    "call_id": {
+      "maxLength": 160,
+      "minLength": 1,
+      "title": "Call Id",
+      "type": "string"
+    },
+    "error_code": {
+      "anyOf": [
+        {
+          "maxLength": 80,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Error Code"
+    },
+    "observed_at": {
+      "format": "date-time",
+      "title": "Observed At",
+      "type": "string"
+    },
+    "receipt_ref": {
+      "anyOf": [
+        {
+          "maxLength": 500,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Receipt Ref"
+    },
+    "reliability": {
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Reliability",
+      "type": "number"
+    },
+    "result_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Result Hash",
+      "type": "string"
+    },
+    "safe_metadata": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "integer"
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "title": "Safe Metadata",
+      "type": "object"
+    },
+    "schema_version": {
+      "const": "tool-observation-v1",
+      "default": "tool-observation-v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "success",
+        "failed",
+        "unknown"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "summary": {
+      "maxLength": 1000,
+      "minLength": 1,
+      "title": "Summary",
+      "type": "string"
+    },
+    "tool_name": {
+      "maxLength": 80,
+      "minLength": 1,
+      "title": "Tool Name",
+      "type": "string"
+    }
+  },
+  "required": [
+    "call_id",
+    "tool_name",
+    "status",
+    "summary",
+    "arguments_hash",
+    "result_hash",
+    "observed_at",
+    "reliability"
+  ],
+  "title": "NormalizedToolObservation",
+  "type": "object"
+}

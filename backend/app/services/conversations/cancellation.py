@@ -8,6 +8,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agent.working_memory.service import WorkingMemoryService
 from app.db.models import ApprovalRequest, ApprovalStatus, RunStatus
 from app.services.conversations.agent_runtime_state import AgentRuntimeStateService
 from app.services.conversations.run_state import RunStateService, TransitionResult
@@ -57,5 +58,20 @@ class RunCancellationService:
                 approval.status = ApprovalStatus.EXPIRED.value
                 approval.version += 1
             await AgentRuntimeStateService().complete(session, run_id=run_id)
+            working_memory = WorkingMemoryService()
+            snapshot = await working_memory.load(
+                session,
+                run_id=run_id,
+                owner_id=actor_id,
+            )
+            if snapshot is not None:
+                await working_memory.apply_transition(
+                    session,
+                    run_id=run_id,
+                    owner_id=actor_id,
+                    target="cancelled",
+                    operation_id=f"working-memory-cancel:{run_id}",
+                    safe_payload={"reason": reason},
+                )
             await session.flush()
         return transition

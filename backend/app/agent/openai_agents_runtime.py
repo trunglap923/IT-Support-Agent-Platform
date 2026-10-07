@@ -26,8 +26,9 @@ from app.prompts import SUPPORT_INSTRUCTIONS
 from app.providers.base import TextDeltaCallback
 from app.services.budget.service import DatabaseUsageLedger
 from app.services.tickets import TicketWriteService
-from app.tools.executor import ToolExecutor
+from app.tools.executor import ObservationCallback, ToolExecutor
 from app.tools.registry import TOOL_REGISTRY
+from app.tools.results import ToolResult
 from app.tools.schemas import CreateTicketArguments
 
 ProgressCallback = Callable[[str, str, str | None, int | None], Awaitable[None]]
@@ -152,6 +153,7 @@ class SupportSDKContext:
     ticket_display_key: str | None = None
     completed_stages: set[str] = field(default_factory=set)
     policy: AgentRequestPolicy | None = None
+    observation_callback: ObservationCallback | None = None
 
     @property
     def request_policy(self) -> AgentRequestPolicy:
@@ -189,6 +191,10 @@ class SupportSDKContext:
             arguments=arguments,
         )
         return result.model_dump_json()
+
+    async def record_direct_result(self, result: ToolResult, arguments: dict[str, Any]) -> None:
+        if self.observation_callback is not None:
+            await self.observation_callback(result, arguments)
 
 
 def _tools() -> list[Any]:
@@ -229,18 +235,23 @@ def _tools() -> list[Any]:
             )
         device = context.support.device
         if device is None:
-            return json.dumps({"ok": True, "device": None}, ensure_ascii=False)
-        return json.dumps(
-            {
-                "ok": True,
+            payload: dict[str, Any] = {"device": None}
+        else:
+            payload = {
                 "device": {
                     "id": str(device.id),
                     "label": device.label,
                     "platform": device.platform,
-                },
-            },
-            ensure_ascii=False,
+                }
+            }
+        result = ToolResult(
+            call_id=f"sdk:{context.run_id}:{uuid4()}",
+            name="get_conversation_device",
+            status="success",
+            data=payload,
         )
+        await context.record_direct_result(result, {})
+        return json.dumps({"ok": True, **payload}, ensure_ascii=False)
 
     @function_tool(
         description_override="Read the current health of VPN, Docker Registry, or GitLab.",
@@ -337,17 +348,20 @@ def _tools() -> list[Any]:
             )
         context.tool_calls += 1
         context.ticket_display_key = receipt.display_key
-        return json.dumps(
-            {
-                "ok": True,
+        result = ToolResult(
+            call_id=f"approval:{context.approval_id}:create_ticket",
+            name="create_ticket",
+            status="success",
+            data={
                 "ticket": {
                     "id": str(receipt.ticket_id),
                     "display_key": receipt.display_key,
                     "title": arguments.title,
-                },
+                }
             },
-            ensure_ascii=False,
         )
+        await context.record_direct_result(result, arguments.model_dump(mode="json"))
+        return json.dumps({"ok": True, **(result.data or {})}, ensure_ascii=False)
 
     return [
         get_my_profile,

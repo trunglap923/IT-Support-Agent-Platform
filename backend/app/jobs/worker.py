@@ -5,8 +5,10 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections.abc import Mapping
 from contextlib import suppress
 from dataclasses import dataclass
+from typing import Any
 from uuid import UUID, uuid4
 
 from sqlalchemy import select
@@ -21,9 +23,19 @@ from app.agent.openai_agents_runtime import (
 )
 from app.agent.rag import RAGGraphNodes
 from app.agent.request_policy import resolve_request_policy
+from app.agent.working_memory.contracts import WorkingCounters
+from app.agent.working_memory.observations import normalize_tool_result
+from app.agent.working_memory.service import WorkingMemoryService
 from app.auth.principal import Principal
 from app.db import Database
-from app.db.models import AgentRuntimeState, ApprovalRequest, ApprovalStatus, Message, RunStatus
+from app.db.models import (
+    AgentRuntimeState,
+    ApprovalRequest,
+    ApprovalStatus,
+    Conversation,
+    Message,
+    RunStatus,
+)
 from app.diagnostics import content_log_fields, log_event
 from app.jobs.dispatch import (
     BrokerUnavailableError,
@@ -48,6 +60,7 @@ from app.services.conversations.agent_runtime_state import AgentRuntimeStateServ
 from app.services.conversations.run_lease import RunLeaseService
 from app.services.conversations.run_state import RunStateService
 from app.tools import ToolExecutionContext, ToolExecutor
+from app.tools.results import ToolResult
 from app.tools.schemas import CreateTicketArguments
 
 logger = logging.getLogger(__name__)
@@ -57,6 +70,18 @@ logger = logging.getLogger(__name__)
 class WorkerResult:
     run_id: UUID
     status: str
+
+
+def _working_counters(result: Mapping[str, object]) -> WorkingCounters:
+    def value(name: str) -> int:
+        raw = result.get(name, 0)
+        return max(0, raw) if isinstance(raw, int) else 0
+
+    return WorkingCounters(
+        model_calls=value("model_calls"),
+        tool_calls=value("tool_calls"),
+        retrieval_calls=value("retrieval_calls"),
+    )
 
 
 async def execute_fake_run(database: Database, *, run_id: UUID) -> WorkerResult:
@@ -104,6 +129,7 @@ async def execute_support_run(
     repository = RunRepository()
     lease = RunLeaseService(repository)
     state = RunStateService(repository)
+    working_memory = WorkingMemoryService()
     memory_job_id: UUID | None = None
     approval_pause: tuple[UUID, str, str] | None = None
     sdk_resume = False
@@ -176,6 +202,24 @@ async def execute_support_run(
                 prior_retrieval_calls = (
                     raw_retrieval_calls if isinstance(raw_retrieval_calls, int) else 0
                 )
+        initial_message = await session.scalar(
+            select(Message)
+            .where(Message.run_id == run_id, Message.role == "user")
+            .order_by(Message.created_at.desc())
+            .limit(1)
+        )
+        conversation = await session.get(Conversation, conversation_id)
+        if initial_message is None or conversation is None:
+            raise LookupError("Run context is incomplete")
+        await working_memory.create_or_load(
+            session,
+            run_id=run_id,
+            conversation_id=conversation_id,
+            owner_id=actor_id,
+            current_message_id=initial_message.id,
+            query=initial_message.content,
+            device_id=conversation.device_id,
+        )
 
     if claim.previous_status in {RunStatus.RESUME_QUEUED, RunStatus.RUNNING} and not sdk_resume:
         resumed = await execute_approval_resume_run(
@@ -273,6 +317,16 @@ async def execute_support_run(
                 ),
             )
 
+    async def persist_tool_observation(result: ToolResult, arguments: dict[str, Any]) -> None:
+        observation = normalize_tool_result(result, arguments)
+        async with database.session() as observation_session, observation_session.begin():
+            await working_memory.record_observation(
+                observation_session,
+                run_id=run_id,
+                owner_id=actor_id,
+                observation=observation,
+            )
+
     try:
         async with database.session() as session:
             user = await UserRepository().get_by_id(session, actor_id)
@@ -364,6 +418,7 @@ async def execute_support_run(
                     actor_role=user.role.value,
                 ),
                 local_search=local_search,
+                observation_callback=persist_tool_observation,
             )
             runtime_state_service = AgentRuntimeStateService()
             persisted_runtime = await runtime_state_service.get(session, run_id=run_id)
@@ -391,6 +446,15 @@ async def execute_support_run(
                         in {ApprovalStatus.APPROVED.value, ApprovalStatus.EXECUTED.value}
                         else "rejected"
                     )
+                    if sdk_resume:
+                        async with database.session() as memory_session, memory_session.begin():
+                            await working_memory.resume(
+                                memory_session,
+                                run_id=run_id,
+                                owner_id=actor_id,
+                                action_id=f"agent-ticket:{run_id}",
+                                approved=approval_decision == "approved",
+                            )
                 sdk_context = SupportSDKContext(
                     support=support_context,
                     executor=tool_executor,
@@ -403,6 +467,7 @@ async def execute_support_run(
                     tool_calls=prior_tool_calls,
                     retrieval_calls=prior_retrieval_calls,
                     policy=request_policy,
+                    observation_callback=persist_tool_observation,
                 )
                 runtime = agent_runtime_factory.create(
                     context=sdk_context,
@@ -524,6 +589,15 @@ async def execute_support_run(
                     outcome="approval_required",
                     safe_payload={"approval_id": str(approval.id)},
                 )
+                await working_memory.pause(
+                    session,
+                    run_id=run_id,
+                    owner_id=actor_id,
+                    action_id=f"agent-ticket:{run_id}",
+                    tool_name="create_ticket",
+                    arguments_hash=approval.arguments_hash,
+                    counters=_working_counters(result),
+                )
                 approval_pause = (
                     approval.id,
                     approval.arguments_hash,
@@ -559,6 +633,14 @@ async def execute_support_run(
                         "citation_count": len(result.get("citations", [])),
                     },
                 )
+                await working_memory.complete(
+                    session,
+                    run_id=run_id,
+                    owner_id=actor_id,
+                    operation_id=f"working-memory-complete:{run_id}",
+                    outcome=str(result["outcome"]),
+                    counters=_working_counters(result),
+                )
             transition.run.counters = {
                 "model_calls": result.get("model_calls", 0),
                 "retrieval_calls": result.get("retrieval_calls", 0),
@@ -590,6 +672,13 @@ async def execute_support_run(
                     operation_id=f"worker-failed:{run_id}",
                     error_code=error_code,
                     safe_payload={"error_code": error_code},
+                )
+                await working_memory.fail(
+                    session,
+                    run_id=run_id,
+                    owner_id=actor_id,
+                    operation_id=f"working-memory-failed:{run_id}",
+                    error_code=error_code,
                 )
         log_event(
             logger,

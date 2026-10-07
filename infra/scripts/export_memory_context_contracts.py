@@ -11,7 +11,10 @@ from app.agent.context.contracts import (
     ContextBuildRequest,
     ContextCandidate,
 )
-from app.agent.working_memory.contracts import WorkingMemorySnapshot
+from app.agent.working_memory.contracts import (
+    NormalizedToolObservation,
+    WorkingMemorySnapshot,
+)
 from app.memory.contracts import MemoryDecisionRecord, MemoryMutationProposal
 
 from evals.memory_context.contracts import ContextBaselineCase
@@ -24,6 +27,7 @@ CONTRACTS = {
     "context-build-request-v1.schema.json": ContextBuildRequest,
     "active-context-v1.schema.json": ActiveContext,
     "working-memory-v1.schema.json": WorkingMemorySnapshot,
+    "tool-observation-v1.schema.json": NormalizedToolObservation,
     "memory-mutation-proposal-v1.schema.json": MemoryMutationProposal,
     "memory-decision-v1.schema.json": MemoryDecisionRecord,
     "context-baseline-case-v1.schema.json": ContextBaselineCase,

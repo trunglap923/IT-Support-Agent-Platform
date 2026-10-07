@@ -9,6 +9,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 WORKING_MEMORY_SCHEMA_VERSION: Literal["working-memory-v1"] = "working-memory-v1"
+TOOL_OBSERVATION_SCHEMA_VERSION: Literal["tool-observation-v1"] = "tool-observation-v1"
 
 WorkingMemoryStatus = Literal[
     "active",
@@ -110,6 +111,34 @@ class WorkingObservation(BaseModel):
     observed_at: datetime
     reliability: float = Field(ge=0, le=1)
     supersedes: str | None = Field(default=None, max_length=160)
+
+
+class NormalizedToolObservation(BaseModel):
+    """Bounded durable projection of a tool result; raw payloads stay outside snapshots."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: Literal["tool-observation-v1"] = TOOL_OBSERVATION_SCHEMA_VERSION
+    call_id: str = Field(min_length=1, max_length=160)
+    tool_name: str = Field(min_length=1, max_length=80)
+    status: Literal["success", "failed", "unknown"]
+    error_code: str | None = Field(default=None, max_length=80)
+    summary: str = Field(min_length=1, max_length=1_000)
+    arguments_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    result_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    artifact_ref: str | None = Field(default=None, max_length=500)
+    receipt_ref: str | None = Field(default=None, max_length=500)
+    safe_metadata: dict[str, str | int | bool | None] = Field(default_factory=dict)
+    observed_at: datetime
+    reliability: float = Field(ge=0, le=1)
+
+    @model_validator(mode="after")
+    def validate_error_shape(self) -> NormalizedToolObservation:
+        if self.status == "success" and self.error_code is not None:
+            raise ValueError("Successful tool observations cannot include an error code")
+        if self.status != "success" and self.error_code is None:
+            raise ValueError("Failed or unknown tool observations require an error code")
+        return self
 
 
 class PendingAction(BaseModel):
