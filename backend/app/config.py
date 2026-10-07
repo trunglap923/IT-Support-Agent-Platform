@@ -61,6 +61,9 @@ class Settings(BaseSettings):
     openai_input_price_per_million_usd: float = Field(default=0.40, ge=0)
     openai_output_price_per_million_usd: float = Field(default=1.60, ge=0)
     openai_price_version: str = "2026-09-openai-published"
+    context_model_limit: int = Field(default=16_000, ge=2_000, le=2_000_000)
+    context_reserved_output_tokens: int = Field(default=1_200, ge=256, le=100_000)
+    context_audit_retention_days: int = Field(default=7, ge=1, le=90)
     embedding_model: str = "text-embedding-3-small"
     embedding_dimensions: int = Field(default=1536, gt=0)
     embedding_input_price_per_million_usd: float = Field(default=0.02, ge=0)
@@ -139,6 +142,10 @@ class Settings(BaseSettings):
         if self.embedding_dimensions != 1536:
             raise ValueError(
                 "EMBEDDING_DIMENSIONS must remain 1536 for the current pgvector schema"
+            )
+        if self.context_reserved_output_tokens >= int(self.context_model_limit * 0.9):
+            raise ValueError(
+                "CONTEXT_RESERVED_OUTPUT_TOKENS must leave room for input and safety margin"
             )
         if not any(
             weight > 0

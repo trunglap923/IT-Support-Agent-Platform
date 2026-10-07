@@ -7,6 +7,10 @@ schemas and do not enable serving behavior by themselves.
 Phase 1 adds the `tool-observation-v1` projection used to persist bounded tool outcomes without
 copying raw tool payloads into working-memory snapshots.
 
+Phase 2 implements these context contracts through one deterministic manager shared by both agent
+runtimes. Candidate schemas now include optional message role and recency signals; the database
+stores content-free selection decisions separately from short-lived compaction artifacts.
+
 Regenerate them from the repository root:
 
 ```bash

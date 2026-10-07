@@ -100,6 +100,9 @@ def run_agent(run_id: str) -> dict[str, str]:
                     retrieval_fusion_strategy=retrieval_fusion_strategy,
                     retrieval_reranker=retrieval_reranker,
                     retrieval_sparse_retriever=retrieval_sparse_retriever,
+                    context_model_limit=settings.context_model_limit,
+                    context_reserved_output_tokens=settings.context_reserved_output_tokens,
+                    context_audit_retention_days=settings.context_audit_retention_days,
                 )
             )
             return {key: str(value) for key, value in receipt.items()}

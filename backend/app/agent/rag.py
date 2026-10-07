@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.context.builder import ContextMessage, build_agent_context
+from app.agent.context.runtime import RuntimeContextBuilder, active_context_history
 from app.agent.graph import SupportGraphNodes
 from app.agent.request_policy import AgentRequestPolicy, policy_for_request
 from app.agent.state import EvidenceState, SupportAgentState
@@ -91,6 +92,7 @@ class RAGGraphNodes:
         on_text_delta: TextDeltaCallback | None = None,
         on_progress: ProgressCallback | None = None,
         log_prompts: bool = False,
+        context_builder: RuntimeContextBuilder | None = None,
     ) -> None:
         self._session = session
         self._principal = principal
@@ -108,6 +110,7 @@ class RAGGraphNodes:
         self._on_text_delta = on_text_delta
         self._on_progress = on_progress
         self._log_prompts = log_prompts
+        self._context_builder = context_builder
         self._hits: list[RetrievalHit] = []
         self._sources_by_id: dict[str, EvidenceInput] = {}
 
@@ -132,10 +135,14 @@ class RAGGraphNodes:
         selected_action: str,
     ) -> tuple[SupportExecutionPlan, list[str], int, int, str]:
         run_id = state.get("run_id", "preview")
+        history = [(item["role"], item["content"]) for item in state.get("history", [])]
+        if self._context_builder is not None:
+            active = await self._context_builder.build("plan")
+            history = active_context_history(active)
         plan_response = await self._provider.plan_support_steps(
             state["query"],
             selected_action=selected_action,
-            history=[(item["role"], item["content"]) for item in state.get("history", [])],
+            history=history,
             operation_id=f"agent:{run_id}:execution-plan",
         )
         if selected_action != "auto" and plan_response.plan.action != selected_action:
@@ -161,6 +168,17 @@ class RAGGraphNodes:
         )
 
     async def load_context(self, state: SupportAgentState) -> dict[str, Any]:
+        if self._context_builder is not None:
+            return {
+                "query": state["query"].strip(),
+                "history": [],
+                "context_estimated_tokens": 0,
+                "context_truncated": False,
+                "conversation_summary": None,
+                "summarized_messages": 0,
+                "suggested_steps": [],
+                "confirmed_attempted_steps": [],
+            }
         context = build_agent_context(current_query=state["query"], history=self._history)
         history = [
             {"role": message.role, "content": message.content} for message in context.history
@@ -580,12 +598,40 @@ class RAGGraphNodes:
                 if self._on_stream_started is not None:
                     await self._on_stream_started()
                 try:
+                    history = [(item["role"], item["content"]) for item in state.get("history", [])]
+                    evidence = list(self._sources_by_id.values())
+                    if self._context_builder is not None:
+                        active = await self._context_builder.build(
+                            "answer", evidence=state.get("evidence", [])
+                        )
+                        history = [
+                            item
+                            for item in active_context_history(active)
+                            if 'kind="knowledge"' not in item[1]
+                        ]
+                        selected = {
+                            item.candidate_id.removeprefix("knowledge:"): item
+                            for item in active.selections
+                            if item.candidate_id.startswith("knowledge:") and item.action != "drop"
+                        }
+                        evidence = []
+                        for source_id, item in self._sources_by_id.items():
+                            selection = selected.get(source_id)
+                            if selection is None:
+                                continue
+                            if selection.action == "compress":
+                                excerpt_limit = max(
+                                    1,
+                                    selection.allocated_tokens * 2 - len(item.title),
+                                )
+                                item = item.model_copy(
+                                    update={"excerpt": item.excerpt[:excerpt_limit]}
+                                )
+                            evidence.append(item)
                     response = await self._provider.generate_support_reply(
                         state["query"],
-                        evidence=list(self._sources_by_id.values()),
-                        history=[
-                            (item["role"], item["content"]) for item in state.get("history", [])
-                        ],
+                        evidence=evidence,
+                        history=history,
                         max_output_tokens=output_token_limit,
                         operation_id=(
                             operation_id if attempt == 0 else f"{operation_id}:{retry_suffix}"

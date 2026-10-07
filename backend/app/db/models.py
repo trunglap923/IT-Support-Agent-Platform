@@ -654,6 +654,71 @@ class ToolObservation(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class ContextBuildRecord(Base):
+    __tablename__ = "context_builds"
+    __table_args__ = (
+        UniqueConstraint("run_id", "call_sequence", name="uq_context_builds_run_sequence"),
+        CheckConstraint("call_sequence >= 1", name="context_build_call_sequence_positive"),
+        CheckConstraint(
+            "purpose IN ('plan', 'tool_selection', 'answer', 'verify', 'memory_decision')",
+            name="context_build_purpose_allowlist",
+        ),
+        CheckConstraint("length(bundle_hash) = 64", name="context_build_hash_length"),
+        Index("ix_context_builds_owner_created", "owner_id", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    run_id: Mapped[UUID] = mapped_column(
+        ForeignKey("agent_runs.id", ondelete="CASCADE"), index=True
+    )
+    owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    call_sequence: Mapped[int] = mapped_column(Integer)
+    purpose: Mapped[str] = mapped_column(String(24))
+    policy_version: Mapped[str] = mapped_column(String(80))
+    bundle_hash: Mapped[str] = mapped_column(String(64))
+    estimated_input_tokens: Mapped[int] = mapped_column(Integer)
+    input_token_limit: Mapped[int] = mapped_column(Integer)
+    selected_count: Mapped[int] = mapped_column(Integer)
+    excluded_count: Mapped[int] = mapped_column(Integer)
+    conflict_count: Mapped[int] = mapped_column(Integer)
+    selections: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, default=list, server_default="[]"
+    )
+    conflicts: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, default=list, server_default="[]"
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ContextSummaryArtifact(Base):
+    __tablename__ = "context_summary_artifacts"
+    __table_args__ = (
+        UniqueConstraint(
+            "run_id", "call_sequence", "artifact_ref", name="uq_context_summary_run_call_ref"
+        ),
+        CheckConstraint("length(content_hash) = 64", name="context_summary_hash_length"),
+        Index("ix_context_summary_owner_expiry", "owner_id", "expires_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    run_id: Mapped[UUID] = mapped_column(
+        ForeignKey("agent_runs.id", ondelete="CASCADE"), index=True
+    )
+    owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    call_sequence: Mapped[int] = mapped_column(Integer)
+    artifact_ref: Mapped[str] = mapped_column(String(500))
+    source_candidate_ids: Mapped[list[str]] = mapped_column(
+        JSONB, default=list, server_default="[]"
+    )
+    content: Mapped[str] = mapped_column(Text)
+    content_hash: Mapped[str] = mapped_column(String(64))
+    token_count: Mapped[int] = mapped_column(Integer)
+    policy_version: Mapped[str] = mapped_column(String(80))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class RunEvent(Base):
     __tablename__ = "run_events"
     __table_args__ = (

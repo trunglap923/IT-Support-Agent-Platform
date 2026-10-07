@@ -58,7 +58,9 @@ class ContextCandidate(BaseModel):
     confidence: float = Field(ge=0, le=1)
     temporal_validity: float = Field(ge=0, le=1)
     task_utility: float = Field(ge=0, le=1)
+    recency: float = Field(default=1.0, ge=0, le=1)
     token_cost: int = Field(ge=1)
+    message_role: Literal["system", "user", "assistant", "tool"] | None = None
     sensitivity: Sensitivity = "internal"
     required: bool = False
     conflicts_with: tuple[str, ...] = ()

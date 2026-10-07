@@ -108,6 +108,24 @@
       "title": "Kind",
       "type": "string"
     },
+    "message_role": {
+      "anyOf": [
+        {
+          "enum": [
+            "system",
+            "user",
+            "assistant",
+            "tool"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Message Role"
+    },
     "provenance_refs": {
       "default": [],
       "items": {
@@ -115,6 +133,13 @@
       },
       "title": "Provenance Refs",
       "type": "array"
+    },
+    "recency": {
+      "default": 1.0,
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Recency",
+      "type": "number"
     },
     "relevance": {
       "maximum": 1,

@@ -1,6 +1,6 @@
 # Context và compaction
 
-Trạng thái: context contract, bounded history, extractive summary và confirmed memory theo device đã có.
+Trạng thái: unified Context Manager đã được nối vào LangGraph và OpenAI Agents runtime.
 Work packages: WP-06, WP-12.
 Nguồn: [kế hoạch tổng](../../../../plan.md), mục 8.3, 9.3, 12.4; [thứ tự triển khai](../../../../docs/implementation-roadmap.md).
 
@@ -12,15 +12,19 @@ Ghép lịch sử, evidence và memory trong ngân sách token mà vẫn giữ n
 
 - Nhận principal, current message, structured issue state, sources và confirmed memories.
 - Trả model input có tool-call/result pairing hợp lệ và source/memory IDs.
-- Tối đa 10.000 input tokens/call; phân bổ cụ thể theo mục 12.4.
+- Budget theo model/call purpose; mặc định 16.000 context tokens, reserve output, safety margin
+  và 15% cho system/tool schemas do provider sở hữu.
 
-## Tệp dự kiến khi viết code
+## Thành phần
 
-Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứa kế hoạch.
-
-- `builder.py`
-- `budget.py`
-- `summary.py`
+- `adapters.py`: chuyển history, confirmed memory, working memory, observation và RAG evidence
+  thành `ContextCandidate` có scope/provenance.
+- `manager.py`: hard filter, conflict resolution, utility score, lane budget, borrowing và
+  deterministic compaction.
+- `runtime.py`: refresh working memory trước model call, persist audit metadata và summary artifact
+  có retention ngắn.
+- `builder.py`: adapter cũ cho các caller chưa chuyển đổi; runtime production không ghép history
+  trực tiếp qua adapter này nữa.
 
 ## Phụ thuộc và phối hợp
 
@@ -37,6 +41,11 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [x] CTX-04: Loại sources/history nay trái quyền; label nguồn superseded là historical.
 - [x] CTX-05: Đọc lại memory settings/epoch khi build; không hồi sinh dữ liệu từ checkpoint cũ.
 - [x] CTX-06: Compact hội thoại dài thành summary có nhãn untrusted và giữ 12 message gần nhất.
+- [x] CTX-07: Dùng chung candidate policy cho LangGraph và OpenAI Agents SDK.
+- [x] CTX-08: Tách budget theo purpose/lane; hỗ trợ borrowing trong global hard limit.
+- [x] CTX-09: Persist selection reason, hash, token metrics và addressable summary artifact.
+- [x] CTX-10: Có endpoint explain owner-scoped cho IT/Admin, không trả raw context.
+- [x] CTX-11: Loại context sai owner/department/namespace, restricted và stored prompt injection.
 
 ## Điều kiện hoàn thành
 

@@ -14,6 +14,7 @@ from uuid import UUID, uuid4
 from sqlalchemy import select
 
 from app.agent.approval_checkpoint import pause_ticket_approval
+from app.agent.context.runtime import RuntimeContextBuilder
 from app.agent.context.service import SupportContextService
 from app.agent.graph import build_support_graph, run_support_graph
 from app.agent.knowledge_tool import KnowledgeToolSearch
@@ -117,6 +118,9 @@ async def execute_support_run(
     retrieval_fusion_strategy: FusionStrategy | None = None,
     retrieval_reranker: Reranker | None = None,
     retrieval_sparse_retriever: SparseRetriever | None = None,
+    context_model_limit: int = 16_000,
+    context_reserved_output_tokens: int = 1_200,
+    context_audit_retention_days: int = 7,
 ) -> WorkerResult:
     started_at = time.monotonic()
     log_event(
@@ -358,6 +362,14 @@ async def execute_support_run(
                 current_message_id=user_message.id,
                 query=query,
             )
+            context_builder = RuntimeContextBuilder(
+                database=database,
+                run_id=run_id,
+                support=support_context,
+                model_context_limit=context_model_limit,
+                reserved_output_tokens=context_reserved_output_tokens,
+                audit_retention_days=context_audit_retention_days,
+            )
             log_event(
                 logger,
                 "worker.context.prepared",
@@ -468,6 +480,7 @@ async def execute_support_run(
                     retrieval_calls=prior_retrieval_calls,
                     policy=request_policy,
                     observation_callback=persist_tool_observation,
+                    context_builder=context_builder,
                 )
                 runtime = agent_runtime_factory.create(
                     context=sdk_context,
@@ -504,6 +517,7 @@ async def execute_support_run(
                     on_progress=append_progress_event,
                     log_prompts=log_prompts,
                     minimum_evidence_score=retrieval_minimum_evidence_score,
+                    context_builder=context_builder,
                 )
                 log_event(logger, "worker.graph.started", run_id=str(run_id))
                 result = dict(

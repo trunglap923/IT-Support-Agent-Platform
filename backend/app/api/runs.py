@@ -7,18 +7,21 @@ import json
 import logging
 import time
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 from typing import Annotated, Any, Literal, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
+from sqlalchemy import select
 
 from app.auth.csrf import require_csrf
+from app.auth.policies import require_roles
 from app.auth.principal import Principal
 from app.config import Settings
 from app.db import Database
-from app.db.models import AgentRun, RunEvent, RunStatus
+from app.db.models import AgentRun, ContextBuildRecord, RunEvent, RunStatus, UserRole
 from app.dependencies import CurrentPrincipal, DatabaseSession, get_database
 from app.diagnostics import content_log_fields, log_event
 from app.repositories.runs import RunRepository
@@ -46,6 +49,22 @@ class RunResponse(BaseModel):
 class CancelRunRequest(BaseModel):
     expected_version: int = Field(ge=1)
     reason: Literal["user_requested", "draft_replaced"] = "user_requested"
+
+
+class ContextBuildExplanation(BaseModel):
+    id: UUID
+    run_id: UUID
+    call_sequence: int
+    purpose: str
+    policy_version: str
+    bundle_hash: str
+    estimated_input_tokens: int
+    input_token_limit: int
+    selected_count: int
+    excluded_count: int
+    conflict_count: int
+    selections: list[dict[str, Any]]
+    conflicts: list[dict[str, Any]]
 
 
 def run_response(run: AgentRun) -> RunResponse:
@@ -108,6 +127,54 @@ async def get_run(run_id: UUID, principal: CurrentPrincipal, request: Request) -
     if run is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run was not found")
     return run_response(run)
+
+
+@router.get(
+    "/{run_id}/context-builds/{bundle_hash}",
+    response_model=ContextBuildExplanation,
+    dependencies=[Depends(require_roles(UserRole.IT, UserRole.ADMIN))],
+)
+async def explain_context_build(
+    run_id: UUID,
+    bundle_hash: str,
+    principal: CurrentPrincipal,
+    session: DatabaseSession,
+) -> ContextBuildExplanation:
+    """Return content-free context selection reasons for an owned run."""
+
+    if len(bundle_hash) != 64:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Context bundle hash is invalid",
+        )
+    record = await session.scalar(
+        select(ContextBuildRecord).where(
+            ContextBuildRecord.run_id == run_id,
+            ContextBuildRecord.owner_id == principal.user_id,
+            ContextBuildRecord.bundle_hash == bundle_hash,
+            ContextBuildRecord.expires_at > datetime.now(UTC),
+        )
+    )
+    if record is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Context build was not found",
+        )
+    return ContextBuildExplanation(
+        id=record.id,
+        run_id=record.run_id,
+        call_sequence=record.call_sequence,
+        purpose=record.purpose,
+        policy_version=record.policy_version,
+        bundle_hash=record.bundle_hash,
+        estimated_input_tokens=record.estimated_input_tokens,
+        input_token_limit=record.input_token_limit,
+        selected_count=record.selected_count,
+        excluded_count=record.excluded_count,
+        conflict_count=record.conflict_count,
+        selections=record.selections,
+        conflicts=record.conflicts,
+    )
 
 
 @router.post(

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Any, Literal, cast
 from uuid import UUID, uuid4
 
 from agents import Agent, ModelSettings, RunConfig, Runner, function_tool
@@ -17,7 +17,15 @@ from agents.run_state import RunState
 from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.agent.context.builder import build_agent_context
+from app.agent.context.adapters import support_candidates
+from app.agent.context.contracts import (
+    ActiveContext,
+    ContextBuildRequest,
+    ContextPurpose,
+    ContextTokenBudget,
+)
+from app.agent.context.manager import CONTEXT_POLICY_VERSION, DeterministicContextManager
+from app.agent.context.runtime import RuntimeContextBuilder
 from app.agent.context.schemas import SupportContext
 from app.agent.request_policy import AgentRequestPolicy, policy_for_request
 from app.agent.runtime import AgentRuntimeResult
@@ -92,50 +100,32 @@ def build_agents_input(
 ) -> list[TResponseInputItem]:
     """Build bounded Responses input with the current request as the final user turn."""
 
-    context = build_agent_context(
-        current_query=query,
-        history=support.model_history,
+    budget = ContextTokenBudget(
+        model_context_limit=16_000,
+        reserved_output_tokens=1_200,
+        safety_margin_tokens=1_600,
+        input_token_limit=11_220,
     )
-    items: list[TResponseInputItem] = []
-    if context.conversation_summary:
-        items.append(
-            {
-                "role": "user",
-                "content": (
-                    '<older_conversation_summary context_only="true">\n'
-                    f"{context.conversation_summary}\n"
-                    "</older_conversation_summary>"
-                ),
-            }
+    active = DeterministicContextManager().build(
+        ContextBuildRequest(
+            run_id=support.conversation_id,
+            call_sequence=1,
+            purpose="plan",
+            current_request=query.strip(),
+            current_request_candidate_id="request:current",
+            candidates=support_candidates(support, query),
+            token_budget=budget,
+            policy_version=CONTEXT_POLICY_VERSION,
         )
-    for message in context.history:
-        if message.role == "memory":
-            items.append(
-                {
-                    "role": "user",
-                    "content": (
-                        '<confirmed_memory context_only="true">\n'
-                        f"{message.content}\n"
-                        "</confirmed_memory>"
-                    ),
-                }
-            )
-        else:
-            items.append({"role": message.role, "content": message.content})
-    if context.confirmed_attempted_steps:
-        attempted = "\n".join(f"- {step}" for step in context.confirmed_attempted_steps)
-        items.append(
-            {
-                "role": "user",
-                "content": (
-                    '<confirmed_attempted_steps context_only="true">\n'
-                    f"{attempted}\n"
-                    "</confirmed_attempted_steps>"
-                ),
-            }
-        )
-    items.append({"role": "user", "content": context.current_query})
-    return items
+    )
+    return _active_context_items(active)
+
+
+def _active_context_items(active: ActiveContext) -> list[TResponseInputItem]:
+    return [
+        cast(TResponseInputItem, {"role": message.role, "content": message.content})
+        for message in active.messages
+    ]
 
 
 @dataclass(slots=True)
@@ -154,6 +144,7 @@ class SupportSDKContext:
     completed_stages: set[str] = field(default_factory=set)
     policy: AgentRequestPolicy | None = None
     observation_callback: ObservationCallback | None = None
+    context_builder: RuntimeContextBuilder | None = None
 
     @property
     def request_policy(self) -> AgentRequestPolicy:
@@ -396,6 +387,27 @@ _TOOL_PROGRESS = {
 
 
 class SupportRunHooks(RunHooksBase[SupportSDKContext, Agent[SupportSDKContext]]):
+    async def on_llm_start(
+        self,
+        context: RunContextWrapper[SupportSDKContext],
+        agent: Agent[SupportSDKContext],
+        system_prompt: str | None,
+        input_items: list[TResponseInputItem],
+    ) -> None:
+        del agent, system_prompt
+        builder = context.context.context_builder
+        if builder is None:
+            return
+        purpose: ContextPurpose = "answer" if context.context.tool_calls > 0 else "tool_selection"
+        active = await builder.build(
+            purpose,
+            evidence=list(context.context.citation_store.values()),
+        )
+        # Segment the SDK transcript at the model boundary. Tool results have already
+        # been normalized into working memory, so the model receives a fresh bounded
+        # bundle instead of an ever-growing transcript.
+        input_items[:] = _active_context_items(active)
+
     async def on_tool_start(
         self,
         context: RunContextWrapper[SupportSDKContext],
@@ -472,8 +484,12 @@ class OpenAIAgentsRuntime:
             output_type=SupportAgentOutput,
         )
 
-    def _input(self, query: str) -> list[TResponseInputItem]:
-        return build_agents_input(self._context.support, query)
+    async def _input(self, query: str) -> list[TResponseInputItem]:
+        if self._context.context_builder is None:
+            return build_agents_input(self._context.support, query)
+        # RunHooks.on_llm_start replaces this seed input with an ActiveContext before
+        # each SDK-owned model call, including calls after tools and approval resume.
+        return [cast(TResponseInputItem, {"role": "user", "content": query.strip()})]
 
     async def _resume_state(self, serialized_state: str) -> RunState[Any, Agent[Any]]:
         state = await RunState.from_string(
@@ -500,11 +516,13 @@ class OpenAIAgentsRuntime:
         return state
 
     async def run(self, *, query: str, serialized_state: str | None = None) -> AgentRuntimeResult:
-        prepared_input = self._input(query)
+        prepared_input = await self._input(query)
         estimated_input = max(
             1,
             len(json.dumps(prepared_input, ensure_ascii=False).encode("utf-8")) // 3,
         )
+        if self._context.context_builder is not None:
+            estimated_input = self._context.context_builder.input_token_limit
         if self._usage_ledger is not None:
             await self._usage_ledger.reserve(
                 operation_id=self._operation_id,
