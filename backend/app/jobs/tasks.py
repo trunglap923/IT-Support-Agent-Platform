@@ -12,9 +12,18 @@ from app.agent.openai_agents_runtime import OpenAIAgentsRuntimeFactory
 from app.config import AgentRuntime, AIProvider, Settings
 from app.db import Database
 from app.jobs.celery_app import celery_app
-from app.jobs.dispatch import CeleryMemoryExtractionDispatcher, CeleryRunDispatcher
+from app.jobs.dispatch import (
+    CeleryEpisodeConsolidationDispatcher,
+    CeleryMemoryExtractionDispatcher,
+    CeleryRunDispatcher,
+)
 from app.jobs.maintenance import expire_pending_approvals
-from app.jobs.memory import execute_memory_extraction, reconcile_memory_extractions
+from app.jobs.memory import (
+    execute_episode_consolidation,
+    execute_memory_extraction,
+    reconcile_episode_consolidations,
+    reconcile_memory_extractions,
+)
 from app.jobs.reconcile import reconcile_queued_run_dispatches
 from app.jobs.worker import execute_support_run
 from app.observability import create_ai_observer
@@ -88,6 +97,7 @@ def run_agent(run_id: str) -> dict[str, str]:
                     lease_seconds=settings.run_lease_seconds,
                     max_attempts=settings.run_max_attempts,
                     memory_dispatcher=CeleryMemoryExtractionDispatcher(celery_app),
+                    episode_dispatcher=CeleryEpisodeConsolidationDispatcher(celery_app),
                     agent_runtime_factory=agent_runtime_factory,
                     log_prompts=settings.log_prompts,
                     retrieval_branch_limit=settings.retrieval_branch_limit,
@@ -197,6 +207,42 @@ def reconcile_memory_jobs() -> dict[str, int]:
             return await reconcile_memory_extractions(
                 database,
                 CeleryMemoryExtractionDispatcher(celery_app),
+            )
+        finally:
+            await database.close()
+
+    return {"requeued": asyncio.run(reconcile())}
+
+
+@shared_task(name="jobs.consolidate_episode")  # type: ignore[untyped-decorator]
+def consolidate_episode(run_id: str) -> dict[str, str]:
+    settings = Settings()
+    if settings.database_url is None:
+        raise RuntimeError("DATABASE_URL is required by episode consolidation")
+    database_url = settings.database_url.get_secret_value()
+
+    async def execute() -> str:
+        database = Database(database_url)
+        try:
+            return await execute_episode_consolidation(database, run_id=UUID(run_id))
+        finally:
+            await database.close()
+
+    return {"status": asyncio.run(execute())}
+
+
+@shared_task(name="jobs.reconcile_episode_consolidations")  # type: ignore[untyped-decorator]
+def reconcile_episode_jobs() -> dict[str, int]:
+    settings = Settings()
+    if settings.database_url is None:
+        raise RuntimeError("DATABASE_URL is required by episode reconciliation")
+    database_url = settings.database_url.get_secret_value()
+
+    async def reconcile() -> int:
+        database = Database(database_url)
+        try:
+            return await reconcile_episode_consolidations(
+                database, CeleryEpisodeConsolidationDispatcher(celery_app)
             )
         finally:
             await database.close()

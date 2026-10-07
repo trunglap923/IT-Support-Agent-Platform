@@ -946,6 +946,254 @@ class MemoryFact(Base):
     )
 
 
+class MemorySource(Base):
+    __tablename__ = "memory_sources"
+    __table_args__ = (
+        CheckConstraint(
+            "source_type IN ('cmdb', 'idp', 'mdm', 'tool', 'user_confirmed', "
+            "'ticket', 'ai_inferred')",
+            name="memory_source_type_allowlist",
+        ),
+        CheckConstraint("authority_tier BETWEEN 0 AND 100", name="memory_source_authority_range"),
+        CheckConstraint("length(content_hash) = 64", name="memory_source_hash_length"),
+        UniqueConstraint(
+            "owner_id",
+            "source_type",
+            "source_ref",
+            "content_hash",
+            name="uq_memory_source_identity",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    source_type: Mapped[str] = mapped_column(String(24))
+    source_ref: Mapped[str] = mapped_column(String(500))
+    content_hash: Mapped[str] = mapped_column(String(64))
+    safe_excerpt: Mapped[str | None] = mapped_column(String(500))
+    authority_tier: Mapped[int] = mapped_column(Integer)
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    message_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("messages.id", ondelete="SET NULL"), index=True
+    )
+    run_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("agent_runs.id", ondelete="SET NULL"), index=True
+    )
+    ticket_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("tickets.id", ondelete="SET NULL"), index=True
+    )
+    safe_metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, server_default="{}")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class MemoryAssertion(Base):
+    __tablename__ = "memory_assertions"
+    __table_args__ = (
+        CheckConstraint(
+            "subject_type IN ('user', 'device', 'account', 'service')",
+            name="memory_assertion_subject_type_allowlist",
+        ),
+        CheckConstraint(
+            "status IN ('active', 'superseded', 'deleted', 'quarantined', 'conflicted')",
+            name="memory_assertion_status_allowlist",
+        ),
+        CheckConstraint("scope IN ('global', 'device')", name="memory_assertion_scope_allowlist"),
+        CheckConstraint(
+            "(scope = 'device') = (device_id IS NOT NULL)",
+            name="memory_assertion_device_scope_matches",
+        ),
+        CheckConstraint(
+            "authority_tier BETWEEN 0 AND 100", name="memory_assertion_authority_range"
+        ),
+        CheckConstraint("confidence BETWEEN 0 AND 1", name="memory_assertion_confidence_range"),
+        CheckConstraint("length(value_hash) = 64", name="memory_assertion_hash_length"),
+        Index(
+            "uq_memory_assertion_active_claim",
+            "owner_id",
+            "subject_type",
+            "subject_id",
+            "predicate",
+            unique=True,
+            postgresql_where=text("status = 'active' AND deleted_at IS NULL"),
+        ),
+        Index(
+            "ix_memory_assertions_owner_status_updated",
+            "owner_id",
+            "status",
+            "updated_at",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    source_id: Mapped[UUID] = mapped_column(
+        ForeignKey("memory_sources.id", ondelete="RESTRICT"), index=True
+    )
+    subject_type: Mapped[str] = mapped_column(String(20))
+    subject_id: Mapped[str] = mapped_column(String(160))
+    predicate: Mapped[str] = mapped_column(String(120))
+    value: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    normalized_text: Mapped[str] = mapped_column(String(1000))
+    value_hash: Mapped[str] = mapped_column(String(64))
+    scope: Mapped[str] = mapped_column(String(20), default="global", server_default="global")
+    device_id: Mapped[UUID | None] = mapped_column(index=True)
+    status: Mapped[str] = mapped_column(String(20), default="active", server_default="active")
+    authority_tier: Mapped[int] = mapped_column(Integer)
+    confidence: Mapped[Decimal] = mapped_column(Numeric(5, 4))
+    valid_from: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    valid_to: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    supersedes_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("memory_assertions.id", ondelete="SET NULL"), index=True
+    )
+    compatibility_fact_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("memory_facts.id", ondelete="SET NULL"), index=True
+    )
+    embedding: Mapped[list[float] | None] = mapped_column(VECTOR(1536))
+    version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class MemoryConflict(Base):
+    __tablename__ = "memory_conflicts"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'resolved', 'quarantined')",
+            name="memory_conflict_status_allowlist",
+        ),
+        UniqueConstraint(
+            "assertion_a_id", "assertion_b_id", name="uq_memory_conflict_assertion_pair"
+        ),
+        Index("ix_memory_conflicts_owner_status", "owner_id", "status", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    subject_type: Mapped[str] = mapped_column(String(20))
+    subject_id: Mapped[str] = mapped_column(String(160))
+    predicate: Mapped[str] = mapped_column(String(120))
+    assertion_a_id: Mapped[UUID] = mapped_column(
+        ForeignKey("memory_assertions.id", ondelete="CASCADE"), index=True
+    )
+    assertion_b_id: Mapped[UUID] = mapped_column(
+        ForeignKey("memory_assertions.id", ondelete="CASCADE"), index=True
+    )
+    status: Mapped[str] = mapped_column(String(20), default="pending", server_default="pending")
+    resolution: Mapped[str | None] = mapped_column(String(40))
+    selected_assertion_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("memory_assertions.id", ondelete="SET NULL")
+    )
+    reviewed_by: Mapped[UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class MemoryDecision(Base):
+    __tablename__ = "memory_decisions"
+    __table_args__ = (
+        CheckConstraint(
+            "operation IN ('add', 'update', 'delete', 'noop')",
+            name="memory_decision_operation_allowlist",
+        ),
+        CheckConstraint(
+            "status IN ('accepted', 'rejected', 'quarantined')",
+            name="memory_decision_status_allowlist",
+        ),
+        CheckConstraint(
+            "decided_by_type IN ('system', 'user', 'it_reviewer', 'connector')",
+            name="memory_decision_actor_type_allowlist",
+        ),
+        Index("ix_memory_decisions_owner_created", "owner_id", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    proposal_id: Mapped[UUID] = mapped_column(unique=True)
+    owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    run_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("agent_runs.id", ondelete="SET NULL"), index=True
+    )
+    operation: Mapped[str] = mapped_column(String(12))
+    status: Mapped[str] = mapped_column(String(20))
+    decided_by_type: Mapped[str] = mapped_column(String(20))
+    decided_by_id: Mapped[UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    policy_version: Mapped[str] = mapped_column(String(80))
+    reason_code: Mapped[str] = mapped_column(String(80))
+    target_assertion_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("memory_assertions.id", ondelete="SET NULL"), index=True
+    )
+    resulting_assertion_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("memory_assertions.id", ondelete="SET NULL"), index=True
+    )
+    source_ids: Mapped[list[str]] = mapped_column(JSONB, default=list, server_default="[]")
+    correlation_id: Mapped[str] = mapped_column(String(180), index=True)
+    safe_metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, server_default="{}")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class IncidentEpisode(Base):
+    __tablename__ = "incident_episodes"
+    __table_args__ = (
+        CheckConstraint(
+            "outcome IN ('resolved', 'unresolved', 'ticket_created', 'cancelled')",
+            name="incident_episode_outcome_allowlist",
+        ),
+        Index("ix_incident_episodes_owner_completed", "owner_id", "completed_at"),
+        Index("ix_incident_episodes_owner_device", "owner_id", "device_id", "completed_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    run_id: Mapped[UUID] = mapped_column(
+        ForeignKey("agent_runs.id", ondelete="CASCADE"), unique=True, index=True
+    )
+    owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    conversation_id: Mapped[UUID] = mapped_column(
+        ForeignKey("conversations.id", ondelete="CASCADE"), index=True
+    )
+    device_id: Mapped[UUID | None] = mapped_column(index=True)
+    ticket_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("tickets.id", ondelete="SET NULL"), index=True
+    )
+    summary: Mapped[str] = mapped_column(Text)
+    outcome: Mapped[str] = mapped_column(String(24))
+    verified: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    service_ids: Mapped[list[str]] = mapped_column(JSONB, default=list, server_default="[]")
+    error_codes: Mapped[list[str]] = mapped_column(JSONB, default=list, server_default="[]")
+    source_refs: Mapped[list[str]] = mapped_column(JSONB, default=list, server_default="[]")
+    verification_refs: Mapped[list[str]] = mapped_column(JSONB, default=list, server_default="[]")
+    embedding: Mapped[list[float] | None] = mapped_column(VECTOR(1536))
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class EpisodeAction(Base):
+    __tablename__ = "episode_actions"
+    __table_args__ = (
+        UniqueConstraint("episode_id", "ordinal", name="uq_episode_action_ordinal"),
+        CheckConstraint("ordinal >= 0", name="episode_action_ordinal_non_negative"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    episode_id: Mapped[UUID] = mapped_column(
+        ForeignKey("incident_episodes.id", ondelete="CASCADE"), index=True
+    )
+    ordinal: Mapped[int] = mapped_column(Integer)
+    action_kind: Mapped[str] = mapped_column(String(24))
+    name: Mapped[str] = mapped_column(String(120))
+    status: Mapped[str] = mapped_column(String(20))
+    summary: Mapped[str] = mapped_column(String(1000))
+    receipt_ref: Mapped[str | None] = mapped_column(String(500))
+    source_ref: Mapped[str] = mapped_column(String(500))
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 class ServiceState(Base):
     __tablename__ = "service_states"
     __table_args__ = (

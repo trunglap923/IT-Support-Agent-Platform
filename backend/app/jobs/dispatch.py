@@ -25,6 +25,10 @@ class MemoryExtractionDispatcher(Protocol):
     async def enqueue_memory_extraction(self, job_id: UUID) -> None: ...
 
 
+class EpisodeConsolidationDispatcher(Protocol):
+    async def enqueue_episode_consolidation(self, run_id: UUID) -> None: ...
+
+
 class UnavailableRunDispatcher:
     async def ensure_available(self) -> None:
         raise BrokerUnavailableError("Redis broker is not configured")
@@ -87,3 +91,20 @@ class CeleryMemoryExtractionDispatcher:
             )
         except Exception as error:
             raise BrokerUnavailableError("Memory extraction enqueue failed") from error
+
+
+class CeleryEpisodeConsolidationDispatcher:
+    def __init__(self, celery_application: Any) -> None:
+        self.celery_application = celery_application
+
+    async def enqueue_episode_consolidation(self, run_id: UUID) -> None:
+        try:
+            await asyncio.to_thread(
+                self.celery_application.send_task,
+                "jobs.consolidate_episode",
+                args=[str(run_id)],
+                task_id=f"episode-consolidation:{run_id}",
+                queue=BACKGROUND_QUEUE,
+            )
+        except Exception as error:
+            raise BrokerUnavailableError("Episode consolidation enqueue failed") from error

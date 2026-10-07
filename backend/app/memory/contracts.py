@@ -94,7 +94,7 @@ class MemoryDecisionRecord(BaseModel):
                 raise ValueError("Accepted ADD/UPDATE decisions require a resulting memory ID")
             if self.operation in {"delete", "noop"} and self.resulting_memory_id is not None:
                 raise ValueError("Accepted DELETE/NOOP decisions cannot produce a memory ID")
-        elif self.status != "accepted" and self.resulting_memory_id is not None:
+        elif self.resulting_memory_id is not None:
             raise ValueError("Rejected or quarantined decisions cannot produce a memory")
         if self.decided_by_type == "system" and self.decided_by_id is not None:
             raise ValueError("System decisions cannot carry a human or connector actor ID")

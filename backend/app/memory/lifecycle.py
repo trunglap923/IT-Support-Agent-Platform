@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import (
     Conversation,
+    MemoryAssertion,
     MemoryCandidate,
     MemoryExtractionJob,
     MemoryFact,
@@ -18,6 +20,8 @@ from app.db.models import (
     User,
     UserDevice,
 )
+from app.memory.contracts import MemoryMutationProposal, MemorySourceReference
+from app.memory.decision import MemoryDecisionEngine
 from app.memory.extractor import extract_candidate_proposals
 
 
@@ -345,6 +349,29 @@ class MemoryLifecycleService:
         )
         session.add(fact)
         await session.flush()
+        await MemoryDecisionEngine().apply(
+            session,
+            proposal=self._proposal(
+                owner_id=owner_id,
+                operation="add",
+                subject_type="device" if device_id is not None else "user",
+                subject_id=str(device_id or owner_id),
+                predicate=candidate.key,
+                value=value,
+                source_ref=f"memory-candidate:{candidate.id}:v{candidate.version}",
+                observed_at=current_time,
+            ),
+            decided_by_type="user",
+            decided_by_id=owner_id,
+            correlation_id=f"candidate-confirm:{candidate.id}:v{candidate.version}",
+            run_id=job.run_id,
+            scope=scope,
+            device_id=device_id,
+            compatibility_fact_id=fact.id,
+            safe_excerpt=candidate.evidence,
+            message_id=job.source_message_id,
+            now=current_time,
+        )
         return fact
 
     async def reject_candidate(
@@ -422,6 +449,37 @@ class MemoryLifecycleService:
         fact.version += 1
         user.memory_epoch += 1
         await session.flush()
+        assertion = await session.scalar(
+            select(MemoryAssertion).where(
+                MemoryAssertion.compatibility_fact_id == fact.id,
+                MemoryAssertion.owner_id == owner_id,
+                MemoryAssertion.status == "active",
+            )
+        )
+        if assertion is not None:
+            now = datetime.now(UTC)
+            await MemoryDecisionEngine().apply(
+                session,
+                proposal=self._proposal(
+                    owner_id=owner_id,
+                    operation="update",
+                    target_id=assertion.id,
+                    subject_type=assertion.subject_type,
+                    subject_id=assertion.subject_id,
+                    predicate=fact.key,
+                    value=normalized,
+                    source_ref=f"memory-fact-edit:{fact.id}:v{fact.version}",
+                    observed_at=now,
+                ),
+                decided_by_type="user",
+                decided_by_id=owner_id,
+                correlation_id=f"fact-edit:{fact.id}:v{fact.version}",
+                scope=fact.scope,
+                device_id=fact.device_id,
+                compatibility_fact_id=fact.id,
+                safe_excerpt=f"{fact.key}: {normalized}",
+                now=now,
+            )
         return fact
 
     async def delete_fact(
@@ -440,9 +498,39 @@ class MemoryLifecycleService:
         )
         if fact.version != expected_version:
             raise MemoryConflictError("Memory fact changed; refresh and retry")
-        fact.deleted_at = now or datetime.now(UTC)
+        current_time = now or datetime.now(UTC)
+        assertion = await session.scalar(
+            select(MemoryAssertion).where(
+                MemoryAssertion.compatibility_fact_id == fact.id,
+                MemoryAssertion.owner_id == owner_id,
+                MemoryAssertion.status == "active",
+            )
+        )
+        fact.deleted_at = current_time
         fact.version += 1
         user.memory_epoch += 1
+        if assertion is not None:
+            await MemoryDecisionEngine().apply(
+                session,
+                proposal=self._proposal(
+                    owner_id=owner_id,
+                    operation="delete",
+                    target_id=assertion.id,
+                    subject_type=assertion.subject_type,
+                    subject_id=assertion.subject_id,
+                    predicate=fact.key,
+                    value=None,
+                    source_ref=f"memory-fact-delete:{fact.id}:v{fact.version}",
+                    observed_at=current_time,
+                ),
+                decided_by_type="user",
+                decided_by_id=owner_id,
+                correlation_id=f"fact-delete:{fact.id}:v{fact.version}",
+                scope=fact.scope,
+                device_id=fact.device_id,
+                safe_excerpt=f"Deleted {fact.key}",
+                now=current_time,
+            )
         await session.flush()
 
     async def _locked_user_and_fact(
@@ -465,3 +553,41 @@ class MemoryLifecycleService:
         if user is None or fact is None:
             raise MemoryNotFoundError("Memory fact not found")
         return user, fact
+
+    @staticmethod
+    def _proposal(
+        *,
+        owner_id: UUID,
+        operation: str,
+        subject_type: str,
+        subject_id: str,
+        predicate: str,
+        value: str | None,
+        source_ref: str,
+        observed_at: datetime,
+        target_id: UUID | None = None,
+    ) -> MemoryMutationProposal:
+        source_hash = hashlib.sha256(
+            f"{source_ref}:{predicate}:{value or ''}".encode()
+        ).hexdigest()
+        return MemoryMutationProposal(
+            proposal_id=uuid4(),
+            owner_id=owner_id,
+            operation=operation,
+            target_memory_id=target_id,
+            subject_type=subject_type,
+            subject_id=subject_id,
+            predicate=predicate,
+            proposed_value={"value": value} if value is not None else None,
+            evidence=(
+                MemorySourceReference(
+                    source_type="user_confirmed",
+                    source_ref=source_ref,
+                    content_hash=source_hash,
+                    observed_at=observed_at,
+                    authority_tier=80,
+                ),
+            ),
+            confidence=1.0,
+            reason_code="explicit_user_confirmation",
+        )

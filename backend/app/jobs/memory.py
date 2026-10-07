@@ -7,8 +7,9 @@ from uuid import UUID
 from sqlalchemy import select
 
 from app.db import Database
-from app.db.models import MemoryExtractionJob
-from app.jobs.dispatch import MemoryExtractionDispatcher
+from app.db.models import AgentRun, IncidentEpisode, MemoryExtractionJob, RunStatus
+from app.jobs.dispatch import EpisodeConsolidationDispatcher, MemoryExtractionDispatcher
+from app.memory.episodes import EpisodeMemoryService
 from app.memory.lifecycle import MemoryLifecycleService
 
 
@@ -47,3 +48,33 @@ async def reconcile_memory_extractions(
         await dispatcher.enqueue_memory_extraction(job_id)
         delivered += 1
     return delivered
+
+
+async def execute_episode_consolidation(database: Database, *, run_id: UUID) -> str:
+    async with database.session() as session, session.begin():
+        episode = await EpisodeMemoryService().consolidate(session, run_id=run_id)
+        return "completed" if episode is not None else "not_ready"
+
+
+async def reconcile_episode_consolidations(
+    database: Database,
+    dispatcher: EpisodeConsolidationDispatcher,
+    *,
+    limit: int = 100,
+) -> int:
+    async with database.session() as session:
+        run_ids = list(
+            await session.scalars(
+                select(AgentRun.id)
+                .outerjoin(IncidentEpisode, IncidentEpisode.run_id == AgentRun.id)
+                .where(
+                    AgentRun.status == RunStatus.COMPLETED,
+                    IncidentEpisode.id.is_(None),
+                )
+                .order_by(AgentRun.finished_at, AgentRun.id)
+                .limit(limit)
+            )
+        )
+    for run_id in run_ids:
+        await dispatcher.enqueue_episode_consolidation(run_id)
+    return len(run_ids)

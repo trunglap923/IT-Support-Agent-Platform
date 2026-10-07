@@ -40,6 +40,7 @@ from app.db.models import (
 from app.diagnostics import content_log_fields, log_event
 from app.jobs.dispatch import (
     BrokerUnavailableError,
+    EpisodeConsolidationDispatcher,
     MemoryExtractionDispatcher,
 )
 from app.memory.lifecycle import MemoryLifecycleService
@@ -108,6 +109,7 @@ async def execute_support_run(
     lease_seconds: int = 90,
     max_attempts: int = 3,
     memory_dispatcher: MemoryExtractionDispatcher | None = None,
+    episode_dispatcher: EpisodeConsolidationDispatcher | None = None,
     agent_runtime_factory: OpenAIAgentsRuntimeFactory | None = None,
     log_prompts: bool = False,
     retrieval_branch_limit: int = 20,
@@ -733,4 +735,7 @@ async def execute_support_run(
         # reconciler redelivers the durable ID when the broker is unavailable.
         with suppress(BrokerUnavailableError):
             await memory_dispatcher.enqueue_memory_extraction(memory_job_id)
+    if episode_dispatcher is not None:
+        with suppress(BrokerUnavailableError):
+            await episode_dispatcher.enqueue_episode_consolidation(run_id)
     return WorkerResult(run_id=run_id, status="processed")

@@ -31,6 +31,8 @@ from app.agent.working_memory.service import WorkingMemoryService
 from app.db import Database
 from app.db.models import ContextBuildRecord, ContextSummaryArtifact
 from app.diagnostics import log_event
+from app.memory.episodes import EpisodeMemoryService
+from app.memory.retrieval import MemoryContextService
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +54,13 @@ class RuntimeContextBuilder:
         self._database = database
         self._run_id = run_id
         self._support = support
-        self._base = support_candidates(support, support.query)
+        # Semantic memory is loaded from the assertion view on every model call.
+        # Drop the legacy compatibility projection to avoid duplicate facts.
+        self._base = tuple(
+            item
+            for item in support_candidates(support, support.query)
+            if item.kind != "semantic_memory"
+        )
         self._scope = scope_for_support(support)
         self._manager = DeterministicContextManager()
         self._policy_version = policy_version
@@ -96,9 +104,25 @@ class RuntimeContextBuilder:
                 scope=self._scope,
                 query=self._support.query,
             )
+            semantic = await MemoryContextService().context_candidates(
+                session,
+                owner_id=self._support.principal.user_id,
+                device_id=self._support.device.id if self._support.device else None,
+                query=self._support.query,
+                scope=self._scope,
+            )
+            episodes = await EpisodeMemoryService().context_candidates(
+                session,
+                owner_id=self._support.principal.user_id,
+                device_id=self._support.device.id if self._support.device else None,
+                query=self._support.query,
+                scope=self._scope,
+            )
             candidates: tuple[ContextCandidate, ...] = (
                 *self._base,
                 *working_memory_candidates(snapshot, scope=self._scope, query=self._support.query),
+                *semantic,
+                *episodes,
                 *extra,
             )
             latest = await session.scalar(

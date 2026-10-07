@@ -1451,6 +1451,10 @@ memory vào model context và chưa thay đổi câu trả lời của Agent.
 
 ### Phase 2 — Unified Context Manager
 
+Trạng thái triển khai: **đã hoàn thành ngày 2026-10-07**. Cả Agents SDK và LangGraph dùng
+`RuntimeContextBuilder` trước model call, với owner scope, working state, evidence, lane budget,
+conflict handling và audit record có retention.
+
 **Objective**: mọi model call nhận active context có scope, budget, relevance và provenance thống nhất.
 
 - **Architecture changes**: thay direct history assembly bằng `ContextManager`; lane budget/call purpose; addressable compaction.
@@ -1465,6 +1469,12 @@ memory vào model context và chưa thay đổi câu trả lời của Agent.
 - **Estimated complexity**: L (3–5 sprint).
 
 ### Phase 3 — Semantic + Episodic Memory và lifecycle
+
+Trạng thái triển khai: **đã hoàn thành implementation ngày 2026-10-07**. Confirmed facts được
+dual-write sang source/assertion/decision có authority và conflict audit; dữ liệu cũ được backfill.
+Completed runs được Celery consolidate idempotent thành episode và Context Manager truy hồi semantic
+cùng episodic memory theo owner/device/relevance. Các acceptance metrics dài hạn của phase vẫn cần
+được đo bằng benchmark Phase 0 thay vì suy ra từ static checks.
 
 **Objective**: memory có provenance/authority/conflict; resolved work trở thành episode có thể retrieve.
 

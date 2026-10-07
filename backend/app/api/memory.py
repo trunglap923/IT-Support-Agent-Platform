@@ -12,7 +12,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.pagination import CursorPage, PageLimit, build_page, decode_cursor
 from app.auth.csrf import require_csrf
+from app.auth.policies import require_roles
+from app.db.models import UserRole
 from app.dependencies import CurrentPrincipal, get_db_session
+from app.memory.audit import MemoryAuditService
 from app.memory.lifecycle import (
     MemoryConflictError,
     MemoryLifecycleService,
@@ -81,6 +84,63 @@ class UpdateFactRequest(BaseModel):
 
     expected_version: int = Field(ge=1)
     value: str = Field(min_length=1, max_length=240)
+
+
+class MemoryDecisionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    operation: str
+    status: str
+    policy_version: str
+    reason_code: str
+    created_at: datetime
+
+
+class MemoryFactExplanationResponse(BaseModel):
+    assertion_id: UUID
+    predicate: str
+    status: str
+    authority_tier: int
+    confidence: float
+    source_type: str
+    source_ref: str
+    observed_at: datetime
+    decisions: list[MemoryDecisionResponse]
+
+
+class EpisodeResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    run_id: UUID
+    summary: str
+    outcome: str
+    verified: bool
+    service_ids: list[str]
+    error_codes: list[str]
+    completed_at: datetime
+
+
+class ConflictResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    owner_id: UUID
+    subject_type: str
+    predicate: str
+    assertion_a_id: UUID
+    assertion_b_id: UUID
+    status: str
+    resolution: str | None
+    selected_assertion_id: UUID | None
+    created_at: datetime
+
+
+class ResolveConflictRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    selected_assertion_id: UUID
 
 
 @router.get("/candidates", response_model=CursorPage[MemoryCandidateResponse])
@@ -224,6 +284,83 @@ async def list_facts(
         items=[MemoryFactResponse.model_validate(value) for value in items],
         next_cursor=next_cursor,
     )
+
+
+@router.get("/facts/{fact_id}/explanation", response_model=MemoryFactExplanationResponse)
+async def explain_fact(
+    fact_id: UUID,
+    principal: CurrentPrincipal,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> MemoryFactExplanationResponse:
+    try:
+        assertion, source, decisions = await MemoryAuditService().explain_fact(
+            session, owner_id=principal.user_id, fact_id=fact_id
+        )
+    except (MemoryConflictError, MemoryNotFoundError) as error:
+        raise _memory_error(error) from error
+    return MemoryFactExplanationResponse(
+        assertion_id=assertion.id,
+        predicate=assertion.predicate,
+        status=assertion.status,
+        authority_tier=assertion.authority_tier,
+        confidence=float(assertion.confidence),
+        source_type=source.source_type,
+        source_ref=source.source_ref,
+        observed_at=source.observed_at,
+        decisions=[MemoryDecisionResponse.model_validate(item) for item in decisions],
+    )
+
+
+@router.get("/episodes", response_model=list[EpisodeResponse])
+async def list_episodes(
+    principal: CurrentPrincipal,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    limit: int = 20,
+) -> list[EpisodeResponse]:
+    values = await MemoryAuditService().list_episodes(
+        session, owner_id=principal.user_id, limit=min(max(limit, 1), 100)
+    )
+    return [EpisodeResponse.model_validate(item) for item in values]
+
+
+@router.get(
+    "/admin/conflicts",
+    response_model=list[ConflictResponse],
+    dependencies=[Depends(require_roles(UserRole.IT, UserRole.ADMIN))],
+)
+async def list_conflicts(
+    principal: CurrentPrincipal,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    conflict_status: Literal["pending", "quarantined"] = "quarantined",
+) -> list[ConflictResponse]:
+    del principal
+    values = await MemoryAuditService().list_conflicts(session, status=conflict_status)
+    return [ConflictResponse.model_validate(item) for item in values]
+
+
+@router.post(
+    "/admin/conflicts/{conflict_id}/resolve",
+    response_model=ConflictResponse,
+    dependencies=[Depends(require_csrf), Depends(require_roles(UserRole.IT, UserRole.ADMIN))],
+)
+async def resolve_conflict(
+    conflict_id: UUID,
+    payload: ResolveConflictRequest,
+    principal: CurrentPrincipal,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> ConflictResponse:
+    try:
+        value = await MemoryAuditService().resolve_conflict(
+            session,
+            conflict_id=conflict_id,
+            selected_assertion_id=payload.selected_assertion_id,
+            reviewer_id=principal.user_id,
+        )
+        await session.commit()
+    except (MemoryConflictError, MemoryNotFoundError) as error:
+        await session.rollback()
+        raise _memory_error(error) from error
+    return ConflictResponse.model_validate(value)
 
 
 @router.patch(
