@@ -44,6 +44,7 @@ StreamStartedCallback = Callable[[], Awaitable[None]]
 
 MAX_AGENT_TURNS = 6
 MAX_READ_TOOL_CALLS = 4
+_CURRENT_TURN_TOOL_ITEM_TYPES = frozenset({"function_call", "function_call_output"})
 
 
 class SupportAgentOutput(BaseModel):
@@ -126,6 +127,19 @@ def _active_context_items(active: ActiveContext) -> list[TResponseInputItem]:
         cast(TResponseInputItem, {"role": message.role, "content": message.content})
         for message in active.messages
     ]
+
+
+def _current_turn_tool_items(
+    input_items: list[TResponseInputItem],
+) -> list[TResponseInputItem]:
+    """Keep bounded call/output pairs that the next model turn still needs to inspect."""
+
+    retained = [
+        item
+        for item in input_items
+        if isinstance(item, dict) and item.get("type") in _CURRENT_TURN_TOOL_ITEM_TYPES
+    ]
+    return retained[-(MAX_READ_TOOL_CALLS * 2) :]
 
 
 @dataclass(slots=True)
@@ -403,10 +417,13 @@ class SupportRunHooks(RunHooksBase[SupportSDKContext, Agent[SupportSDKContext]])
             purpose,
             evidence=list(context.context.citation_store.values()),
         )
-        # Segment the SDK transcript at the model boundary. Tool results have already
-        # been normalized into working memory, so the model receives a fresh bounded
-        # bundle instead of an ever-growing transcript.
-        input_items[:] = _active_context_items(active)
+        # Refresh application context without discarding the SDK's current-turn function output.
+        # Durable working memory intentionally stores only a minimized projection, which is not
+        # sufficient to answer from values such as an authenticated display name.
+        input_items[:] = [
+            *_active_context_items(active),
+            *_current_turn_tool_items(input_items),
+        ]
 
     async def on_tool_start(
         self,
