@@ -16,7 +16,10 @@ make test-e2e
 make eval
 ```
 
-Kết quả local gần nhất: clean stack 7/7 healthy; backend regression suite xem release checklist; frontend 15 pass; Playwright 7 pass; evaluation 120 case hợp lệ và 160 deterministic runs tái lập.
+Kết quả local gần nhất ngày 2026-10-08: clean stack 7/7 healthy; Alembic qua đủ 26
+migration; backend 283 pass/1 skip; frontend lint/typecheck/build và 51 test pass; Playwright
+21/21 pass; evaluation 120 case hợp lệ, 80/80 development checks và 160 reproducibility runs
+cùng digest.
 
 ## Demo giao diện tối thiểu
 

@@ -4,11 +4,12 @@ Portfolio prototype cho trợ lý IT có trạng thái: chat RAG kèm nguồn, s
 
 ## Trạng thái
 
-Ứng dụng và local stack đã triển khai qua WP-01–WP-14. Bằng chứng local ngày 2026-09-16:
+Ứng dụng và local stack đã triển khai qua WP-01–WP-14. Bằng chứng local ngày 2026-10-08:
 
-- stack Compose 7/7 service healthy trên project sạch;
-- backend `138 passed, 1 skipped`; frontend lint/typecheck, `15 passed`, production build;
-- Playwright `7 passed`; contract `7 passed`; evaluation schema 120 case và reproducibility 160 runs;
+- clean-room Compose 7/7 service healthy, Alembic head `0026_memory_embedding_identity` và seed 43 bản ghi;
+- backend `283 passed, 1 skipped`; frontend lint/typecheck, `51 passed`, production build;
+- Playwright `21 passed`; evaluation schema 120 case, `80/80` development checks và 160 reproducibility runs cùng digest;
+- production frontend dependencies có `0` npm audit finding; Markdown có 513 relative links hợp lệ;
 - backup PostgreSQL/document storage restore thành công vào database và volume tạm;
 - G-01–G-04 pass; G-05–G-09 vẫn `not_measured`, nên release decision là **not ready**.
 
@@ -19,11 +20,21 @@ GitHub Actions đã được cấu hình nhưng chưa có bằng chứng remote 
 ```text
 Browser → Nginx/React → FastAPI → PostgreSQL/pgvector
                               ↘ Redis → Celery agent/background + scheduler
-Agent worker → LangGraph → scoped RAG / governed tools → MCP stdio → business services
-                         ↘ fake hoặc OpenAI provider → optional Langfuse
+Agent worker → runtime selector → OpenAI Agents SDK (primary OpenAI runtime)
+                                ↘ LangGraph (fake/rollback runtime)
+Both runtimes → scoped context + hybrid RAG + governed tools/MCP → business services
+              ↘ fake hoặc OpenAI provider → optional Langfuse
 ```
 
-PostgreSQL là nguồn trạng thái bền vững. Redis là broker/rate-limit/cache; side effect ticket được bảo vệ bởi approval, idempotency receipt và reconciliation. Xem [bản đồ kiến trúc](docs/architecture.md) và [ADR runtime](docs/adr/0002-runtime-and-integration.md).
+PostgreSQL là nguồn trạng thái bền vững. Redis là broker/rate-limit/cache; side effect ticket được bảo vệ bởi approval, idempotency receipt và reconciliation. Working, semantic, episodic và procedural memory đều có contract và lifecycle riêng. Xem [bản đồ kiến trúc](docs/architecture.md), [ADR runtime](docs/adr/0002-runtime-and-integration.md) và [ADR Agents SDK](docs/adr/0003-openai-agents-orchestrator.md).
+
+## Giao diện
+
+Ảnh dưới được Playwright chụp từ workflow responsive ngày 2026-10-08:
+
+| Desktop | Mobile |
+|---|---|
+| ![Chat workspace desktop](docs/assets/chat-workspace-desktop.png) | ![Chat workspace mobile](docs/assets/chat-workspace-mobile.png) |
 
 ## Quick start bằng Docker
 
@@ -114,8 +125,8 @@ Liveness: http://127.0.0.1:8000/api/v1/health/live. Readiness: http://127.0.0.1:
 
 ```bash
 make test          # isolated PostgreSQL/Redis + backend + frontend checks
-make test-e2e      # 7 deterministic browser workflows
-make eval          # validate 120 cases + fake development split
+make test-e2e      # 21 deterministic browser checks
+make eval          # validate 120 cases + 80 deterministic development checks
 make clean-verify  # fresh volumes, migration, seed, 7-service readiness
 make docs-check    # relative links trong Markdown
 ```
@@ -133,6 +144,18 @@ TEXT_PROVIDER=openai RUN_LIVE_EVAL=1 make eval-agent-live
 migration và luôn xóa container sau khi hoàn tất. Nó không ghi usage/cost ledger vào database
 development. Không commit hoặc gửi API key vào chat. Budget guard/token cap vẫn không thay thế
 việc giám sát billing của nhà cung cấp.
+
+### Public retrieval và memory evidence
+
+SciFact dùng full official test split gồm 300 query. Fusion weight được chọn trên 809 train
+queries rồi khóa trước khi chạy test: nDCG@10 `0.7318`, MAP@10 `0.6863`, Recall@10 `0.8569`
+và MRR@10 `0.7003`. Đây là scientific retrieval benchmark, không phải độ chính xác IT support.
+Xem [SciFact comparison](reports/public/scifact/comparison.md).
+
+LoCoMo session-retrieval adaptation chạy 1.982 query với `text-embedding-3-small`: nDCG@10
+`0.7860`, MAP@10 `0.7278`, Recall@10 `0.9246` và MRR@10 `0.7605`. Report ghi rõ
+`paper_comparable: false`; không trình bày số này như official LoCoMo paper benchmark. Xem
+[LoCoMo retrieval report](reports/public/memory/locomo/retrieval-openai.md).
 
 ## Backup và restore drill
 
@@ -183,7 +206,7 @@ deploy server trong CI.
 ## Cấu trúc repository
 
 ```text
-backend/app/       FastAPI, auth, LangGraph, RAG, tools/MCP, services, jobs
+backend/app/       FastAPI, auth, Agents SDK/LangGraph, context, memory, RAG, tools/MCP, jobs
 backend/migrations Alembic migrations
 backend/tests/     unit, contract và PostgreSQL/Redis integration
 frontend/src/      React routes, API clients và feature UI
@@ -264,12 +287,14 @@ make down
 make up
 ```
 
-Hiện tại `.env` đang dùng:
+Khi chạy live OpenAI, cấu hình tối thiểu là:
 
 ```ini
 TEXT_PROVIDER=openai
 EMBEDDING_PROVIDER=openai
-LOG_PROMPTS=true
+AGENT_RUNTIME=openai_agents
+LOG_PROMPTS=false
 ```
 
-`LOG_PROMPTS=true` sẽ ghi nội dung chat và tài liệu vào log. Điều tra xong nên đổi lại `false` rồi chạy `make up`.
+Chỉ bật `LOG_PROMPTS=true` tạm thời khi điều tra trên dữ liệu không nhạy cảm; giá trị này ghi nội
+dung chat và tài liệu vào log. Sau khi đổi cấu hình, chạy lại `make up`.

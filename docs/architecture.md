@@ -66,7 +66,7 @@ quy về đúng một ticket.
 
 ### Document/memory
 
-PDF upload có MIME/size/path guard, tạo draft version, parse/chunk/embed/store idempotent rồi admin publish. Retrieval/history recheck current version và ACL. Memory mặc định tắt; extraction chỉ tạo candidate, user phải confirm. Device scope, optimistic version và epoch ngăn job cũ ghi lại fact sau delete/disable.
+PDF upload có MIME/size/path guard, tạo draft version, parse/chunk/embed/store idempotent rồi admin publish. Retrieval/history recheck current version và ACL. Memory extraction luôn hoạt động nhưng chỉ tạo candidate; durable fact vẫn cần user xác nhận. Device scope, optimistic version và epoch ngăn job cũ ghi lại fact sau delete.
 
 ## Dữ liệu và durability
 

@@ -1,6 +1,6 @@
 # Release checklist — WP-14
 
-Ngày kiểm chứng local gần nhất: 2026-09-17. Quyết định tổng thể: **NOT READY**.
+Ngày kiểm chứng local gần nhất: 2026-10-08. Quyết định tổng thể: **NOT READY**.
 
 Lý do: G-10 có local reproducibility evidence, nhưng G-05–G-09 chưa được đo đủ bằng live model/human review/full-stack workload. GitHub-hosted CI và manual V1 demo vẫn chưa có evidence.
 
@@ -10,15 +10,15 @@ Lý do: G-10 có local reproducibility evidence, nhưng G-05–G-09 chưa đư�
 |---|---|---|
 | Build production backend/frontend images | pass | Pinned bases, non-root, healthcheck; `make clean-verify` |
 | Fresh PostgreSQL/Redis/document volumes | pass | Unique Compose project, không dùng volumes development |
-| Migrate clean DB qua 17 revisions | pass | Alembic head `0017_ticket_device_owner` |
+| Migrate clean DB qua 26 revisions | pass | Alembic head `0026_memory_embedding_identity` |
 | Seed demo data | pass | Business fixtures + 9 published docs/11 versions/41 fake-embedded chunks; rerun không nhân bản |
 | Start complete stack | pass | 7/7 service healthy, readiness qua Nginx proxy |
-| Backend suite | pass | 138 passed, 1 skipped trên isolated PostgreSQL/Redis |
-| Frontend quality/build | pass | lint/typecheck, 15 tests, production build |
-| Browser workflow suite | pass | 7 Playwright tests |
-| Evaluation reproducibility | pass | 120 valid cases; 160 fake runs cùng digest |
+| Backend suite | pass | 283 passed, 1 skipped trên isolated PostgreSQL/Redis |
+| Frontend quality/build | pass | lint/typecheck, 51 tests, production build |
+| Browser workflow suite | pass | 21 Playwright checks; desktop/mobile screenshots reviewed |
+| Deterministic evaluation | pass | 120 valid cases; 80/80 development checks; 160 reproducibility runs cùng digest |
 | Backup/restore drill | pass | Manifest verified; isolated DB/volume restored and cleaned |
-| Markdown internal links | pass | 494 relative links checked by `make docs-check` on staged final artifacts |
+| Markdown internal links | pass | 513 relative links checked after the screenshot/document update |
 | Independent clean-machine reviewer | not run | Local isolated verification, chưa phải máy của reviewer khác |
 
 G-10 status: **local_pass / independent_review_pending**. Đây không thay đổi overall release decision khi các gate khác còn `not_measured`.

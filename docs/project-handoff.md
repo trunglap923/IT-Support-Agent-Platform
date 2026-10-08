@@ -140,7 +140,7 @@ Trong cấu hình này **không có LLM tạo câu trả lời**:
 ```dotenv
 TEXT_PROVIDER=openai
 EMBEDDING_PROVIDER=fake
-OPENAI_API_KEY=...
+OPENAI_API_KEY=<secret>
 ```
 
 Sau đó chạy `make up`. OpenAI sẽ chọn tool và tổng hợp structured RAG answer; citation và quyền
