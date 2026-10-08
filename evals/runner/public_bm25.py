@@ -14,8 +14,8 @@ from uuid import UUID, uuid5
 
 import bm25s  # type: ignore[import-untyped]
 import Stemmer  # type: ignore[import-not-found]
-from app.rag.chunking.splitter import ChunkingConfig, SourceBlock, chunk_blocks
 
+from app.rag.chunking.splitter import ChunkingConfig, SourceBlock, chunk_blocks
 from evals.public.adapters.beir import BEIR_DATASETS, load_beir_dataset
 from evals.public.contracts import PublicBenchmark
 from evals.public.metrics import aggregate_metrics, query_metrics
@@ -92,9 +92,7 @@ def run_bm25(
         query_tokens,
         corpus=unit_document_ids,
         k=min(
-            RESULT_LIMIT
-            if document_granularity == "whole_document"
-            else CANDIDATE_LIMIT,
+            RESULT_LIMIT if document_granularity == "whole_document" else CANDIDATE_LIMIT,
             len(unit_document_ids),
         ),
         show_progress=False,
@@ -131,9 +129,7 @@ def run_bm25(
                     for document_id, score in benchmark.qrels[query.query_id].items()
                     if score > 0
                 ),
-                "metrics": asdict(
-                    query_metrics(ranking, benchmark.qrels[query.query_id])
-                ),
+                "metrics": asdict(query_metrics(ranking, benchmark.qrels[query.query_id])),
             }
         )
     metrics = aggregate_metrics(rankings, benchmark.qrels)
@@ -169,14 +165,10 @@ def run_bm25(
             "document_granularity": document_granularity,
             "indexed_units": len(corpus),
             "chunk_target_tokens": (
-                selected_chunking.target_tokens
-                if document_granularity == "chunks"
-                else None
+                selected_chunking.target_tokens if document_granularity == "chunks" else None
             ),
             "chunk_overlap_tokens": (
-                selected_chunking.overlap_tokens
-                if document_granularity == "chunks"
-                else None
+                selected_chunking.overlap_tokens if document_granularity == "chunks" else None
             ),
             "result_limit": RESULT_LIMIT,
             "candidate_limit": (
@@ -188,9 +180,7 @@ def run_bm25(
             "system": "Anserini flat BM25",
             "ndcg_at_10": reference_score,
             "absolute_difference": (
-                metrics["ndcg_at_10"] - reference_score
-                if reference_score is not None
-                else None
+                metrics["ndcg_at_10"] - reference_score if reference_score is not None else None
             ),
             "url": SCIFACT_ANSERINI_REFERENCE,
         },
@@ -209,9 +199,7 @@ def run_bm25(
 
 def write_report(report: dict[str, Any], output: Path) -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(
-        json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-    )
+    output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     dataset = report["dataset"]
     metrics = report["metrics"]
     reference = report["reference"]
@@ -292,9 +280,7 @@ def main() -> None:
     )
     granularity_label = "chunked-" if args.document_granularity == "chunks" else ""
     output = args.output or (
-        DEFAULT_REPORT_DIR
-        / args.dataset
-        / f"bm25-{granularity_label}{args.split}-retrieval.json"
+        DEFAULT_REPORT_DIR / args.dataset / f"bm25-{granularity_label}{args.split}-retrieval.json"
     )
     write_report(report, output)
     print(json.dumps(report["metrics"], indent=2))

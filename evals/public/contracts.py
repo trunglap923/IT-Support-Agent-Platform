@@ -44,9 +44,7 @@ class PublicDocument:
 
     @property
     def retrieval_text(self) -> str:
-        return "\n\n".join(
-            part.strip() for part in (self.title, self.text) if part.strip()
-        )
+        return "\n\n".join(part.strip() for part in (self.title, self.text) if part.strip())
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,9 +69,7 @@ class PublicBenchmark:
 
     def __post_init__(self) -> None:
         if self.split not in self.manifest.supported_splits:
-            raise ValueError(
-                f"Split {self.split!r} is not supported by {self.manifest.dataset_id}"
-            )
+            raise ValueError(f"Split {self.split!r} is not supported by {self.manifest.dataset_id}")
         document_ids = [item.document_id for item in self.documents]
         query_ids = [item.query_id for item in self.queries]
         if len(document_ids) != len(set(document_ids)):
@@ -91,9 +87,7 @@ class PublicBenchmark:
             if unknown_documents:
                 unknown = min(unknown_documents)
                 raise ValueError(f"Qrels references unknown document {unknown!r}")
-            normalized = {
-                document_id: int(score) for document_id, score in judgments.items()
-            }
+            normalized = {document_id: int(score) for document_id, score in judgments.items()}
             if any(score < 0 for score in normalized.values()):
                 raise ValueError("Qrels relevance scores cannot be negative")
             frozen_qrels[query_id] = MappingProxyType(normalized)

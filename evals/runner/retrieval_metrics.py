@@ -46,9 +46,7 @@ def ndcg_at_k(ranked: Sequence[str], relevance: Mapping[str, int], k: int) -> fl
     gains = [relevance.get(item, 0) for item in unique_at_k(ranked, k)]
     dcg = sum((2**gain - 1) / math.log2(rank + 1) for rank, gain in enumerate(gains, 1))
     ideal = sorted(relevance.values(), reverse=True)[:k]
-    idcg = sum(
-        (2**gain - 1) / math.log2(rank + 1) for rank, gain in enumerate(ideal, 1)
-    )
+    idcg = sum((2**gain - 1) / math.log2(rank + 1) for rank, gain in enumerate(ideal, 1))
     return dcg / idcg if idcg else 0.0
 
 

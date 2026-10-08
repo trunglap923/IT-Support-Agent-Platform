@@ -27,7 +27,6 @@ from app.memory.hybrid import (
 )
 from app.providers.embeddings import deterministic_fake_embedding
 from app.providers.factory import create_embedding_provider
-
 from evals.public.metrics import aggregate_metrics, query_metrics
 from evals.public_memory.adapters import MEMORY_DATASETS, load_memory_benchmark
 from evals.public_memory.contracts import MemoryRecord, MemoryRetrievalBenchmark
@@ -39,9 +38,7 @@ from evals.public_memory.embeddings import (
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CACHE_DIR = ROOT / ".cache" / "public-benchmarks"
 DEFAULT_REPORT_DIR = ROOT / "reports" / "public" / "memory"
-DEFAULT_EMBEDDING_CACHE = (
-    DEFAULT_CACHE_DIR / "memory" / "embeddings" / "public-memory.sqlite3"
-)
+DEFAULT_EMBEDDING_CACHE = DEFAULT_CACHE_DIR / "memory" / "embeddings" / "public-memory.sqlite3"
 RESULT_LIMIT = 10
 _TOKEN = re.compile(r"[\w.-]+", re.UNICODE)
 
@@ -50,14 +47,11 @@ def _terms(value: str) -> list[str]:
     return [item.casefold() for item in _TOKEN.findall(value) if len(item) > 1]
 
 
-def _lexical_rank(
-    query: str, records: Sequence[MemoryRecord]
-) -> tuple[list[str], list[float]]:
+def _lexical_rank(query: str, records: Sequence[MemoryRecord]) -> tuple[list[str], list[float]]:
     query_terms = set(_terms(query))
     scored = [
         (
-            len(query_terms.intersection(_terms(record.text)))
-            / max(1, min(8, len(query_terms))),
+            len(query_terms.intersection(_terms(record.text))) / max(1, min(8, len(query_terms))),
             record.record_id,
         )
         for record in records
@@ -94,9 +88,7 @@ def _bm25_rank(
                 continue
             document_frequency = document_frequencies[term]
             inverse_document_frequency = math.log(
-                1
-                + (document_count - document_frequency + 0.5)
-                / (document_frequency + 0.5)
+                1 + (document_count - document_frequency + 0.5) / (document_frequency + 0.5)
             )
             score += inverse_document_frequency * (
                 frequency * (k1 + 1) / (frequency + k1 * length_normalization)
@@ -168,9 +160,7 @@ def _evaluate_variant(
         "name": name,
         "metrics": aggregate_metrics(rankings, qrels),
         "metrics_by_category": {
-            category: aggregate_metrics(
-                category_rankings[category], category_qrels[category]
-            )
+            category: aggregate_metrics(category_rankings[category], category_qrels[category])
             for category in sorted(category_rankings)
         },
         "timing": {
@@ -192,9 +182,7 @@ def run_benchmark(
     include_results: bool = False,
     production_embeddings: BenchmarkEmbeddings | None = None,
 ) -> dict[str, Any]:
-    rankers: dict[
-        str, Callable[[str, Sequence[MemoryRecord]], tuple[list[str], list[float]]]
-    ] = {
+    rankers: dict[str, Callable[[str, Sequence[MemoryRecord]], tuple[list[str], list[float]]]] = {
         "lexical": _lexical_rank,
         "bm25": _bm25_rank,
     }
@@ -261,9 +249,7 @@ def run_benchmark(
                     HybridMemoryItem(
                         item_id=record.record_id,
                         text=record.text,
-                        embedding=production_embeddings.record_vectors[
-                            record.record_id
-                        ],
+                        embedding=production_embeddings.record_vectors[record.record_id],
                         embedding_model=production_embeddings.model,
                         embedding_dimensions=production_embeddings.dimensions,
                         exact_terms=(),
@@ -410,9 +396,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def _paid_openai_enabled() -> bool:
-    return os.getenv(
-        "RUN_PAID_PUBLIC_MEMORY_BENCHMARK", "false"
-    ).strip().casefold() in {
+    return os.getenv("RUN_PAID_PUBLIC_MEMORY_BENCHMARK", "false").strip().casefold() in {
         "1",
         "true",
         "yes",
@@ -443,9 +427,7 @@ async def async_main() -> None:
             )
         settings = Settings(embedding_provider=AIProvider.OPENAI)
         if settings.database_url is None:
-            raise SystemExit(
-                "DATABASE_URL is required for the guarded OpenAI benchmark"
-            )
+            raise SystemExit("DATABASE_URL is required for the guarded OpenAI benchmark")
         database = Database(settings.database_url.get_secret_value())
         provider = create_embedding_provider(settings, database, timeout_seconds=120.0)
         try:
@@ -485,9 +467,7 @@ async def async_main() -> None:
     _write_markdown(report, markdown_path)
     summary = {
         "dataset": report["dataset"],
-        "metrics": {
-            name: result["metrics"] for name, result in report["variants"].items()
-        },
+        "metrics": {name: result["metrics"] for name, result in report["variants"].items()},
         "reports": {"json": str(json_path), "markdown": str(markdown_path)},
     }
     print(json.dumps(summary, ensure_ascii=False, indent=2))

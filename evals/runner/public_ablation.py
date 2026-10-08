@@ -14,6 +14,10 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
+from sqlalchemy import create_engine, text
+from sqlalchemy.engine import make_url
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.auth.principal import Principal
 from app.db import Database
 from app.db.models import UserRole
@@ -30,10 +34,6 @@ from app.rag.retrieval.fusion import ReciprocalRankFusion
 from app.rag.retrieval.models import QuerySpec, RetrievalCandidate, RetrievalRequest
 from app.rag.retrieval.rerank import WeightedFeatureReranker
 from app.rag.retrieval.sparse import Bm25SparseRetriever, PostgresSparseRetriever
-from sqlalchemy import create_engine, text
-from sqlalchemy.engine import make_url
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from evals.public.adapters.beir import BEIR_DATASETS, load_beir_dataset
 from evals.public.contracts import PublicBenchmark, PublicQuery
 from evals.public.metrics import aggregate_metrics, query_metrics
@@ -110,9 +110,7 @@ async def _candidate_branches(
     analyzer = DeterministicQueryAnalyzer()
     retry = LowConfidenceRetry()
     rewrite_policy = QueryRewritePolicy()
-    spec = analyzer.analyze(
-        RetrievalRequest(raw_query=query.text, result_limit=RESULT_LIMIT)
-    )
+    spec = analyzer.analyze(RetrievalRequest(raw_query=query.text, result_limit=RESULT_LIMIT))
     semantic_queries = retry.semantic_queries(spec, policy=rewrite_policy)
     query_batch = await query_provider.embed(
         list(semantic_queries),
@@ -130,9 +128,7 @@ async def _candidate_branches(
         )
         for candidate in candidates:
             previous = dense_by_chunk.get(candidate.chunk_id)
-            if previous is None or (candidate.dense_score or 0.0) > (
-                previous.dense_score or 0.0
-            ):
+            if previous is None or (candidate.dense_score or 0.0) > (previous.dense_score or 0.0):
                 dense_by_chunk[candidate.chunk_id] = candidate
     dense = _rerank_dense_candidates(dense_by_chunk)
     postgres_sparse = await PostgresSparseRetriever().retrieve(
@@ -188,12 +184,9 @@ async def evaluate_ablation(
             embedding_model=embedding_model,
             chunking=chunking,
         )
-        selected_queries = (
-            benchmark.queries[:query_limit] if query_limit else benchmark.queries
-        )
+        selected_queries = benchmark.queries[:query_limit] if query_limit else benchmark.queries
         selected_qrels = {
-            query.query_id: benchmark.qrels[query.query_id]
-            for query in selected_queries
+            query.query_id: benchmark.qrels[query.query_id] for query in selected_queries
         }
         selected_benchmark = PublicBenchmark(
             manifest=benchmark.manifest,
@@ -202,9 +195,7 @@ async def evaluate_ablation(
             queries=selected_queries,
             qrels=selected_qrels,
         )
-        query_provider = await _precompute_query_embeddings(
-            provider, selected_benchmark
-        )
+        query_provider = await _precompute_query_embeddings(provider, selected_benchmark)
         principal = Principal(
             user_id=uuid4(),
             session_id=uuid4(),
@@ -221,13 +212,9 @@ async def evaluate_ablation(
         fusion = ReciprocalRankFusion(k=60)
         reranker = WeightedFeatureReranker()
         bm25_retriever = Bm25SparseRetriever()
-        rankings: dict[str, dict[str, list[str]]] = {
-            variant: {} for variant in VARIANTS
-        }
+        rankings: dict[str, dict[str, list[str]]] = {variant: {} for variant in VARIANTS}
         fusion_rankings: dict[str, dict[str, list[str]]] = (
-            {_weight_key(weights): {} for weights in FUSION_WEIGHT_GRID}
-            if tune_fusion
-            else {}
+            {_weight_key(weights): {} for weights in FUSION_WEIGHT_GRID} if tune_fusion else {}
         )
         cases: list[dict[str, Any]] = []
         retrieval_started_at = time.monotonic()
@@ -266,35 +253,25 @@ async def evaluate_ablation(
                 ).fuse(dense, bm25_sparse, exact)
                 selected_by_variant = {
                     "dense_only": diversity.select(dense, limit=RESULT_LIMIT),
-                    "postgres_fts_only": diversity.select(
-                        postgres_sparse, limit=RESULT_LIMIT
-                    ),
+                    "postgres_fts_only": diversity.select(postgres_sparse, limit=RESULT_LIMIT),
                     "bm25_only": diversity.select(bm25_sparse, limit=RESULT_LIMIT),
-                    "hybrid_postgres_rrf": diversity.select(
-                        postgres_fused, limit=RESULT_LIMIT
-                    ),
+                    "hybrid_postgres_rrf": diversity.select(postgres_fused, limit=RESULT_LIMIT),
                     "hybrid_postgres_weighted": diversity.select(
                         postgres_weighted, limit=RESULT_LIMIT
                     ),
                     "hybrid_bm25_rrf": diversity.select(bm25_fused, limit=RESULT_LIMIT),
-                    "hybrid_bm25_weighted": diversity.select(
-                        bm25_weighted, limit=RESULT_LIMIT
-                    ),
+                    "hybrid_bm25_weighted": diversity.select(bm25_weighted, limit=RESULT_LIMIT),
                     "hybrid_bm25_train_tuned": diversity.select(
                         train_tuned_fused[:CANDIDATE_LIMIT], limit=RESULT_LIMIT
                     ),
                 }
                 case_variants: dict[str, Any] = {}
                 for variant, candidates in selected_by_variant.items():
-                    ranking = [
-                        key_to_official_id[item.document_key] for item in candidates
-                    ]
+                    ranking = [key_to_official_id[item.document_key] for item in candidates]
                     rankings[variant][query.query_id] = ranking
                     case_variants[variant] = {
                         "ranking": ranking,
-                        "metrics": asdict(
-                            query_metrics(ranking, selected_qrels[query.query_id])
-                        ),
+                        "metrics": asdict(query_metrics(ranking, selected_qrels[query.query_id])),
                     }
                 for weights in FUSION_WEIGHT_GRID if tune_fusion else ():
                     key = _weight_key(weights)
@@ -316,9 +293,7 @@ async def evaluate_ablation(
                         "query": query.text,
                         "relevant_documents": sorted(
                             document_id
-                            for document_id, score in selected_qrels[
-                                query.query_id
-                            ].items()
+                            for document_id, score in selected_qrels[query.query_id].items()
                             if score > 0
                         ),
                         "variants": case_variants,
@@ -341,9 +316,7 @@ async def evaluate_ablation(
                     "sparse": weights[1],
                     "exact": weights[2],
                 },
-                "metrics": aggregate_metrics(
-                    fusion_rankings[_weight_key(weights)], selected_qrels
-                ),
+                "metrics": aggregate_metrics(fusion_rankings[_weight_key(weights)], selected_qrels),
             }
             for weights in FUSION_WEIGHT_GRID
             if tune_fusion
@@ -438,9 +411,7 @@ async def evaluate_ablation(
 
 def write_report(report: dict[str, Any], output: Path) -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(
-        json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-    )
+    output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     rows = "\n".join(
         "| "
         + variant
@@ -534,12 +505,8 @@ def main() -> None:
         or os.getenv("DATABASE_URL")
     )
     if not configured:
-        raise SystemExit(
-            "Set TEST_DATABASE_ADMIN_URL to run the isolated public ablation"
-        )
-    admin_url = make_url(configured).set(
-        drivername="postgresql+psycopg", database="postgres"
-    )
+        raise SystemExit("Set TEST_DATABASE_ADMIN_URL to run the isolated public ablation")
+    admin_url = make_url(configured).set(drivername="postgresql+psycopg", database="postgres")
     database_name = f"test_public_ablation_{uuid4().hex}"
     target_url = admin_url.set(database=database_name)
     admin_engine = create_engine(admin_url, isolation_level="AUTOCOMMIT")
@@ -549,9 +516,7 @@ def main() -> None:
             connection.execute(text(f'CREATE DATABASE "{database_name}"'))
         database_created = True
         environment = os.environ.copy()
-        environment["MIGRATION_DATABASE_URL"] = target_url.render_as_string(
-            hide_password=False
-        )
+        environment["MIGRATION_DATABASE_URL"] = target_url.render_as_string(hide_password=False)
         subprocess.run(
             [sys.executable, "-m", "alembic", "-c", "alembic.ini", "upgrade", "head"],
             cwd=BACKEND_ROOT,
@@ -586,17 +551,11 @@ def main() -> None:
     finally:
         if database_created:
             with admin_engine.connect() as connection:
-                connection.execute(
-                    text(f'DROP DATABASE IF EXISTS "{database_name}" WITH (FORCE)')
-                )
+                connection.execute(text(f'DROP DATABASE IF EXISTS "{database_name}" WITH (FORCE)'))
         admin_engine.dispose()
     print(json.dumps(report["variants"], indent=2))
     if report.get("fusion_tuning"):
-        print(
-            json.dumps(
-                {"selected_fusion": report["fusion_tuning"]["selected"]}, indent=2
-            )
-        )
+        print(json.dumps({"selected_fusion": report["fusion_tuning"]["selected"]}, indent=2))
 
 
 if __name__ == "__main__":

@@ -424,8 +424,7 @@ def write_dataset() -> None:
         selected = [case for case in cases if case["split"] == split]
         target.write_text(
             "".join(
-                json.dumps(case, ensure_ascii=False, sort_keys=True) + "\n"
-                for case in selected
+                json.dumps(case, ensure_ascii=False, sort_keys=True) + "\n" for case in selected
             ),
             encoding="utf-8",
         )

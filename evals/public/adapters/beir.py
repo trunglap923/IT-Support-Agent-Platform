@@ -23,8 +23,7 @@ BEIR_DATASETS: dict[str, PublicBenchmarkManifest] = {
         dataset_id="scifact",
         display_name="BEIR SciFact",
         source_url=(
-            "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/"
-            "datasets/scifact.zip"
+            "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/scifact.zip"
         ),
         homepage_url="https://github.com/allenai/scifact",
         checksum_algorithm="md5",
@@ -75,9 +74,7 @@ def _safe_extract(archive: Path, destination: Path) -> None:
         for member in bundle.infolist():
             target = (destination / member.filename).resolve()
             if target != root and root not in target.parents:
-                raise ValueError(
-                    f"Unsafe path in benchmark archive: {member.filename!r}"
-                )
+                raise ValueError(f"Unsafe path in benchmark archive: {member.filename!r}")
         bundle.extractall(destination)
 
 
@@ -97,9 +94,7 @@ def _load_jsonl(path: Path) -> list[dict[str, Any]]:
 def _locate_dataset_root(extracted_root: Path, dataset_id: str) -> Path:
     candidates = (extracted_root / dataset_id, extracted_root)
     for candidate in candidates:
-        if (candidate / "corpus.jsonl").is_file() and (
-            candidate / "queries.jsonl"
-        ).is_file():
+        if (candidate / "corpus.jsonl").is_file() and (candidate / "queries.jsonl").is_file():
             return candidate
     raise FileNotFoundError(f"Could not locate extracted BEIR dataset {dataset_id!r}")
 

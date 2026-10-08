@@ -15,7 +15,6 @@ from app.providers.structured import (
     SupportReply,
     validate_reply_sources,
 )
-
 from evals.runner.load_cases import EvaluationCase
 from evals.runner.scorers import ExecutionOutput, score_case
 
@@ -31,13 +30,9 @@ class CaseRun:
 
 
 def _scripted_output(case: EvaluationCase) -> ExecutionOutput:
-    sources = tuple(
-        f"eval-source-{index}" for index, _ in enumerate(case.relevant_evidence, 1)
-    )
+    sources = tuple(f"eval-source-{index}" for index, _ in enumerate(case.relevant_evidence, 1))
     actual_outcome = (
-        "no_answer"
-        if case.expected_outcome in {"abstain", "clarify"}
-        else case.expected_outcome
+        "no_answer" if case.expected_outcome in {"abstain", "clarify"} else case.expected_outcome
     )
     return ExecutionOutput(
         outcome=actual_outcome,
@@ -214,7 +209,7 @@ async def execute_case(
             )
         else:
             output = _scripted_output(case)
-    except Exception as exc:  # noqa: BLE001 - evaluation records provider/runtime failures
+    except Exception as exc:
         error_type = type(exc).__name__
         output = ExecutionOutput(
             outcome="runner_error",

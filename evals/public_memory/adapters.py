@@ -100,16 +100,11 @@ def _load_source(
     path: Path,
     allow_download: bool,
 ) -> list[dict[str, Any]]:
-    if (
-        path.exists()
-        and _file_checksum(path, manifest.checksum_algorithm) != manifest.checksum
-    ):
+    if path.exists() and _file_checksum(path, manifest.checksum_algorithm) != manifest.checksum:
         raise ValueError(f"Cached benchmark checksum does not match manifest: {path}")
     if not path.exists():
         if not allow_download:
-            raise FileNotFoundError(
-                f"Benchmark is not cached at {path}; enable downloads first"
-            )
+            raise FileNotFoundError(f"Benchmark is not cached at {path}; enable downloads first")
         _download(manifest, path)
     value = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(value, list) or not all(isinstance(row, dict) for row in value):
@@ -127,9 +122,7 @@ def _render_dialogue(turns: list[dict[str, Any]], *, date: str | None = None) ->
     return "\n".join(lines)
 
 
-def load_locomo(
-    *, cache_dir: Path, allow_download: bool = True
-) -> MemoryRetrievalBenchmark:
+def load_locomo(*, cache_dir: Path, allow_download: bool = True) -> MemoryRetrievalBenchmark:
     path = cache_dir / "memory" / "locomo" / "locomo10.json"
     rows = _load_source(LOCOMO, path=path, allow_download=allow_download)
     records: list[MemoryRecord] = []
@@ -172,9 +165,7 @@ def load_locomo(
                 for match in _EVIDENCE_ID.finditer(evidence_id)
             }
             relevant = tuple(
-                session_ids[number]
-                for number in sorted(relevant_numbers)
-                if number in session_ids
+                session_ids[number] for number in sorted(relevant_numbers) if number in session_ids
             )
             if not relevant:
                 excluded += 1
@@ -204,9 +195,7 @@ def load_locomo(
     )
 
 
-def _stable_sample(
-    values: list[str], *, count: int, seed: int, query_id: str
-) -> tuple[str, ...]:
+def _stable_sample(values: list[str], *, count: int, seed: int, query_id: str) -> tuple[str, ...]:
     digest = hashlib.sha256(f"{seed}:{query_id}".encode()).digest()
     generator = random.Random(int.from_bytes(digest[:8], "big"))
     return tuple(generator.sample(values, k=min(count, len(values))))
@@ -222,9 +211,7 @@ def load_longmemeval_oracle_mix(
     if distractor_count < 1:
         raise ValueError("LongMemEval oracle mix requires at least one distractor")
     path = cache_dir / "memory" / "longmemeval" / "longmemeval_oracle.json"
-    rows = _load_source(
-        LONGMEMEVAL_ORACLE_MIX, path=path, allow_download=allow_download
-    )
+    rows = _load_source(LONGMEMEVAL_ORACLE_MIX, path=path, allow_download=allow_download)
     records_by_id: dict[str, MemoryRecord] = {}
     row_session_ids: dict[str, tuple[str, ...]] = {}
     for row in rows:
@@ -233,15 +220,11 @@ def load_longmemeval_oracle_mix(
         dates = row["haystack_dates"]
         sessions = row["haystack_sessions"]
         if not (
-            isinstance(session_ids, list)
-            and isinstance(dates, list)
-            and isinstance(sessions, list)
+            isinstance(session_ids, list) and isinstance(dates, list) and isinstance(sessions, list)
         ):
             raise TypeError("LongMemEval session fields must be lists")
         if not (len(session_ids) == len(dates) == len(sessions)):
-            raise ValueError(
-                f"LongMemEval session fields differ for {row['question_id']!r}"
-            )
+            raise ValueError(f"LongMemEval session fields differ for {row['question_id']!r}")
         namespaced_ids: list[str] = []
         for session_id, date, turns in zip(session_ids, dates, sessions, strict=True):
             if not isinstance(turns, list):
@@ -274,9 +257,7 @@ def load_longmemeval_oracle_mix(
             for record_id in row_session_ids[query_id]
             if records_by_id[record_id].metadata["official_session_id"] in official_gold
         )
-        distractor_pool = [
-            record_id for record_id in all_record_ids if record_id not in relevant
-        ]
+        distractor_pool = [record_id for record_id in all_record_ids if record_id not in relevant]
         distractors = _stable_sample(
             distractor_pool,
             count=distractor_count,

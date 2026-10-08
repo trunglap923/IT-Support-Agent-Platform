@@ -53,13 +53,9 @@ class MemoryRetrievalQuery:
         if not self.query_id.strip() or not self.text.strip():
             raise ValueError("Memory query ID and text cannot be empty")
         if not self.candidate_ids or not self.relevant_ids:
-            raise ValueError(
-                f"Memory query {self.query_id!r} has no candidates or gold evidence"
-            )
+            raise ValueError(f"Memory query {self.query_id!r} has no candidates or gold evidence")
         if not set(self.relevant_ids).issubset(self.candidate_ids):
-            raise ValueError(
-                f"Gold evidence is outside candidate set for {self.query_id!r}"
-            )
+            raise ValueError(f"Gold evidence is outside candidate set for {self.query_id!r}")
         object.__setattr__(self, "metadata", MappingProxyType(dict(self.metadata)))
 
 
@@ -87,7 +83,5 @@ class MemoryRetrievalBenchmark:
                     f"Memory query {query.query_id!r} references unknown record {min(unknown)!r}"
                 )
         if self.official_query_count < len(self.queries):
-            raise ValueError(
-                "Official query count cannot be smaller than loaded queries"
-            )
+            raise ValueError("Official query count cannot be smaller than loaded queries")
         object.__setattr__(self, "derivation", MappingProxyType(dict(self.derivation)))

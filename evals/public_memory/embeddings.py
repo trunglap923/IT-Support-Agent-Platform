@@ -11,7 +11,6 @@ from pathlib import Path
 from uuid import uuid4
 
 from app.providers.embeddings import EmbeddingProvider
-
 from evals.public_memory.contracts import (
     MemoryRetrievalBenchmark,
     MemoryRetrievalQuery,
@@ -120,8 +119,7 @@ async def prepare_benchmark_embeddings(
 
     texts = tuple(
         dict.fromkeys(
-            [record.text for record in benchmark.records]
-            + [query.text for query in queries]
+            [record.text for record in benchmark.records] + [query.text for query in queries]
         )
     )
     texts_by_hash = {_text_hash(text): text for text in texts}
@@ -141,15 +139,12 @@ async def prepare_benchmark_embeddings(
             for text_hash, text in texts_by_hash.items()
             if text_hash not in vectors
         ]
-        for batch_number, start in enumerate(
-            range(0, len(missing), EMBEDDING_BATCH_SIZE)
-        ):
+        for batch_number, start in enumerate(range(0, len(missing), EMBEDDING_BATCH_SIZE)):
             group = missing[start : start + EMBEDDING_BATCH_SIZE]
             result = await provider.embed(
                 [text for _, text in group],
                 operation_id=(
-                    f"public-memory:{benchmark.manifest.dataset_id}:"
-                    f"{run_id}:batch:{batch_number}"
+                    f"public-memory:{benchmark.manifest.dataset_id}:{run_id}:batch:{batch_number}"
                 ),
             )
             if result.model != model or result.dimensions != dimensions:
@@ -174,12 +169,9 @@ async def prepare_benchmark_embeddings(
         model=model,
         dimensions=dimensions,
         record_vectors={
-            record.record_id: vectors[_text_hash(record.text)]
-            for record in benchmark.records
+            record.record_id: vectors[_text_hash(record.text)] for record in benchmark.records
         },
-        query_vectors={
-            query.text: vectors[_text_hash(query.text)] for query in queries
-        },
+        query_vectors={query.text: vectors[_text_hash(query.text)] for query in queries},
         cache_hits=cache_hits,
         api_inputs=api_inputs,
         input_tokens=input_tokens,

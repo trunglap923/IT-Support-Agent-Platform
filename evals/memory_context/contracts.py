@@ -6,9 +6,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-CONTEXT_BASELINE_CASE_VERSION: Literal["context-baseline-case-v1"] = (
-    "context-baseline-case-v1"
-)
+CONTEXT_BASELINE_CASE_VERSION: Literal["context-baseline-case-v1"] = "context-baseline-case-v1"
 
 
 class BaselineHistoryMessage(BaseModel):
@@ -36,9 +34,7 @@ class BaselineExpectations(BaseModel):
     required_context_terms: tuple[str, ...] = Field(default=(), max_length=30)
     forbidden_context_terms: tuple[str, ...] = Field(default=(), max_length=30)
     required_confirmed_attempt_terms: tuple[str, ...] = Field(default=(), max_length=20)
-    forbidden_confirmed_attempt_terms: tuple[str, ...] = Field(
-        default=(), max_length=20
-    )
+    forbidden_confirmed_attempt_terms: tuple[str, ...] = Field(default=(), max_length=20)
 
 
 class ContextBaselineCase(BaseModel):
@@ -77,7 +73,5 @@ class ContextBaselineCase(BaseModel):
                 expected.forbidden_confirmed_attempt_terms,
             )
         ):
-            raise ValueError(
-                "A baseline case must declare at least one observable expectation"
-            )
+            raise ValueError("A baseline case must declare at least one observable expectation")
         return self

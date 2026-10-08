@@ -20,12 +20,8 @@ DATABASE_USER = "eval_runner"
 DATABASE_PASSWORD = "eval-only-local-password"
 
 
-def _docker(
-    *args: str, capture_output: bool = False
-) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        ["docker", *args], check=True, text=True, capture_output=capture_output
-    )
+def _docker(*args: str, capture_output: bool = False) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(["docker", *args], check=True, text=True, capture_output=capture_output)
 
 
 def _published_port(container_name: str) -> int:
@@ -61,9 +57,7 @@ def _wait_until_ready(container_name: str) -> None:
         if result.returncode == 0:
             return
         time.sleep(1)
-    raise RuntimeError(
-        f"Evaluation PostgreSQL was not ready within {timeout:g} seconds"
-    )
+    raise RuntimeError(f"Evaluation PostgreSQL was not ready within {timeout:g} seconds")
 
 
 def _migrate(database_url: str) -> None:
@@ -135,9 +129,7 @@ def main() -> None:
             f"postgresql+psycopg://{DATABASE_USER}:{DATABASE_PASSWORD}"
             f"@127.0.0.1:{port}/{DATABASE_NAME}"
         )
-        async_url = sync_url.replace(
-            "postgresql+psycopg://", "postgresql+asyncpg://", 1
-        )
+        async_url = sync_url.replace("postgresql+psycopg://", "postgresql+asyncpg://", 1)
         _migrate(sync_url)
         _evaluate(async_url)
     finally:

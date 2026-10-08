@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from evals.memory_context.contracts import ContextBaselineCase
+
 from app.agent.context.contracts import (
     ActiveContext,
     ContextBuildRequest,
@@ -16,8 +18,6 @@ from app.agent.working_memory.contracts import (
     WorkingMemorySnapshot,
 )
 from app.memory.contracts import MemoryDecisionRecord, MemoryMutationProposal
-
-from evals.memory_context.contracts import ContextBaselineCase
 
 ROOT = Path(__file__).resolve().parents[2]
 OUTPUT_ROOT = ROOT / "docs" / "contracts"
@@ -37,9 +37,7 @@ CONTRACTS = {
 def _schema(model: Any, filename: str) -> dict[str, Any]:
     schema = model.model_json_schema(mode="validation")
     schema["$schema"] = "https://json-schema.org/draft/2020-12/schema"
-    schema["$id"] = (
-        f"urn:it-support-agent:schema:{filename.removesuffix('.schema.json')}"
-    )
+    schema["$id"] = f"urn:it-support-agent:schema:{filename.removesuffix('.schema.json')}"
     return schema
 
 
@@ -48,9 +46,7 @@ def main() -> None:
     for filename, model in CONTRACTS.items():
         destination = OUTPUT_ROOT / filename
         destination.write_text(
-            json.dumps(
-                _schema(model, filename), indent=2, ensure_ascii=False, sort_keys=True
-            )
+            json.dumps(_schema(model, filename), indent=2, ensure_ascii=False, sort_keys=True)
             + "\n",
             encoding="utf-8",
         )

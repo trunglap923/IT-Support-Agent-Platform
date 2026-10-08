@@ -31,12 +31,8 @@ def _dcg(ranking: Sequence[str], qrels: Mapping[str, int], k: int) -> float:
 def query_metrics(ranking: Sequence[str], qrels: Mapping[str, int]) -> QueryMetrics:
     relevant = _relevant(qrels)
     if not relevant:
-        raise ValueError(
-            "A public benchmark query must have a positive relevance judgment"
-        )
-    ideal_scores = sorted(
-        (score for score in qrels.values() if score > 0), reverse=True
-    )
+        raise ValueError("A public benchmark query must have a positive relevance judgment")
+    ideal_scores = sorted((score for score in qrels.values() if score > 0), reverse=True)
     ideal_dcg = sum(
         (2**score - 1) / math.log2(rank + 1)
         for rank, score in enumerate(ideal_scores[:10], start=1)
@@ -67,13 +63,8 @@ def aggregate_metrics(
     if set(rankings) != set(qrels):
         missing = sorted(set(qrels) - set(rankings))
         extra = sorted(set(rankings) - set(qrels))
-        raise ValueError(
-            f"Ranking/query mismatch; missing={missing[:1]}, extra={extra[:1]}"
-        )
-    values = [
-        query_metrics(rankings[query_id], judgments)
-        for query_id, judgments in qrels.items()
-    ]
+        raise ValueError(f"Ranking/query mismatch; missing={missing[:1]}, extra={extra[:1]}")
+    values = [query_metrics(rankings[query_id], judgments) for query_id, judgments in qrels.items()]
     if not values:
         raise ValueError("Cannot aggregate an empty public benchmark")
     return {

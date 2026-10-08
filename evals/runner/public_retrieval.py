@@ -17,6 +17,10 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from sqlalchemy import create_engine, text
+from sqlalchemy.engine import make_url
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.auth.principal import Principal
 from app.config import AIProvider, Settings
 from app.db import Database
@@ -51,10 +55,6 @@ from app.rag.retrieval.analysis import (
 from app.rag.retrieval.diversity import DocumentDiversitySelector
 from app.rag.retrieval.models import RetrievalRequest
 from app.rag.retrieval.query import HybridRetriever
-from sqlalchemy import create_engine, text
-from sqlalchemy.engine import make_url
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from evals.public.adapters.beir import BEIR_DATASETS, load_beir_dataset
 from evals.public.contracts import PublicBenchmark
 from evals.public.metrics import aggregate_metrics, query_metrics
@@ -109,9 +109,7 @@ def _checksum(content: str) -> str:
     return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
 
-def _embedding_provider(
-    database: Database, provider_name: str
-) -> tuple[EmbeddingProvider, str]:
+def _embedding_provider(database: Database, provider_name: str) -> tuple[EmbeddingProvider, str]:
     if provider_name == "fake":
         return FakeEmbeddingProvider(dimensions=1536), "fake-embedding-v2"
     if provider_name != "openai":
@@ -244,13 +242,9 @@ async def seed_public_corpus(
                     for draft in section_drafts
                 ]
             )
-            drafts = chunk_blocks(
-                version_id=version.id, blocks=[block], config=chunking
-            )
+            drafts = chunk_blocks(version_id=version.id, blocks=[block], config=chunking)
             # The schema intentionally rejects duplicate chunks within one document version.
-            unique_drafts = list(
-                {draft.content_hash: draft for draft in drafts}.values()
-            )
+            unique_drafts = list({draft.content_hash: draft for draft in drafts}.values())
             pending_chunks.extend((draft, version) for draft in unique_drafts)
             document.current_version_id = version.id
         await _embed_chunks(
@@ -286,9 +280,7 @@ async def _precompute_query_embeddings(
         group = list(texts[start : start + EMBEDDING_BATCH_SIZE])
         batch = await provider.embed(
             group,
-            operation_id=(
-                f"public:{benchmark.manifest.dataset_id}:queries:{batch_number}"
-            ),
+            operation_id=(f"public:{benchmark.manifest.dataset_id}:queries:{batch_number}"),
         )
         model = batch.model
         dimensions = batch.dimensions
@@ -321,12 +313,9 @@ async def evaluate(
             chunking=chunking,
         )
         indexing_seconds = time.monotonic() - seed_started_at
-        selected_queries = (
-            benchmark.queries[:query_limit] if query_limit else benchmark.queries
-        )
+        selected_queries = benchmark.queries[:query_limit] if query_limit else benchmark.queries
         selected_qrels = {
-            query.query_id: benchmark.qrels[query.query_id]
-            for query in selected_queries
+            query.query_id: benchmark.qrels[query.query_id] for query in selected_queries
         }
         selected_benchmark = PublicBenchmark(
             manifest=benchmark.manifest,
@@ -335,9 +324,7 @@ async def evaluate(
             queries=selected_queries,
             qrels=selected_qrels,
         )
-        query_provider = await _precompute_query_embeddings(
-            provider, selected_benchmark
-        )
+        query_provider = await _precompute_query_embeddings(provider, selected_benchmark)
         retriever = HybridRetriever(
             embedding_provider=query_provider,
             diversity_selector=DocumentDiversitySelector(
@@ -376,9 +363,7 @@ async def evaluate(
                 latencies_ms.append(latency_ms)
                 ranking = [key_to_official_id[hit.document_key] for hit in hits]
                 rankings[query.query_id] = ranking
-                per_query_metrics = query_metrics(
-                    ranking, selected_qrels[query.query_id]
-                )
+                per_query_metrics = query_metrics(ranking, selected_qrels[query.query_id])
                 query_results.append(
                     {
                         "query_id": query.query_id,
@@ -386,9 +371,7 @@ async def evaluate(
                         "ranking": ranking,
                         "relevant_documents": sorted(
                             document_id
-                            for document_id, score in selected_qrels[
-                                query.query_id
-                            ].items()
+                            for document_id, score in selected_qrels[query.query_id].items()
                             if score > 0
                         ),
                         "metrics": asdict(per_query_metrics),
@@ -462,9 +445,7 @@ async def evaluate(
 
 def write_report(report: dict[str, Any], output: Path) -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(
-        json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-    )
+    output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     metrics = report["metrics"]
     dataset = report["dataset"]
     markdown = output.with_suffix(".md")
@@ -542,12 +523,8 @@ def main() -> None:
         or os.getenv("DATABASE_URL")
     )
     if not configured:
-        raise SystemExit(
-            "Set TEST_DATABASE_ADMIN_URL to run the isolated public benchmark"
-        )
-    admin_url = make_url(configured).set(
-        drivername="postgresql+psycopg", database="postgres"
-    )
+        raise SystemExit("Set TEST_DATABASE_ADMIN_URL to run the isolated public benchmark")
+    admin_url = make_url(configured).set(drivername="postgresql+psycopg", database="postgres")
     database_name = f"test_public_retrieval_{uuid4().hex}"
     target_url = admin_url.set(database=database_name)
     admin_engine = create_engine(admin_url, isolation_level="AUTOCOMMIT")
@@ -557,9 +534,7 @@ def main() -> None:
             connection.execute(text(f'CREATE DATABASE "{database_name}"'))
         database_created = True
         environment = os.environ.copy()
-        environment["MIGRATION_DATABASE_URL"] = target_url.render_as_string(
-            hide_password=False
-        )
+        environment["MIGRATION_DATABASE_URL"] = target_url.render_as_string(hide_password=False)
         subprocess.run(
             [sys.executable, "-m", "alembic", "-c", "alembic.ini", "upgrade", "head"],
             cwd=BACKEND_ROOT,
@@ -589,9 +564,7 @@ def main() -> None:
     finally:
         if database_created:
             with admin_engine.connect() as connection:
-                connection.execute(
-                    text(f'DROP DATABASE IF EXISTS "{database_name}" WITH (FORCE)')
-                )
+                connection.execute(text(f'DROP DATABASE IF EXISTS "{database_name}" WITH (FORCE)'))
         admin_engine.dispose()
     print(json.dumps(report["metrics"], indent=2))
 

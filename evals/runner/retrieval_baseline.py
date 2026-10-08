@@ -15,6 +15,10 @@ from pathlib import Path
 from typing import Any
 from uuid import NAMESPACE_URL, uuid4, uuid5
 
+from jsonschema import Draft202012Validator  # type: ignore[import-untyped]
+from sqlalchemy import create_engine, text
+from sqlalchemy.engine import make_url
+
 from app.auth.principal import Principal
 from app.config import AIProvider, Settings
 from app.db import Database
@@ -43,10 +47,6 @@ from app.rag.retrieval.fusion import ReciprocalRankFusion
 from app.rag.retrieval.query import HybridRetriever
 from app.rag.retrieval.rerank import CrossEncoderReranker, create_reranker
 from app.rag.retrieval.sparse import create_sparse_retriever
-from jsonschema import Draft202012Validator  # type: ignore[import-untyped]
-from sqlalchemy import create_engine, text
-from sqlalchemy.engine import make_url
-
 from evals.runner.retrieval_metrics import (
     duplicate_rate_at_k,
     ndcg_at_k,
@@ -95,9 +95,7 @@ CROSS_ENCODER_MODEL = os.getenv(
 CROSS_ENCODER_MODEL_FILE = os.getenv(
     "RETRIEVAL_CROSS_ENCODER_MODEL_FILE", "onnx/model_quint8_avx2.onnx"
 )
-CROSS_ENCODER_TIMEOUT_SECONDS = float(
-    os.getenv("RETRIEVAL_CROSS_ENCODER_TIMEOUT_SECONDS", "300")
-)
+CROSS_ENCODER_TIMEOUT_SECONDS = float(os.getenv("RETRIEVAL_CROSS_ENCODER_TIMEOUT_SECONDS", "300"))
 DEFAULT_EVIDENCE_SCORE_THRESHOLD = float(
     os.getenv("RETRIEVAL_BENCHMARK_EVIDENCE_THRESHOLD", "0.45")
 )
@@ -210,10 +208,7 @@ def _empty_score_samples() -> dict[str, dict[str, dict[str, list[float]]]]:
         "evidence_score",
     )
     return {
-        scope: {
-            label: {signal: [] for signal in signals}
-            for label in ("positive", "negative")
-        }
+        scope: {label: {signal: [] for signal in signals} for label in ("positive", "negative")}
         for scope in ("primary", "expanded")
     }
 
@@ -232,9 +227,7 @@ def _summarize_score_samples(
 
 def load_cases() -> list[RetrievalCase]:
     cases: list[RetrievalCase] = []
-    validator = Draft202012Validator(
-        json.loads(CASES_SCHEMA_PATH.read_text(encoding="utf-8"))
-    )
+    validator = Draft202012Validator(json.loads(CASES_SCHEMA_PATH.read_text(encoding="utf-8")))
     for line_number, line in enumerate(
         CASES_PATH.read_text(encoding="utf-8").splitlines(), start=1
     ):
@@ -260,13 +253,9 @@ def load_cases() -> list[RetrievalCase]:
         if case.expected_outcome == "answered" and expected not in {
             item.identifier for item in relevant
         }:
-            raise ValueError(
-                f"{CASES_PATH}:{line_number}: expected document is not relevant"
-            )
+            raise ValueError(f"{CASES_PATH}:{line_number}: expected document is not relevant")
         if case.expected_outcome == "answered" and not case.relevant_chunks:
-            raise ValueError(
-                f"{CASES_PATH}:{line_number}: answerable cases require chunk labels"
-            )
+            raise ValueError(f"{CASES_PATH}:{line_number}: answerable cases require chunk labels")
         cases.append(case)
     if len({case.case_id for case in cases}) != len(cases):
         raise ValueError("Retrieval case IDs must be unique")
@@ -295,9 +284,7 @@ def create_benchmark_embedding_provider(
     if BENCHMARK_EMBEDDING_PROVIDER == "fake":
         return FakeEmbeddingProvider(dimensions=1536), "fake", "fake-embedding-v2"
     if BENCHMARK_EMBEDDING_PROVIDER != "openai":
-        raise ValueError(
-            "RETRIEVAL_BENCHMARK_EMBEDDING_PROVIDER must be 'fake' or 'openai'"
-        )
+        raise ValueError("RETRIEVAL_BENCHMARK_EMBEDDING_PROVIDER must be 'fake' or 'openai'")
     if os.getenv("RUN_PAID_RETRIEVAL_BENCHMARK", "false").casefold() != "true":
         raise RuntimeError(
             "Set RUN_PAID_RETRIEVAL_BENCHMARK=true for a paid production-embedding run"
@@ -319,8 +306,7 @@ async def seed_corpus(
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
     async with database.session() as session, session.begin():
         departments = {
-            key: Department(key=key, name=key.title())
-            for key in ("engineering", "operations")
+            key: Department(key=key, name=key.title()) for key in ("engineering", "operations")
         }
         session.add_all(departments.values())
         await session.flush()
@@ -333,15 +319,11 @@ async def seed_corpus(
                 (
                     item
                     for item in items
-                    if datetime.fromisoformat(
-                        item["effective_at"].replace("Z", "+00:00")
-                    )
+                    if datetime.fromisoformat(item["effective_at"].replace("Z", "+00:00"))
                     <= EVALUATION_TIME
                     and (
                         item["expires_at"] is None
-                        or datetime.fromisoformat(
-                            item["expires_at"].replace("Z", "+00:00")
-                        )
+                        or datetime.fromisoformat(item["expires_at"].replace("Z", "+00:00"))
                         > EVALUATION_TIME
                     )
                 ),
@@ -377,9 +359,7 @@ async def seed_corpus(
                         item["effective_at"].replace("Z", "+00:00")
                     ),
                     expires_at=(
-                        datetime.fromisoformat(
-                            item["expires_at"].replace("Z", "+00:00")
-                        )
+                        datetime.fromisoformat(item["expires_at"].replace("Z", "+00:00"))
                         if item["expires_at"]
                         else None
                     ),
@@ -392,9 +372,7 @@ async def seed_corpus(
                 await session.flush()
                 versions[item["version_label"]] = version
                 blocks = markdown_blocks(ROOT / "data" / "knowledge" / item["path"])
-                section_drafts = build_section_drafts(
-                    version_id=version.id, blocks=blocks
-                )
+                section_drafts = build_section_drafts(version_id=version.id, blocks=blocks)
                 session.add_all(
                     [
                         DocumentSection(
@@ -454,8 +432,8 @@ async def seed_corpus(
 
 async def evaluate(database_url: str) -> dict[str, Any]:
     database = Database(database_url)
-    provider, embedding_provider_name, embedding_model = (
-        create_benchmark_embedding_provider(database)
+    provider, embedding_provider_name, embedding_model = create_benchmark_embedding_provider(
+        database
     )
     try:
         departments = await seed_corpus(
@@ -524,9 +502,7 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                             exact_weight=RRF_EXACT_WEIGHT,
                         ),
                         reranker=reranker,
-                        sparse_retriever=create_sparse_retriever(
-                            strategy=SPARSE_BACKEND
-                        ),
+                        sparse_retriever=create_sparse_retriever(strategy=SPARSE_BACKEND),
                     )
                     retrievers[retrieval_scope] = retriever
                 department = departments[case.department_key]
@@ -552,9 +528,7 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                 ranked = [f"{hit.document_key}:{hit.version_label}" for hit in hits]
                 unique_ranked = unique_at_k(ranked, RESULT_LIMIT)
                 relevant = {item.identifier for item in case.relevant_documents}
-                relevance = {
-                    item.identifier: item.relevance for item in case.relevant_documents
-                }
+                relevance = {item.identifier: item.relevance for item in case.relevant_documents}
                 rank: int | None = None
                 if case.expected_outcome == "answered":
                     answerable_count += 1
@@ -578,8 +552,7 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                 case_duplicate_rate = duplicate_rate_at_k(ranked, RESULT_LIMIT)
                 duplicate_rate_sum += case_duplicate_rate
                 forbidden_returned = sorted(
-                    {hit.document_key for hit in hits}
-                    & set(case.forbidden_document_keys)
+                    {hit.document_key for hit in hits} & set(case.forbidden_document_keys)
                 )
                 if case.forbidden_document_keys:
                     scope_count += 1
@@ -606,9 +579,7 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                             )
                             else "negative"
                         )
-                        scope = (
-                            "expanded" if hit.expansion_kind is not None else "primary"
-                        )
+                        scope = "expanded" if hit.expansion_kind is not None else "primary"
                         signals = {
                             "score": hit.score,
                             "vector_similarity": hit.vector_similarity,
@@ -624,13 +595,10 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                                 score_samples[scope][label][signal].append(float(value))
                 expanded_chunk_sum += expanded_count
                 evidence_tokens = sum(
-                    max(1, math.ceil(len(item.encode("utf-8")) / 3))
-                    for item in evidence.context
+                    max(1, math.ceil(len(item.encode("utf-8")) / 3)) for item in evidence.context
                 )
                 citation_context_token_sum += evidence_tokens
-                citation_context_token_max = max(
-                    citation_context_token_max, evidence_tokens
-                )
+                citation_context_token_max = max(citation_context_token_max, evidence_tokens)
                 citation_count_sum += len(evidence.sources)
                 relevant_citation = any(
                     f"{source.document_key}:{source.version_label}"
@@ -668,10 +636,7 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                     chunk_citation_hits += chunk_cited
                     relevant_citation_count += relevant_selected_citations
                     answerable_citation_count += len(evidence.sources)
-                if (
-                    case.expected_outcome == "no_answer"
-                    and not case.forbidden_document_keys
-                ):
+                if case.expected_outcome == "no_answer" and not case.forbidden_document_keys:
                     no_answer_count += 1
                     no_answer_correct += evidence.outcome == "no_answer"
                 for threshold, threshold_metric in threshold_metrics.items():
@@ -708,10 +673,7 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                         threshold_metric["answerable_selected_citations"] += len(
                             threshold_evidence.sources
                         )
-                    if (
-                        case.expected_outcome == "no_answer"
-                        and not case.forbidden_document_keys
-                    ):
+                    if case.expected_outcome == "no_answer" and not case.forbidden_document_keys:
                         threshold_metric["no_answer_correct"] += int(
                             threshold_evidence.outcome == "no_answer"
                         )
@@ -788,9 +750,7 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                 ),
                 "no_answer_accuracy": values["no_answer_correct"] / no_answer_count,
                 "scope_leakage": scope_leaks / scope_count,
-                "eligible": (
-                    values["no_answer_correct"] == no_answer_count and scope_leaks == 0
-                ),
+                "eligible": (values["no_answer_correct"] == no_answer_count and scope_leaks == 0),
             }
             for threshold, values in sorted(threshold_metrics.items())
         ]
@@ -842,9 +802,7 @@ async def evaluate(database_url: str) -> dict[str, Any]:
             "report_version": "retrieval-baseline-v3",
             "evaluated_at": EVALUATION_TIME.isoformat(),
             "corpus_snapshot": "m2-corpus-v1",
-            "corpus_manifest_sha256": hashlib.sha256(
-                MANIFEST_PATH.read_bytes()
-            ).hexdigest(),
+            "corpus_manifest_sha256": hashlib.sha256(MANIFEST_PATH.read_bytes()).hexdigest(),
             "dataset": {
                 "path": str(CASES_PATH.relative_to(ROOT)),
                 "sha256": hashlib.sha256(CASES_PATH.read_bytes()).hexdigest(),
@@ -944,9 +902,7 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                 "known_gap_historical_version": {
                     "retrieved": known_gap_hits,
                     "denominator": known_gap_count,
-                    "value": known_gap_hits / known_gap_count
-                    if known_gap_count
-                    else 0.0,
+                    "value": known_gap_hits / known_gap_count if known_gap_count else 0.0,
                 },
                 "no_answer_accuracy": {
                     "numerator": no_answer_correct,
@@ -961,23 +917,17 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                 "expected_document_citation_rate": {
                     "numerator": citation_relevant_hits,
                     "denominator": answerable_count,
-                    "value": citation_relevant_hits / answerable_count
-                    if answerable_count
-                    else 0.0,
+                    "value": citation_relevant_hits / answerable_count if answerable_count else 0.0,
                 },
                 "expected_chunk_recall_at_5": {
                     "numerator": chunk_retrieval_hits,
                     "denominator": answerable_count,
-                    "value": chunk_retrieval_hits / answerable_count
-                    if answerable_count
-                    else 0.0,
+                    "value": chunk_retrieval_hits / answerable_count if answerable_count else 0.0,
                 },
                 "expected_chunk_citation_rate": {
                     "numerator": chunk_citation_hits,
                     "denominator": answerable_count,
-                    "value": chunk_citation_hits / answerable_count
-                    if answerable_count
-                    else 0.0,
+                    "value": chunk_citation_hits / answerable_count if answerable_count else 0.0,
                 },
                 "citation_precision": {
                     "numerator": relevant_citation_count,
@@ -994,9 +944,7 @@ async def evaluate(database_url: str) -> dict[str, Any]:
                 "citation_context_estimated_tokens": {
                     "sum": citation_context_token_sum,
                     "denominator": case_count,
-                    "mean": citation_context_token_sum / case_count
-                    if case_count
-                    else 0.0,
+                    "mean": citation_context_token_sum / case_count if case_count else 0.0,
                     "max_case": citation_context_token_max,
                     "budget": 6000,
                 },
@@ -1111,8 +1059,7 @@ def write_report(report: dict[str, Any]) -> None:
         else "Retrieval benchmark — weighted reranker"
     )
     recall_row = (
-        f"| Recall@5 | {recall['numerator']} | {recall['denominator']} | "
-        f"{recall['value']:.3f} |"
+        f"| Recall@5 | {recall['numerator']} | {recall['denominator']} | {recall['value']:.3f} |"
     )
     mrr_row = (
         f"| MRR@5 (sum RR / answerable) | {mrr['numerator_reciprocal_rank_sum']:.3f} "
@@ -1123,8 +1070,7 @@ def write_report(report: dict[str, Any]) -> None:
         f"| {precision['denominator']} | {precision['value']:.3f} |"
     )
     ndcg_row = (
-        f"| nDCG@5 | {ndcg['numerator_sum']:.3f} | {ndcg['denominator']} "
-        f"| {ndcg['value']:.3f} |"
+        f"| nDCG@5 | {ndcg['numerator_sum']:.3f} | {ndcg['denominator']} | {ndcg['value']:.3f} |"
     )
     duplicate_row = (
         f"| Duplicate rate@5 | {duplicates['numerator_sum']:.3f} "
@@ -1157,6 +1103,10 @@ def write_report(report: dict[str, Any]) -> None:
     citation_precision_row = (
         f"| Citation precision | {citation_precision['numerator']} | "
         f"{citation_precision['denominator']} | {citation_precision['value']:.3f} |"
+    )
+    threshold_header = (
+        "| Threshold | Document citation | Chunk citation | Citation precision | "
+        "No-answer accuracy | Scope leakage | Eligible |"
     )
     markdown = (
         f"""# {report_title}
@@ -1211,7 +1161,7 @@ No-answer false positives: {", ".join(case["case_id"] for case in false_answers)
 
 Recommended threshold: **{threshold_sweep["recommended_threshold"]:.2f}**.
 
-| Threshold | Document citation | Chunk citation | Citation precision | No-answer accuracy | Scope leakage | Eligible |
+{threshold_header}
 |---:|---:|---:|---:|---:|---:|:---:|
 {threshold_rows}
 
@@ -1224,16 +1174,10 @@ Recommended threshold: **{threshold_sweep["recommended_threshold"]:.2f}**.
 
 
 def main() -> None:
-    configured = os.getenv("TEST_DATABASE_ADMIN_URL") or os.getenv(
-        "MIGRATION_DATABASE_URL"
-    )
+    configured = os.getenv("TEST_DATABASE_ADMIN_URL") or os.getenv("MIGRATION_DATABASE_URL")
     if not configured:
-        raise SystemExit(
-            "Set TEST_DATABASE_ADMIN_URL to run the isolated retrieval baseline"
-        )
-    admin_url = make_url(configured).set(
-        drivername="postgresql+psycopg", database="postgres"
-    )
+        raise SystemExit("Set TEST_DATABASE_ADMIN_URL to run the isolated retrieval baseline")
+    admin_url = make_url(configured).set(drivername="postgresql+psycopg", database="postgres")
     database_name = f"test_retrieval_eval_{uuid4().hex}"
     target_url = admin_url.set(database=database_name)
     admin_engine = create_engine(admin_url, isolation_level="AUTOCOMMIT")
@@ -1243,9 +1187,7 @@ def main() -> None:
             connection.execute(text(f'CREATE DATABASE "{database_name}"'))
         database_created = True
         environment = os.environ.copy()
-        environment["MIGRATION_DATABASE_URL"] = target_url.render_as_string(
-            hide_password=False
-        )
+        environment["MIGRATION_DATABASE_URL"] = target_url.render_as_string(hide_password=False)
         subprocess.run(
             [sys.executable, "-m", "alembic", "-c", "alembic.ini", "upgrade", "head"],
             cwd=BACKEND_ROOT,
@@ -1265,9 +1207,7 @@ def main() -> None:
             raise RuntimeError("Refusing to drop a database outside the eval namespace")
         if database_created:
             with admin_engine.connect() as connection:
-                connection.execute(
-                    text(f'DROP DATABASE IF EXISTS "{database_name}" WITH (FORCE)')
-                )
+                connection.execute(text(f'DROP DATABASE IF EXISTS "{database_name}" WITH (FORCE)'))
         admin_engine.dispose()
     print(json.dumps(report["metrics"], indent=2))
 

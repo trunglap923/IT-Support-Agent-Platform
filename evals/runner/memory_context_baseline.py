@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import Any
 
 from app.agent.context.builder import ContextMessage, build_agent_context
-
 from evals.memory_context.contracts import ContextBaselineCase
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -92,10 +91,7 @@ def _evaluate_case(case: ContextBaselineCase) -> dict[str, Any]:
             recent_messages_after_summary=options.recent_messages_after_summary,
         )
     except ValueError as error:
-        matched = (
-            expected.expected_error is not None
-            and expected.expected_error in str(error)
-        )
+        matched = expected.expected_error is not None and expected.expected_error in str(error)
         error_checks = [
             CheckResult(
                 name="expected_error",
@@ -119,10 +115,7 @@ def _evaluate_case(case: ContextBaselineCase) -> dict[str, Any]:
         [
             context.conversation_summary or "",
             *(message.content for message in context.history),
-            *(
-                f"Confirmed attempted: {step}"
-                for step in context.confirmed_attempted_steps
-            ),
+            *(f"Confirmed attempted: {step}" for step in context.confirmed_attempted_steps),
         ]
     )
     confirmed = "\n".join(context.confirmed_attempted_steps)
@@ -159,20 +152,17 @@ def _evaluate_case(case: ContextBaselineCase) -> dict[str, Any]:
         )
     )
     required = [
-        (term, _contains(selected_context, term))
-        for term in expected.required_context_terms
+        (term, _contains(selected_context, term)) for term in expected.required_context_terms
     ]
     if required:
         checks.append(_ratio_check("critical_context_retention", required))
     forbidden = [
-        (term, not _contains(selected_context, term))
-        for term in expected.forbidden_context_terms
+        (term, not _contains(selected_context, term)) for term in expected.forbidden_context_terms
     ]
     if forbidden:
         checks.append(_ratio_check("forbidden_context_exclusion", forbidden))
     required_attempts = [
-        (term, _contains(confirmed, term))
-        for term in expected.required_confirmed_attempt_terms
+        (term, _contains(confirmed, term)) for term in expected.required_confirmed_attempt_terms
     ]
     if required_attempts:
         checks.append(_ratio_check("confirmed_attempt_retention", required_attempts))
@@ -204,9 +194,7 @@ def _evaluate_case(case: ContextBaselineCase) -> dict[str, Any]:
                 passed=matched,
                 numerator=int(matched),
                 denominator=1,
-                details=()
-                if matched
-                else (f"expected={expected.must_summarize},actual={actual}",),
+                details=() if matched else (f"expected={expected.must_summarize},actual={actual}",),
             )
         )
     return {
@@ -235,9 +223,7 @@ def _aggregate(cases: list[dict[str, Any]]) -> dict[str, Any]:
             total["denominator"] += check["denominator"]
     for value in checks.values():
         denominator = value["denominator"]
-        value["rate"] = (
-            round(value["numerator"] / denominator, 6) if denominator else 0.0
-        )
+        value["rate"] = round(value["numerator"] / denominator, 6) if denominator else 0.0
     passed = sum(bool(case["passed"]) for case in cases)
     return {
         "case_pass": {
@@ -268,9 +254,15 @@ def build_report(cases_path: Path) -> dict[str, Any]:
         },
         "metrics": _aggregate(results),
         "known_limitations": [
-            "This baseline evaluates the existing history builder, not the proposed ContextManager.",
+            (
+                "This baseline evaluates the existing history builder, not the proposed "
+                "ContextManager."
+            ),
             "It does not execute an LLM, tools, RAG, database authorization, or side effects.",
-            "A failing gold expectation records an architectural gap and does not make the runner fail.",
+            (
+                "A failing gold expectation records an architectural gap and does not make the "
+                "runner fail."
+            ),
         ],
         "cases": results,
     }
@@ -299,8 +291,7 @@ def _write_markdown(report: dict[str, Any], output: Path) -> None:
     ]
     for name, value in sorted(metrics["checks"].items()):
         rows.append(
-            f"| {name} | {value['numerator']}/{value['denominator']} "
-            f"({value['rate']:.1%}) |"
+            f"| {name} | {value['numerator']}/{value['denominator']} ({value['rate']:.1%}) |"
         )
     rows.extend(
         [
@@ -312,9 +303,7 @@ def _write_markdown(report: dict[str, Any], output: Path) -> None:
         ]
     )
     for case in report["cases"]:
-        failed = ", ".join(
-            check["name"] for check in case["checks"] if not check["passed"]
-        )
+        failed = ", ".join(check["name"] for check in case["checks"] if not check["passed"])
         rows.append(
             f"| {case['case_id']} | {case['category']} | "
             f"{'yes' if case['passed'] else 'no'} | {failed or '—'} |"
@@ -326,8 +315,8 @@ def _write_markdown(report: dict[str, Any], output: Path) -> None:
             "",
             (
                 "Failures are frozen evidence for Phase 1/2 design work. They must not be removed "
-                "from the dataset to improve the score; improvements must change the implementation "
-                "or add a new versioned benchmark."
+                "from the dataset to improve the score; improvements must change the "
+                "implementation or add a new versioned benchmark."
             ),
             "",
             "## Limitations",
