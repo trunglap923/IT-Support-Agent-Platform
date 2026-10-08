@@ -202,7 +202,11 @@ class WorkingMemoryService:
             safe_payload={"source_message_id": str(current_message_id)},
             created_at=timestamp,
         )
-        session.add_all([record, event])
+        # The models intentionally do not expose an ORM relationship. Flush the parent first so
+        # SQLAlchemy cannot schedule the event INSERT ahead of its foreign-key target.
+        session.add(record)
+        await session.flush()
+        session.add(event)
         await session.flush()
         return snapshot
 
