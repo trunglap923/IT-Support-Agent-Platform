@@ -681,7 +681,7 @@ class RAGGraphNodes:
                         if observation is not None:
                             observation.update(
                                 output={"outcome": "no_answer", "citation_count": 0},
-                                usage_details={"input_tokens": 0, "output_tokens": 0},
+                                usage_details={"input": 0, "output": 0, "total": 0},
                             )
                         return {
                             "answer": fallback_answer,
@@ -705,8 +705,9 @@ class RAGGraphNodes:
                         "citation_count": len(response.reply.citations),
                     },
                     usage_details={
-                        "input_tokens": response.input_tokens,
-                        "output_tokens": response.output_tokens,
+                        "input": response.input_tokens,
+                        "output": response.output_tokens,
+                        "total": response.input_tokens + response.output_tokens,
                     },
                 )
         self._log(

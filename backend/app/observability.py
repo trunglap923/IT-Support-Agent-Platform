@@ -49,6 +49,16 @@ class AIObserver(Protocol):
         evidence_count: int,
     ) -> AbstractContextManager[GenerationObservation | None]: ...
 
+    def record_run_usage(
+        self,
+        *,
+        run_id: str,
+        model: str,
+        model_calls: int,
+        input_tokens: int,
+        output_tokens: int,
+    ) -> None: ...
+
     def close(self) -> None: ...
 
 
@@ -75,6 +85,17 @@ class NoopAIObserver:
     ) -> AbstractContextManager[GenerationObservation | None]:
         del run_id, actor_id, model, evidence_count
         return nullcontext(None)
+
+    def record_run_usage(
+        self,
+        *,
+        run_id: str,
+        model: str,
+        model_calls: int,
+        input_tokens: int,
+        output_tokens: int,
+    ) -> None:
+        del run_id, model, model_calls, input_tokens, output_tokens
 
     def close(self) -> None:
         return None
@@ -143,6 +164,33 @@ class LangfuseAIObserver:
                 },
             )
         )
+
+    def record_run_usage(
+        self,
+        *,
+        run_id: str,
+        model: str,
+        model_calls: int,
+        input_tokens: int,
+        output_tokens: int,
+    ) -> None:
+        total_tokens = input_tokens + output_tokens
+        with _SafeObservationContext(
+            lambda: self._client.start_as_current_observation(
+                as_type="generation",
+                name="it-support-run-usage",
+                model=model,
+                input={"scope": "run_aggregate"},
+                output={"model_calls": model_calls},
+                usage_details={
+                    "input": input_tokens,
+                    "output": output_tokens,
+                    "total": total_tokens,
+                },
+                metadata={"run_id": run_id, "aggregate": True},
+            )
+        ):
+            pass
 
     def close(self) -> None:
         try:

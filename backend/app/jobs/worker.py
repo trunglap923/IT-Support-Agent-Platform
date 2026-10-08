@@ -90,6 +90,13 @@ def _working_counters(result: Mapping[str, object]) -> WorkingCounters:
 def _update_run_observation(
     observation: GenerationObservation | None,
     result: Mapping[str, object],
+    *,
+    observer: AIObserver | None = None,
+    run_id: str = "",
+    model: str = "",
+    additional_model_calls: int = 0,
+    additional_input_tokens: int = 0,
+    additional_output_tokens: int = 0,
 ) -> None:
     if observation is None:
         return
@@ -98,21 +105,32 @@ def _update_run_observation(
     citation_count = len(citations) if isinstance(citations, list) else 0
     raw_input_tokens = result.get("input_tokens", 0)
     raw_output_tokens = result.get("output_tokens", 0)
+    input_tokens = (max(0, raw_input_tokens) if isinstance(raw_input_tokens, int) else 0) + max(
+        0, additional_input_tokens
+    )
+    output_tokens = (max(0, raw_output_tokens) if isinstance(raw_output_tokens, int) else 0) + max(
+        0, additional_output_tokens
+    )
+    model_calls = counters.model_calls + max(0, additional_model_calls)
     observation.update(
         output={
             "outcome": str(result.get("outcome", "unknown")),
             "citation_count": citation_count,
-            "model_calls": counters.model_calls,
+            "model_calls": model_calls,
             "retrieval_calls": counters.retrieval_calls,
             "tool_calls": counters.tool_calls,
-        },
-        usage_details={
-            "input_tokens": max(0, raw_input_tokens) if isinstance(raw_input_tokens, int) else 0,
-            "output_tokens": (
-                max(0, raw_output_tokens) if isinstance(raw_output_tokens, int) else 0
-            ),
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
         },
     )
+    if observer is not None:
+        observer.record_run_usage(
+            run_id=run_id,
+            model=model,
+            model_calls=model_calls,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+        )
 
 
 async def execute_fake_run(database: Database, *, run_id: UUID) -> WorkerResult:
@@ -563,7 +581,16 @@ async def execute_support_run(
                     finally:
                         await runtime.close()
                     result = runtime_result.as_graph_result()
-                    _update_run_observation(run_observation, result)
+                    _update_run_observation(
+                        run_observation,
+                        result,
+                        observer=observer,
+                        run_id=str(run_id),
+                        model=model,
+                        additional_model_calls=request_policy.analysis_model_calls,
+                        additional_input_tokens=request_policy.analysis_input_tokens,
+                        additional_output_tokens=request_policy.analysis_output_tokens,
+                    )
             else:
                 nodes = RAGGraphNodes(
                     session=session,
@@ -601,7 +628,13 @@ async def execute_support_run(
                             },
                         )
                     )
-                    _update_run_observation(run_observation, result)
+                    _update_run_observation(
+                        run_observation,
+                        result,
+                        additional_model_calls=request_policy.analysis_model_calls,
+                        additional_input_tokens=request_policy.analysis_input_tokens,
+                        additional_output_tokens=request_policy.analysis_output_tokens,
+                    )
             result["model_calls"] = (
                 int(result.get("model_calls", 0)) + request_policy.analysis_model_calls
             )
