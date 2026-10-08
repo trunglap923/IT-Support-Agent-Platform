@@ -12,6 +12,7 @@ from app.agent.working_memory.observations import normalize_tool_result
 from app.agent.working_memory.service import WorkingMemoryService
 from app.db import Database
 from app.db.models import ApprovalRequest, ApprovalStatus, Message, RunStatus
+from app.procedures.execution import ProcedureExecutionService
 from app.repositories.conversations import ConversationRepository
 from app.repositories.runs import RunRepository
 from app.services.conversations.run_state import RunStateService
@@ -146,12 +147,19 @@ async def execute_approval_resume_run(
                 "ticket_id": str(ticket_receipt.ticket_id) if ticket_receipt is not None else None,
             },
         )
-        await working_memory.complete(
+        completion = await working_memory.complete(
             session,
             run_id=run_id,
             owner_id=actor_id,
             operation_id=f"working-memory-complete:{approval.id}",
             outcome=final_outcome,
             ticket_id=ticket_receipt.ticket_id if ticket_receipt is not None else None,
+        )
+        await ProcedureExecutionService().complete_for_run(
+            session,
+            run_id=run_id,
+            owner_id=actor_id,
+            run_outcome=final_outcome,
+            ticket_id=completion.snapshot.ticket_id,
         )
     return "resumed"

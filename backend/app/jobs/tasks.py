@@ -24,6 +24,10 @@ from app.jobs.memory import (
     reconcile_episode_consolidations,
     reconcile_memory_extractions,
 )
+from app.jobs.procedures import (
+    compile_procedure_candidates,
+    count_stale_procedure_versions,
+)
 from app.jobs.reconcile import reconcile_queued_run_dispatches
 from app.jobs.worker import execute_support_run
 from app.observability import create_ai_observer
@@ -248,3 +252,37 @@ def reconcile_episode_jobs() -> dict[str, int]:
             await database.close()
 
     return {"requeued": asyncio.run(reconcile())}
+
+
+@shared_task(name="jobs.compile_procedure_candidates")  # type: ignore[untyped-decorator]
+def compile_procedures() -> dict[str, int]:
+    settings = Settings()
+    if settings.database_url is None:
+        raise RuntimeError("DATABASE_URL is required by procedure compilation")
+    database_url = settings.database_url.get_secret_value()
+
+    async def compile_candidates() -> int:
+        database = Database(database_url)
+        try:
+            return await compile_procedure_candidates(database)
+        finally:
+            await database.close()
+
+    return {"created": asyncio.run(compile_candidates())}
+
+
+@shared_task(name="jobs.monitor_procedure_sources")  # type: ignore[untyped-decorator]
+def monitor_procedure_sources() -> dict[str, int]:
+    settings = Settings()
+    if settings.database_url is None:
+        raise RuntimeError("DATABASE_URL is required by procedure monitoring")
+    database_url = settings.database_url.get_secret_value()
+
+    async def count_stale() -> int:
+        database = Database(database_url)
+        try:
+            return await count_stale_procedure_versions(database)
+        finally:
+            await database.close()
+
+    return {"stale_versions": asyncio.run(count_stale())}

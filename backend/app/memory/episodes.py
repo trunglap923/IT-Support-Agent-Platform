@@ -29,12 +29,27 @@ def _terms(value: str) -> set[str]:
     return {item.casefold() for item in _TOKEN.findall(value) if len(item) > 1}
 
 
+def _detected_services(value: str) -> set[str]:
+    normalized = value.casefold()
+    return {item for item in ("vpn", "gitlab", "registry", "docker") if item in normalized}
+
+
 class EpisodeMemoryService:
     async def consolidate(self, session: AsyncSession, *, run_id: UUID) -> IncidentEpisode | None:
         existing = await session.scalar(
             select(IncidentEpisode).where(IncidentEpisode.run_id == run_id)
         )
         if existing is not None:
+            if existing.ticket_id is not None and not existing.verified:
+                ticket = await session.get(Ticket, existing.ticket_id)
+                if ticket is not None and ticket.status == "resolved":
+                    existing.verified = True
+                    existing.outcome = "resolved"
+                    reference = f"ticket:{ticket.id}:resolved:v{ticket.version}"
+                    existing.verification_refs = list(
+                        dict.fromkeys([*existing.verification_refs, reference])
+                    )
+                    await session.flush()
             return existing
         run = await session.get(AgentRun, run_id)
         record = await session.scalar(
@@ -78,7 +93,13 @@ class EpisodeMemoryService:
             )
         )
         source_refs = [f"run:{run.id}", f"working-memory:{record.id}:v{record.version}"]
+        if snapshot.plan.procedure_version_id is not None:
+            source_refs.append(f"procedure-version:{snapshot.plan.procedure_version_id}")
         source_refs.extend(f"message:{item.id}" for item in messages)
+        episode_services = set(snapshot.entities.service_ids)
+        episode_services.update(_detected_services(snapshot.goal.statement + " " + final))
+        if ticket is not None and ticket.issue_type != "other":
+            episode_services.add(ticket.issue_type)
         episode = IncidentEpisode(
             run_id=run.id,
             owner_id=record.owner_id,
@@ -88,7 +109,7 @@ class EpisodeMemoryService:
             summary=summary or "Completed support run",
             outcome=outcome,
             verified=verified,
-            service_ids=list(snapshot.entities.service_ids),
+            service_ids=sorted(episode_services),
             error_codes=sorted(set(_ERROR.findall(snapshot.goal.statement + " " + final)))[:20],
             source_refs=source_refs,
             verification_refs=[str(item) for item in verification_refs],
@@ -151,8 +172,7 @@ class EpisodeMemoryService:
                 candidate_id=f"episode:{row.id}",
                 kind="episodic_memory",
                 content=(
-                    f"Prior support episode ({row.outcome}, verified={row.verified}): "
-                    f"{row.summary}"
+                    f"Prior support episode ({row.outcome}, verified={row.verified}): {row.summary}"
                 ),
                 source_ref=f"incident-episode:{row.id}",
                 scope=scope,

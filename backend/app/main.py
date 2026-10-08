@@ -14,6 +14,7 @@ from app.api.documents import router as documents_router
 from app.api.errors import register_error_handlers
 from app.api.health import router as health_router
 from app.api.memory import router as memory_router
+from app.api.procedures import router as procedures_router
 from app.api.runs import router as runs_router
 from app.api.service_status import router as service_status_router
 from app.api.sources import router as sources_router
@@ -83,6 +84,7 @@ def create_app(
     register_error_handlers(application)
     application.include_router(health_router, prefix="/api/v1")
     application.include_router(memory_router, prefix="/api/v1")
+    application.include_router(procedures_router, prefix="/api/v1")
     application.include_router(auth_router, prefix="/api/v1")
     application.include_router(approvals_router, prefix="/api/v1")
     application.include_router(conversations_router, prefix="/api/v1")

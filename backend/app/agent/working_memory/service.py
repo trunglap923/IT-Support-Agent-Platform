@@ -206,6 +206,47 @@ class WorkingMemoryService:
         await session.flush()
         return snapshot
 
+    async def bind_procedure(
+        self,
+        session: AsyncSession,
+        *,
+        run_id: UUID,
+        owner_id: UUID,
+        procedure_version_id: UUID,
+    ) -> WorkingMemoryOperationResult:
+        """Pin one immutable approved procedure version to the active run plan."""
+
+        record = await self._record_for_update(session, run_id=run_id, owner_id=owner_id)
+
+        def transform(
+            snapshot: WorkingMemorySnapshot, sequence: int, timestamp: datetime
+        ) -> WorkingMemorySnapshot:
+            del sequence, timestamp
+            if snapshot.plan.procedure_version_id not in {None, procedure_version_id}:
+                raise WorkingMemoryVersionConflictError(
+                    "A different procedure version is already pinned to this run"
+                )
+            return snapshot.model_copy(
+                update={
+                    "plan": snapshot.plan.model_copy(
+                        update={
+                            "version": snapshot.plan.version + 1,
+                            "procedure_version_id": procedure_version_id,
+                        }
+                    )
+                }
+            )
+
+        return await self._apply(
+            session,
+            record=record,
+            operation_id=f"working-memory-bind-procedure:{run_id}:{procedure_version_id}",
+            event_type="procedure_bound",
+            expected_version=None,
+            transform=transform,
+            safe_payload={"procedure_version_id": str(procedure_version_id)},
+        )
+
     async def apply_transition(
         self,
         session: AsyncSession,
@@ -241,7 +282,9 @@ class WorkingMemoryService:
                     for step in snapshot.plan.steps
                 )
                 updates.update(
-                    plan=WorkingPlan(version=snapshot.plan.version + 1, steps=steps),
+                    plan=snapshot.plan.model_copy(
+                        update={"version": snapshot.plan.version + 1, "steps": steps}
+                    ),
                     pending_actions=(),
                 )
             return snapshot.model_copy(update=updates)
@@ -366,7 +409,9 @@ class WorkingMemoryService:
                 update={
                     "observations": tuple(observations),
                     "compaction": compaction,
-                    "plan": WorkingPlan(version=snapshot.plan.version + 1, steps=tuple(steps)),
+                    "plan": snapshot.plan.model_copy(
+                        update={"version": snapshot.plan.version + 1, "steps": tuple(steps)}
+                    ),
                     "counters": counters,
                 }
             )
@@ -428,7 +473,9 @@ class WorkingMemoryService:
             return snapshot.model_copy(
                 update={
                     "status": "waiting_approval",
-                    "plan": WorkingPlan(version=snapshot.plan.version + 1, steps=tuple(steps)),
+                    "plan": snapshot.plan.model_copy(
+                        update={"version": snapshot.plan.version + 1, "steps": tuple(steps)}
+                    ),
                     "pending_actions": (
                         PendingAction(
                             action_id=action_id,
@@ -483,7 +530,9 @@ class WorkingMemoryService:
             return snapshot.model_copy(
                 update={
                     "status": "active",
-                    "plan": WorkingPlan(version=snapshot.plan.version + 1, steps=steps),
+                    "plan": snapshot.plan.model_copy(
+                        update={"version": snapshot.plan.version + 1, "steps": steps}
+                    ),
                     "pending_actions": tuple(
                         item for item in snapshot.pending_actions if item.action_id != action_id
                     ),
@@ -534,7 +583,9 @@ class WorkingMemoryService:
                 update={
                     "status": "completed",
                     "ticket_id": ticket_id or snapshot.ticket_id,
-                    "plan": WorkingPlan(version=snapshot.plan.version + 1, steps=steps),
+                    "plan": snapshot.plan.model_copy(
+                        update={"version": snapshot.plan.version + 1, "steps": steps}
+                    ),
                     "pending_actions": (),
                     "verification_requirements": requirements,
                     "counters": _reconcile_counters(snapshot.counters, counters),
@@ -575,7 +626,9 @@ class WorkingMemoryService:
             return snapshot.model_copy(
                 update={
                     "status": "failed",
-                    "plan": WorkingPlan(version=snapshot.plan.version + 1, steps=steps),
+                    "plan": snapshot.plan.model_copy(
+                        update={"version": snapshot.plan.version + 1, "steps": steps}
+                    ),
                     "pending_actions": (),
                 }
             )

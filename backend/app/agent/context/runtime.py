@@ -33,6 +33,8 @@ from app.db.models import ContextBuildRecord, ContextSummaryArtifact
 from app.diagnostics import log_event
 from app.memory.episodes import EpisodeMemoryService
 from app.memory.retrieval import MemoryContextService
+from app.procedures.execution import ProcedureExecutionService
+from app.procedures.retrieval import ProcedureRetriever
 
 logger = logging.getLogger(__name__)
 
@@ -118,11 +120,42 @@ class RuntimeContextBuilder:
                 query=self._support.query,
                 scope=self._scope,
             )
+            procedure_matches = (
+                await ProcedureRetriever().retrieve(
+                    session,
+                    principal=self._support.principal,
+                    query=self._support.query,
+                    scope=self._scope,
+                )
+                if purpose in {"plan", "tool_selection"}
+                else ()
+            )
+            if (
+                snapshot is not None
+                and procedure_matches
+                and snapshot.plan.procedure_version_id is None
+            ):
+                selected = procedure_matches[0]
+                binding = await WorkingMemoryService().bind_procedure(
+                    session,
+                    run_id=self._run_id,
+                    owner_id=self._support.principal.user_id,
+                    procedure_version_id=selected.version_id,
+                )
+                snapshot = binding.snapshot
+                await ProcedureExecutionService().start(
+                    session,
+                    procedure_version_id=selected.version_id,
+                    run_id=self._run_id,
+                    owner_id=self._support.principal.user_id,
+                    matched_signals=selected.matched_signals,
+                )
             candidates: tuple[ContextCandidate, ...] = (
                 *self._base,
                 *working_memory_candidates(snapshot, scope=self._scope, query=self._support.query),
                 *semantic,
                 *episodes,
+                *(item.candidate for item in procedure_matches),
                 *extra,
             )
             latest = await session.scalar(

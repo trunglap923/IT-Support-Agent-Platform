@@ -56,6 +56,7 @@ class WorkingPlan(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     version: int = Field(ge=1)
+    procedure_version_id: UUID | None = None
     steps: tuple[WorkingPlanStep, ...] = Field(default=(), max_length=40)
 
     @model_validator(mode="after")

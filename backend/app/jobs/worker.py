@@ -45,6 +45,7 @@ from app.jobs.dispatch import (
 )
 from app.memory.lifecycle import MemoryLifecycleService
 from app.observability import AIObserver, NoopAIObserver
+from app.procedures.execution import ProcedureExecutionService
 from app.providers.base import StructuredResponseProvider
 from app.providers.embeddings import EmbeddingProvider, FakeEmbeddingProvider
 from app.providers.fake import FakeTextProvider
@@ -649,13 +650,20 @@ async def execute_support_run(
                         "citation_count": len(result.get("citations", [])),
                     },
                 )
-                await working_memory.complete(
+                working_completion = await working_memory.complete(
                     session,
                     run_id=run_id,
                     owner_id=actor_id,
                     operation_id=f"working-memory-complete:{run_id}",
                     outcome=str(result["outcome"]),
                     counters=_working_counters(result),
+                )
+                await ProcedureExecutionService().complete_for_run(
+                    session,
+                    run_id=run_id,
+                    owner_id=actor_id,
+                    run_outcome=str(result["outcome"]),
+                    ticket_id=working_completion.snapshot.ticket_id,
                 )
             transition.run.counters = {
                 "model_calls": result.get("model_calls", 0),
@@ -695,6 +703,13 @@ async def execute_support_run(
                     owner_id=actor_id,
                     operation_id=f"working-memory-failed:{run_id}",
                     error_code=error_code,
+                )
+                await ProcedureExecutionService().complete_for_run(
+                    session,
+                    run_id=run_id,
+                    owner_id=actor_id,
+                    run_outcome="failed",
+                    ticket_id=None,
                 )
         log_event(
             logger,

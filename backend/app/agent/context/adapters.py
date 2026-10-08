@@ -162,7 +162,20 @@ def working_memory_candidates(
         if step.status in {"pending", "running", "failed", "blocked"}
     ]
     if active_steps:
-        values.append(("plan", "Active plan:\n" + "\n".join(active_steps), False, 0.9, 0.9))
+        procedure = (
+            f"\nPinned approved procedure version: {snapshot.plan.procedure_version_id}"
+            if snapshot.plan.procedure_version_id is not None
+            else ""
+        )
+        values.append(
+            (
+                "plan",
+                "Active plan:\n" + "\n".join(active_steps) + procedure,
+                False,
+                0.9,
+                0.9,
+            )
+        )
     for action in snapshot.pending_actions:
         values.append(
             (

@@ -1491,6 +1491,13 @@ cùng episodic memory theo owner/device/relevance. Các acceptance metrics dài 
 
 ### Phase 4 — Procedural Memory
 
+Trạng thái triển khai: **đã hoàn thành implementation ngày 2026-10-08**. Hệ thống có compiler
+deterministic từ các episode lặp lại đã xác minh, registry/version bất biến, audience scope,
+sandbox validation, review/publish/deprecate workflow, retrieval vào Context Manager và execution
+feedback. Tool registry, role và approval policy vẫn được kiểm tra trực tiếp khi publish, retrieve
+và execute; procedure không cấp quyền. Success uplift và incorrect-procedure rate vẫn phải được đo
+trên held-out scenarios trước rollout ngoài canary.
+
 **Objective**: reuse verified troubleshooting workflows mà không biến experience thành authorization.
 
 - **Architecture changes**: offline trajectory pipeline → candidate → sandbox/review → immutable procedure version → runtime retrieval/feedback.

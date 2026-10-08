@@ -38,6 +38,8 @@ def create_celery_app(settings: Settings | None = None, *, eager: bool = False) 
             "jobs.reconcile_memory_extractions": {"queue": BACKGROUND_QUEUE},
             "jobs.consolidate_episode": {"queue": BACKGROUND_QUEUE},
             "jobs.reconcile_episode_consolidations": {"queue": BACKGROUND_QUEUE},
+            "jobs.compile_procedure_candidates": {"queue": BACKGROUND_QUEUE},
+            "jobs.monitor_procedure_sources": {"queue": BACKGROUND_QUEUE},
         },
         worker_prefetch_multiplier=1,
         task_acks_late=True,
@@ -65,6 +67,14 @@ def create_celery_app(settings: Settings | None = None, *, eager: bool = False) 
             "reconcile-episode-consolidations-every-60-seconds": {
                 "task": "jobs.reconcile_episode_consolidations",
                 "schedule": 60.0,
+            },
+            "compile-procedure-candidates-every-5-minutes": {
+                "task": "jobs.compile_procedure_candidates",
+                "schedule": 300.0,
+            },
+            "monitor-procedure-sources-every-5-minutes": {
+                "task": "jobs.monitor_procedure_sources",
+                "schedule": 300.0,
             },
         },
         task_always_eager=eager,

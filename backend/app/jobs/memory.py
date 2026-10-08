@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 from app.db import Database
-from app.db.models import AgentRun, IncidentEpisode, MemoryExtractionJob, RunStatus
+from app.db.models import AgentRun, IncidentEpisode, MemoryExtractionJob, RunStatus, Ticket
 from app.jobs.dispatch import EpisodeConsolidationDispatcher, MemoryExtractionDispatcher
 from app.memory.episodes import EpisodeMemoryService
 from app.memory.lifecycle import MemoryLifecycleService
@@ -67,9 +67,13 @@ async def reconcile_episode_consolidations(
             await session.scalars(
                 select(AgentRun.id)
                 .outerjoin(IncidentEpisode, IncidentEpisode.run_id == AgentRun.id)
+                .outerjoin(Ticket, Ticket.id == IncidentEpisode.ticket_id)
                 .where(
                     AgentRun.status == RunStatus.COMPLETED,
-                    IncidentEpisode.id.is_(None),
+                    or_(
+                        IncidentEpisode.id.is_(None),
+                        (IncidentEpisode.verified.is_(False) & (Ticket.status == "resolved")),
+                    ),
                 )
                 .order_by(AgentRun.finished_at, AgentRun.id)
                 .limit(limit)

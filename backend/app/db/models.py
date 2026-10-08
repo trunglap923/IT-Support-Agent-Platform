@@ -1194,6 +1194,200 @@ class EpisodeAction(Base):
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+class Procedure(Base):
+    __tablename__ = "procedures"
+    __table_args__ = (CheckConstraint("version >= 1", name="procedure_version_positive"),)
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    key: Mapped[str] = mapped_column(String(80), unique=True)
+    title: Mapped[str] = mapped_column(String(200))
+    intent: Mapped[str] = mapped_column(String(120), index=True)
+    description: Mapped[str] = mapped_column(String(1000))
+    current_version_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey(
+            "procedure_versions.id",
+            ondelete="SET NULL",
+            use_alter=True,
+            name="fk_procedures_current_version",
+        ),
+        index=True,
+    )
+    version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class ProcedureVersion(Base):
+    __tablename__ = "procedure_versions"
+    __table_args__ = (
+        CheckConstraint("version_number >= 1", name="procedure_version_number_positive"),
+        CheckConstraint(
+            "status IN ('candidate', 'review', 'approved', 'deprecated', 'rejected')",
+            name="procedure_version_status_allowlist",
+        ),
+        CheckConstraint(
+            "visibility IN ('company', 'department', 'it_only')",
+            name="procedure_version_visibility_allowlist",
+        ),
+        CheckConstraint(
+            "(visibility = 'department') = (department_id IS NOT NULL)",
+            name="procedure_version_department_scope_matches",
+        ),
+        CheckConstraint("success_count >= 0", name="procedure_success_count_non_negative"),
+        CheckConstraint("failure_count >= 0", name="procedure_failure_count_non_negative"),
+        UniqueConstraint("procedure_id", "version_number", name="uq_procedure_versions_number"),
+        Index(
+            "ix_procedure_versions_status_effective",
+            "status",
+            "effective_from",
+            "effective_to",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    procedure_id: Mapped[UUID] = mapped_column(
+        ForeignKey("procedures.id", ondelete="CASCADE"), index=True
+    )
+    version_number: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(20), default="candidate", server_default="candidate")
+    visibility: Mapped[str] = mapped_column(String(20), default="it_only", server_default="it_only")
+    department_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("departments.id", ondelete="RESTRICT"), index=True
+    )
+    version_range: Mapped[str | None] = mapped_column(String(120))
+    prerequisites: Mapped[list[str]] = mapped_column(JSONB, default=list, server_default="[]")
+    prohibited_actions: Mapped[list[str]] = mapped_column(JSONB, default=list, server_default="[]")
+    evidence_refs: Mapped[list[str]] = mapped_column(JSONB, default=list, server_default="[]")
+    example_episode_ids: Mapped[list[str]] = mapped_column(JSONB, default=list, server_default="[]")
+    source_document_version_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("document_versions.id", ondelete="SET NULL"), index=True
+    )
+    compiled_signature: Mapped[str] = mapped_column(String(200), index=True)
+    effective_from: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    effective_to: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    approved_by: Mapped[UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), index=True
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    success_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    failure_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    last_validated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    validation_report: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, default=dict, server_default="{}"
+    )
+    embedding: Mapped[list[float] | None] = mapped_column(VECTOR(1536))
+    created_by: Mapped[UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ProcedureApplicability(Base):
+    __tablename__ = "procedure_applicability"
+    __table_args__ = (
+        CheckConstraint(
+            "signal_type IN ('service', 'product', 'operating_system', 'error_code', 'version')",
+            name="procedure_applicability_type_allowlist",
+        ),
+        UniqueConstraint(
+            "procedure_version_id",
+            "signal_type",
+            "signal_value",
+            name="uq_procedure_applicability_signal",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    procedure_version_id: Mapped[UUID] = mapped_column(
+        ForeignKey("procedure_versions.id", ondelete="CASCADE"), index=True
+    )
+    signal_type: Mapped[str] = mapped_column(String(30), index=True)
+    signal_value: Mapped[str] = mapped_column(String(160), index=True)
+
+
+class ProcedureStep(Base):
+    __tablename__ = "procedure_steps"
+    __table_args__ = (
+        CheckConstraint("ordinal >= 0", name="procedure_step_ordinal_non_negative"),
+        UniqueConstraint("procedure_version_id", "ordinal", name="uq_procedure_step_ordinal"),
+        UniqueConstraint("procedure_version_id", "step_key", name="uq_procedure_step_key"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    procedure_version_id: Mapped[UUID] = mapped_column(
+        ForeignKey("procedure_versions.id", ondelete="CASCADE"), index=True
+    )
+    ordinal: Mapped[int] = mapped_column(Integer)
+    step_key: Mapped[str] = mapped_column(String(80))
+    action: Mapped[str] = mapped_column(String(500))
+    tool_name: Mapped[str | None] = mapped_column(String(80))
+    expected_observation: Mapped[str] = mapped_column(String(500))
+    on_success: Mapped[str | None] = mapped_column(String(80))
+    on_failure: Mapped[str | None] = mapped_column(String(80))
+    permission: Mapped[str | None] = mapped_column(String(120))
+    approval_required: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    verification: Mapped[str | None] = mapped_column(String(500))
+
+
+class ProcedureReview(Base):
+    __tablename__ = "procedure_reviews"
+    __table_args__ = (
+        CheckConstraint(
+            "decision IN ('approve', 'reject', 'request_changes', 'deprecate')",
+            name="procedure_review_decision_allowlist",
+        ),
+        Index("ix_procedure_reviews_version_created", "procedure_version_id", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    procedure_version_id: Mapped[UUID] = mapped_column(
+        ForeignKey("procedure_versions.id", ondelete="CASCADE"), index=True
+    )
+    reviewer_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), index=True
+    )
+    decision: Mapped[str] = mapped_column(String(24))
+    notes: Mapped[str | None] = mapped_column(String(1000))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ProcedureExecution(Base):
+    __tablename__ = "procedure_executions"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('running', 'completed')", name="procedure_execution_status_allowlist"
+        ),
+        CheckConstraint(
+            "outcome IS NULL OR outcome IN ('success', 'failure', 'abandoned')",
+            name="procedure_execution_outcome_allowlist",
+        ),
+        UniqueConstraint("procedure_version_id", "run_id", name="uq_procedure_execution_run"),
+        Index("ix_procedure_executions_version_completed", "procedure_version_id", "completed_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    procedure_version_id: Mapped[UUID] = mapped_column(
+        ForeignKey("procedure_versions.id", ondelete="RESTRICT"), index=True
+    )
+    run_id: Mapped[UUID] = mapped_column(
+        ForeignKey("agent_runs.id", ondelete="CASCADE"), index=True
+    )
+    owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    ticket_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("tickets.id", ondelete="SET NULL"), index=True
+    )
+    status: Mapped[str] = mapped_column(String(20), default="running", server_default="running")
+    outcome: Mapped[str | None] = mapped_column(String(20))
+    verified: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    matched_signals: Mapped[list[str]] = mapped_column(JSONB, default=list, server_default="[]")
+    attempted_step_keys: Mapped[list[str]] = mapped_column(JSONB, default=list, server_default="[]")
+    receipt_refs: Mapped[list[str]] = mapped_column(JSONB, default=list, server_default="[]")
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class ServiceState(Base):
     __tablename__ = "service_states"
     __table_args__ = (
