@@ -57,7 +57,7 @@ def test_alembic_upgrade_on_clean_database() -> None:
                 vector_version = connection.execute(
                     text("SELECT extversion FROM pg_extension WHERE extname = 'vector'")
                 ).scalar_one()
-            assert revision == "0020_hierarchical_sections"
+            assert revision == "0026_memory_embedding_identity"
             assert vector_version == "0.8.2"
 
             subprocess.run(
@@ -68,7 +68,7 @@ def test_alembic_upgrade_on_clean_database() -> None:
                     "-c",
                     "alembic.ini",
                     "downgrade",
-                    "0019_agent_runtime_state",
+                    "0025_procedure_scope_validation",
                 ],
                 cwd=BACKEND_ROOT,
                 env=environment,
@@ -80,11 +80,16 @@ def test_alembic_upgrade_on_clean_database() -> None:
                 downgraded_revision = connection.execute(
                     text("SELECT version_num FROM alembic_version")
                 ).scalar_one()
-                section_table = connection.execute(
-                    text("SELECT to_regclass('public.document_sections')")
-                ).scalar_one()
-            assert downgraded_revision == "0019_agent_runtime_state"
-            assert section_table is None
+                embedding_model_column = connection.execute(
+                    text(
+                        "SELECT column_name FROM information_schema.columns "
+                        "WHERE table_schema = 'public' "
+                        "AND table_name = 'memory_assertions' "
+                        "AND column_name = 'embedding_model'"
+                    )
+                ).scalar_one_or_none()
+            assert downgraded_revision == "0025_procedure_scope_validation"
+            assert embedding_model_column is None
         finally:
             target_engine.dispose()
     finally:

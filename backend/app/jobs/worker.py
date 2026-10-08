@@ -209,26 +209,30 @@ async def execute_support_run(
                 prior_retrieval_calls = (
                     raw_retrieval_calls if isinstance(raw_retrieval_calls, int) else 0
                 )
-        initial_message = await session.scalar(
-            select(Message)
-            .where(Message.run_id == run_id, Message.role == "user")
-            .order_by(Message.created_at.desc())
-            .limit(1)
+        defer_context_for_approval = (
+            claim.previous_status in {RunStatus.RESUME_QUEUED, RunStatus.RUNNING} and not sdk_resume
         )
-        conversation = await session.get(Conversation, conversation_id)
-        if initial_message is None or conversation is None:
-            raise LookupError("Run context is incomplete")
-        await working_memory.create_or_load(
-            session,
-            run_id=run_id,
-            conversation_id=conversation_id,
-            owner_id=actor_id,
-            current_message_id=initial_message.id,
-            query=initial_message.content,
-            device_id=conversation.device_id,
-        )
+        if not defer_context_for_approval:
+            initial_message = await session.scalar(
+                select(Message)
+                .where(Message.run_id == run_id, Message.role == "user")
+                .order_by(Message.created_at.desc())
+                .limit(1)
+            )
+            conversation = await session.get(Conversation, conversation_id)
+            if initial_message is None or conversation is None:
+                raise LookupError("Run context is incomplete")
+            await working_memory.create_or_load(
+                session,
+                run_id=run_id,
+                conversation_id=conversation_id,
+                owner_id=actor_id,
+                current_message_id=initial_message.id,
+                query=initial_message.content,
+                device_id=conversation.device_id,
+            )
 
-    if claim.previous_status in {RunStatus.RESUME_QUEUED, RunStatus.RUNNING} and not sdk_resume:
+    if defer_context_for_approval:
         resumed = await execute_approval_resume_run(
             database,
             run_id=run_id,
@@ -236,6 +240,25 @@ async def execute_support_run(
         )
         if resumed != "not_approval":
             return WorkerResult(run_id=run_id, status=resumed)
+        async with database.session() as session, session.begin():
+            initial_message = await session.scalar(
+                select(Message)
+                .where(Message.run_id == run_id, Message.role == "user")
+                .order_by(Message.created_at.desc())
+                .limit(1)
+            )
+            conversation = await session.get(Conversation, conversation_id)
+            if initial_message is None or conversation is None:
+                raise LookupError("Run context is incomplete")
+            await working_memory.create_or_load(
+                session,
+                run_id=run_id,
+                conversation_id=conversation_id,
+                owner_id=actor_id,
+                current_message_id=initial_message.id,
+                query=initial_message.content,
+                device_id=conversation.device_id,
+            )
 
     stream_generation = 0
     stream_delta_index = 0

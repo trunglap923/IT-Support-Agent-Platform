@@ -2,10 +2,19 @@ import asyncio
 from typing import Any, cast
 from uuid import uuid4
 
+from agents.run import RunContextWrapper
+
 from app.agent.context.builder import ContextMessage
+from app.agent.context.contracts import (
+    ActiveContext,
+    ActiveContextMessage,
+    ContextTokenBudget,
+)
 from app.agent.context.schemas import SupportContext
 from app.agent.openai_agents_runtime import (
     SupportAgentOutput,
+    SupportRunHooks,
+    SupportSDKContext,
     build_agents_input,
     guard_support_output,
 )
@@ -19,6 +28,7 @@ def _support_context(
     *,
     history: tuple[ContextMessage, ...],
     memories: tuple[ContextMessage, ...] = (),
+    query: str = "Cách để truy cập VPN",
 ) -> SupportContext:
     return SupportContext(
         principal=Principal(
@@ -31,7 +41,7 @@ def _support_context(
             department_key="operations",
         ),
         conversation_id=uuid4(),
-        query="Cách để truy cập VPN",
+        query=query,
         history=history,
         memories=memories,
         device=None,
@@ -41,29 +51,28 @@ def _support_context(
 def test_agents_input_preserves_roles_and_puts_current_request_last() -> None:
     support = _support_context(
         history=(
-            ContextMessage(role="user", content="Tên tôi là gì?"),
-            ContextMessage(role="assistant", content="Tên bạn là Demo Administrator."),
-            ContextMessage(role="user", content="VPN đang hoạt động không?"),
-            ContextMessage(role="assistant", content="VPN đang hoạt động bình thường."),
+            ContextMessage(role="user", content="Tôi không truy cập được VPN trên Ubuntu."),
+            ContextMessage(role="assistant", content="Bạn hãy kiểm tra VPN client trên Ubuntu."),
+            ContextMessage(role="user", content="VPN đó vẫn báo lỗi timeout."),
+            ContextMessage(role="assistant", content="Hãy thử kết nối lại VPN."),
         ),
         memories=(ContextMessage(role="memory", content="operating_system=Ubuntu 24.04"),),
+        query="VPN đó vẫn chưa truy cập được?",
     )
 
-    items = build_agents_input(support, "Cách để truy cập VPN")
+    items = build_agents_input(support, support.query)
     messages = [cast(dict[str, Any], item) for item in items]
 
-    assert [(item["role"], item["content"]) for item in messages[:4]] == [
-        ("user", "Tên tôi là gì?"),
-        ("assistant", "Tên bạn là Demo Administrator."),
-        ("user", "VPN đang hoạt động không?"),
-        ("assistant", "VPN đang hoạt động bình thường."),
-    ]
-    assert messages[-2]["role"] == "user"
-    assert "<confirmed_memory" in messages[-2]["content"]
-    assert messages[-1] == {"role": "user", "content": "Cách để truy cập VPN"}
+    roles_by_content = {item["content"]: item["role"] for item in messages}
+    assert roles_by_content["Tôi không truy cập được VPN trên Ubuntu."] == "user"
+    assert roles_by_content["Bạn hãy kiểm tra VPN client trên Ubuntu."] == "assistant"
+    assert roles_by_content["VPN đó vẫn báo lỗi timeout."] == "user"
+    assert roles_by_content["Hãy thử kết nối lại VPN."] == "assistant"
+    assert not any('<context_item kind="semantic_memory"' in item["content"] for item in messages)
+    assert messages[-1] == {"role": "user", "content": support.query}
 
 
-def test_agents_input_compacts_old_history_without_losing_latest_request() -> None:
+def test_agents_input_drops_unrelated_old_history_without_losing_latest_request() -> None:
     history = tuple(
         ContextMessage(
             role="user" if index % 2 == 0 else "assistant",
@@ -71,17 +80,85 @@ def test_agents_input_compacts_old_history_without_losing_latest_request() -> No
         )
         for index in range(24)
     )
-    support = _support_context(history=history)
+    support = _support_context(
+        history=history,
+        query="Cách cấu hình Docker Registry của công ty?",
+    )
 
-    items = build_agents_input(support, "Cách cấu hình Docker Registry của công ty?")
+    items = build_agents_input(support, support.query)
     messages = [cast(dict[str, Any], item) for item in items]
 
-    assert "<older_conversation_summary" in messages[0]["content"]
-    assert messages[-1] == {
-        "role": "user",
-        "content": "Cách cấu hình Docker Registry của công ty?",
-    }
-    assert len(items) < len(history) + 2
+    assert messages == [{"role": "user", "content": support.query}]
+
+
+def test_context_refresh_retains_current_tool_call_and_output() -> None:
+    """A refreshed context must still let the next model turn inspect the tool result."""
+
+    support = _support_context(history=(), query="Tôi tên là gì?")
+
+    class RefreshedContextBuilder:
+        async def build(self, purpose: str, **kwargs: object) -> ActiveContext:
+            del kwargs
+            return ActiveContext(
+                run_id=support.conversation_id,
+                call_sequence=2,
+                purpose=cast(Any, purpose),
+                current_request=support.query,
+                messages=(ActiveContextMessage(role="user", content=support.query),),
+                selections=(),
+                token_budget=ContextTokenBudget(
+                    model_context_limit=16_000,
+                    reserved_output_tokens=1_200,
+                    safety_margin_tokens=1_600,
+                    input_token_limit=11_220,
+                ),
+                estimated_input_tokens=8,
+                bundle_hash="a" * 64,
+                policy_version="test",
+            )
+
+    sdk_context = SupportSDKContext(
+        support=support,
+        executor=cast(Any, object()),
+        database=cast(Any, object()),
+        run_id=uuid4(),
+        citation_store={},
+        tool_calls=1,
+        context_builder=cast(Any, RefreshedContextBuilder()),
+    )
+    input_items = cast(
+        list[Any],
+        [
+            {"role": "user", "content": "stale seed input"},
+            {
+                "type": "function_call",
+                "call_id": "call_profile",
+                "name": "get_my_profile",
+                "arguments": "{}",
+            },
+            {
+                "type": "function_call_output",
+                "call_id": "call_profile",
+                "output": '{"ok":true,"display_name":"Demo Administrator"}',
+            },
+        ],
+    )
+
+    asyncio.run(
+        SupportRunHooks().on_llm_start(
+            RunContextWrapper(sdk_context),
+            cast(Any, object()),
+            None,
+            input_items,
+        )
+    )
+
+    assert input_items[0] == {"role": "user", "content": "Tôi tên là gì?"}
+    assert [item["type"] for item in input_items[1:]] == [
+        "function_call",
+        "function_call_output",
+    ]
+    assert input_items[-1]["output"] == ('{"ok":true,"display_name":"Demo Administrator"}')
 
 
 def test_request_policy_requires_knowledge_for_internal_guidance() -> None:

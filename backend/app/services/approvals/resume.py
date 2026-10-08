@@ -88,14 +88,21 @@ async def execute_approval_resume_run(
             )
         final_outcome = "ticket_created" if ticket_receipt is not None else "approval_rejected"
         working_memory = WorkingMemoryService()
-        await working_memory.resume(
+        snapshot = await working_memory.load(
             session,
             run_id=run_id,
             owner_id=actor_id,
-            action_id=f"agent-ticket:{run_id}",
-            approved=ticket_receipt is not None,
+            for_update=True,
         )
-        if ticket_receipt is not None:
+        if snapshot is not None:
+            await working_memory.resume(
+                session,
+                run_id=run_id,
+                owner_id=actor_id,
+                action_id=f"agent-ticket:{run_id}",
+                approved=ticket_receipt is not None,
+            )
+        if ticket_receipt is not None and snapshot is not None:
             tool_result = ToolResult(
                 call_id=f"approval:{approval.id}:create_ticket",
                 name="create_ticket",
@@ -147,19 +154,22 @@ async def execute_approval_resume_run(
                 "ticket_id": str(ticket_receipt.ticket_id) if ticket_receipt is not None else None,
             },
         )
-        completion = await working_memory.complete(
-            session,
-            run_id=run_id,
-            owner_id=actor_id,
-            operation_id=f"working-memory-complete:{approval.id}",
-            outcome=final_outcome,
-            ticket_id=ticket_receipt.ticket_id if ticket_receipt is not None else None,
-        )
+        ticket_id = ticket_receipt.ticket_id if ticket_receipt is not None else None
+        if snapshot is not None:
+            completion = await working_memory.complete(
+                session,
+                run_id=run_id,
+                owner_id=actor_id,
+                operation_id=f"working-memory-complete:{approval.id}",
+                outcome=final_outcome,
+                ticket_id=ticket_id,
+            )
+            ticket_id = completion.snapshot.ticket_id
         await ProcedureExecutionService().complete_for_run(
             session,
             run_id=run_id,
             owner_id=actor_id,
             run_outcome=final_outcome,
-            ticket_id=completion.snapshot.ticket_id,
+            ticket_id=ticket_id,
         )
     return "resumed"

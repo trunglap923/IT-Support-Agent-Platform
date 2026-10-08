@@ -64,7 +64,8 @@ jobs:
       - name: Run non-service tests
         run: |
           mkdir -p reports/ci
-          uv run --directory backend --frozen pytest --ignore=tests/integration --ignore=tests/contract --junitxml=../reports/ci/backend-unit.xml
+          PYTHONPATH="$GITHUB_WORKSPACE/backend:$GITHUB_WORKSPACE" \
+            uv run --directory backend --frozen pytest --ignore=tests/integration --ignore=tests/contract --junitxml=../reports/ci/backend-unit.xml
       - name: Upload failure evidence
         if: failure()
         uses: actions/upload-artifact@v7
@@ -144,7 +145,7 @@ jobs:
         run: uv run --frozen alembic upgrade head
       - name: Assert one current Alembic revision
         working-directory: backend
-        run: test "$(uv run --frozen alembic current | tail -n 1)" = "0017_ticket_device_owner (head)"
+        run: test "$(uv run --frozen alembic current | tail -n 1)" = "0026_memory_embedding_identity (head)"
 
   integration:
     name: Services · PostgreSQL and Redis integration
