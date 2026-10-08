@@ -161,9 +161,11 @@ Khi đủ hai key, worker tự bật OpenInference instrumentation cho OpenAI Ag
 root `it-support-run` observation. Model/tool spans được gắn `run_id`, actor/session chỉ xuất hiện
 dưới dạng SHA-256 rút gọn. Mặc định prompt và output bị ẩn trước khi export. Đặt
 `LANGFUSE_CAPTURE_CONTENT=true` trong môi trường development nếu cần xem yêu cầu hiện tại và câu
-trả lời cuối cùng ở observation gốc trên Langfuse. System prompt, context nội bộ, invocation parameters, tool
-schemas, embedding text/vector và retrieval documents vẫn bị ẩn. Langfuse không được dùng làm
-nguồn audit nghiệp vụ; PostgreSQL vẫn giữ trạng thái run, approval và tool receipt.
+trả lời cuối cùng ở observation gốc trên Langfuse. Muốn xem toàn bộ model input/output, system
+instructions, context và tool data trong các observation `response`, cần tắt thêm các cờ redaction
+OpenInference/OpenAI Agents được liệt kê trong `.env.example`. Chế độ này có thể gửi dữ liệu nội
+bộ lên Langfuse Cloud. Langfuse không được dùng làm nguồn audit nghiệp vụ; PostgreSQL vẫn giữ
+trạng thái run, approval và tool receipt.
 
 Sau khi đổi `.env`, rebuild stack và kiểm tra xác thực từ đúng worker process:
 

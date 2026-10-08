@@ -83,6 +83,7 @@ def run_agent(run_id: str) -> dict[str, str]:
             agent_runtime_factory = OpenAIAgentsRuntimeFactory(
                 api_key=key.get_secret_value(),
                 model=settings.openai_model,
+                trace_include_sensitive_data=settings.langfuse_capture_content,
                 usage_ledger=create_text_usage_ledger(settings, database),
             )
         try:

@@ -296,11 +296,11 @@ def _instrument_openai_agents(*, capture_content: bool) -> None:
                 config=TraceConfig(
                     hide_inputs=not capture_content,
                     hide_outputs=not capture_content,
-                    hide_llm_invocation_parameters=True,
-                    hide_llm_tools=True,
+                    hide_llm_invocation_parameters=not capture_content,
+                    hide_llm_tools=not capture_content,
                     hide_embeddings_text=True,
                     hide_embeddings_vectors=True,
-                    hide_retrieval_documents=True,
+                    hide_retrieval_documents=not capture_content,
                 ),
             )
         except Exception:

@@ -472,6 +472,7 @@ class OpenAIAgentsRuntime:
         model: str,
         context: SupportSDKContext,
         operation_id: str,
+        trace_include_sensitive_data: bool = False,
         usage_ledger: DatabaseUsageLedger | None = None,
         on_stream_started: StreamStartedCallback | None = None,
         on_text_delta: TextDeltaCallback | None = None,
@@ -480,6 +481,7 @@ class OpenAIAgentsRuntime:
         self._model_provider = OpenAIProvider(openai_client=self._client, use_responses=True)
         self._context = context
         self._operation_id = operation_id
+        self._trace_include_sensitive_data = trace_include_sensitive_data
         self._usage_ledger = usage_ledger
         self._on_stream_started = on_stream_started
         self._on_text_delta = on_text_delta
@@ -569,7 +571,7 @@ class OpenAIAgentsRuntime:
                     workflow_name="IT Support",
                     group_id=str(self._context.support.conversation_id),
                     trace_metadata={"run_id": str(self._context.run_id)},
-                    trace_include_sensitive_data=False,
+                    trace_include_sensitive_data=self._trace_include_sensitive_data,
                 ),
             )
             async for _event in streamed.stream_events():
@@ -687,6 +689,7 @@ class OpenAIAgentsRuntime:
 class OpenAIAgentsRuntimeFactory:
     api_key: str
     model: str
+    trace_include_sensitive_data: bool = False
     usage_ledger: DatabaseUsageLedger | None = None
 
     def create(
@@ -702,6 +705,7 @@ class OpenAIAgentsRuntimeFactory:
             model=self.model,
             context=context,
             operation_id=operation_id,
+            trace_include_sensitive_data=self.trace_include_sensitive_data,
             usage_ledger=self.usage_ledger,
             on_stream_started=on_stream_started,
             on_text_delta=on_text_delta,

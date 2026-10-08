@@ -131,6 +131,19 @@ LANGFUSE_CAPTURE_CONTENT=true
 Giá trị này gửi yêu cầu hiện tại và câu trả lời cuối cùng tới Langfuse project đã cấu hình. Dùng `false`
 cho dữ liệu nhạy cảm hoặc môi trường production.
 
+Để observation `response` chứa toàn bộ prompt, system instructions, context và tool data, cấu hình
+thêm trong môi trường demo đã được phép gửi dữ liệu:
+
+```ini
+OPENINFERENCE_HIDE_INPUTS=false
+OPENINFERENCE_HIDE_OUTPUTS=false
+OPENINFERENCE_HIDE_LLM_INVOCATION_PARAMETERS=false
+OPENINFERENCE_HIDE_LLM_TOOLS=false
+OPENINFERENCE_HIDE_RETRIEVAL_DOCUMENTS=false
+OPENAI_AGENTS_DONT_LOG_MODEL_DATA=false
+OPENAI_AGENTS_DONT_LOG_TOOL_DATA=false
+```
+
 Sau khi đổi, chạy `make up`; điều tra xong nên trả lại `false`. Ưu tiên log theo service và
 không in `.env`:
 
