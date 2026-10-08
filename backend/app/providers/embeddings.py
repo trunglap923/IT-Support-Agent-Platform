@@ -41,6 +41,21 @@ def validate_embedding_input(texts: list[str]) -> None:
         raise ValueError("Embedding batch exceeds the 300000-token safety limit")
 
 
+def deterministic_fake_embedding(text: str, *, dimensions: int = 1536) -> tuple[float, ...]:
+    """Return the deterministic hashing vector used by the fake provider and local evals."""
+
+    if dimensions <= 0:
+        raise ValueError("Embedding dimensions must be positive")
+    values = [0.0] * dimensions
+    for token in re.findall(r"\w+", text.casefold()):
+        digest = hashlib.blake2b(token.encode("utf-8"), digest_size=8).digest()
+        index = int.from_bytes(digest[:4], "big") % dimensions
+        sign = 1.0 if digest[4] & 1 else -1.0
+        values[index] += sign
+    norm = math.sqrt(sum(value * value for value in values)) or 1.0
+    return tuple(value / norm for value in values)
+
+
 class FakeEmbeddingProvider:
     def __init__(self, *, dimensions: int = 1536, model: str = "fake-embedding-v2") -> None:
         if dimensions <= 0:
@@ -50,16 +65,9 @@ class FakeEmbeddingProvider:
 
     async def embed(self, texts: list[str], *, operation_id: str) -> EmbeddingBatch:
         validate_embedding_input(texts)
-        vectors: list[tuple[float, ...]] = []
-        for text in texts:
-            values = [0.0] * self._dimensions
-            for token in re.findall(r"\w+", text.casefold()):
-                digest = hashlib.blake2b(token.encode("utf-8"), digest_size=8).digest()
-                index = int.from_bytes(digest[:4], "big") % self._dimensions
-                sign = 1.0 if digest[4] & 1 else -1.0
-                values[index] += sign
-            norm = math.sqrt(sum(value * value for value in values)) or 1.0
-            vectors.append(tuple(value / norm for value in values))
+        vectors = [
+            deterministic_fake_embedding(text, dimensions=self._dimensions) for text in texts
+        ]
         return EmbeddingBatch(
             vectors=tuple(vectors),
             model=self._model,

@@ -1007,6 +1007,12 @@ class MemoryAssertion(Base):
         ),
         CheckConstraint("confidence BETWEEN 0 AND 1", name="memory_assertion_confidence_range"),
         CheckConstraint("length(value_hash) = 64", name="memory_assertion_hash_length"),
+        CheckConstraint(
+            "(embedding IS NULL AND embedding_model IS NULL AND embedding_dimensions IS NULL) "
+            "OR (embedding IS NOT NULL AND embedding_model IS NOT NULL "
+            "AND embedding_dimensions = 1536)",
+            name="memory_assertions_embedding_identity_complete",
+        ),
         Index(
             "uq_memory_assertion_active_claim",
             "owner_id",
@@ -1049,6 +1055,8 @@ class MemoryAssertion(Base):
         ForeignKey("memory_facts.id", ondelete="SET NULL"), index=True
     )
     embedding: Mapped[list[float] | None] = mapped_column(VECTOR(1536))
+    embedding_model: Mapped[str | None] = mapped_column(String(120))
+    embedding_dimensions: Mapped[int | None] = mapped_column(Integer)
     version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -1140,6 +1148,12 @@ class IncidentEpisode(Base):
             "outcome IN ('resolved', 'unresolved', 'ticket_created', 'cancelled')",
             name="incident_episode_outcome_allowlist",
         ),
+        CheckConstraint(
+            "(embedding IS NULL AND embedding_model IS NULL AND embedding_dimensions IS NULL) "
+            "OR (embedding IS NOT NULL AND embedding_model IS NOT NULL "
+            "AND embedding_dimensions = 1536)",
+            name="incident_episodes_embedding_identity_complete",
+        ),
         Index("ix_incident_episodes_owner_completed", "owner_id", "completed_at"),
         Index("ix_incident_episodes_owner_device", "owner_id", "device_id", "completed_at"),
     )
@@ -1164,6 +1178,8 @@ class IncidentEpisode(Base):
     source_refs: Mapped[list[str]] = mapped_column(JSONB, default=list, server_default="[]")
     verification_refs: Mapped[list[str]] = mapped_column(JSONB, default=list, server_default="[]")
     embedding: Mapped[list[float] | None] = mapped_column(VECTOR(1536))
+    embedding_model: Mapped[str | None] = mapped_column(String(120))
+    embedding_dimensions: Mapped[int | None] = mapped_column(Integer)
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -1237,6 +1253,12 @@ class ProcedureVersion(Base):
         ),
         CheckConstraint("success_count >= 0", name="procedure_success_count_non_negative"),
         CheckConstraint("failure_count >= 0", name="procedure_failure_count_non_negative"),
+        CheckConstraint(
+            "(embedding IS NULL AND embedding_model IS NULL AND embedding_dimensions IS NULL) "
+            "OR (embedding IS NOT NULL AND embedding_model IS NOT NULL "
+            "AND embedding_dimensions = 1536)",
+            name="procedure_versions_embedding_identity_complete",
+        ),
         UniqueConstraint("procedure_id", "version_number", name="uq_procedure_versions_number"),
         Index(
             "ix_procedure_versions_status_effective",
@@ -1278,6 +1300,8 @@ class ProcedureVersion(Base):
         JSONB, default=dict, server_default="{}"
     )
     embedding: Mapped[list[float] | None] = mapped_column(VECTOR(1536))
+    embedding_model: Mapped[str | None] = mapped_column(String(120))
+    embedding_dimensions: Mapped[int | None] = mapped_column(Integer)
     created_by: Mapped[UUID | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), index=True
     )

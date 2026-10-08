@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -12,6 +11,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.agent.context.builder import ContextMessage, estimate_tokens
 from app.agent.context.contracts import ContextCandidate, ContextScope
 from app.db.models import MemoryAssertion, MemoryFact
+from app.memory.hybrid import (
+    HybridMemoryItem,
+    HybridMemoryQuery,
+    HybridMemoryRetriever,
+    recency_score,
+)
 
 MAX_MEMORY_CONTEXT_FACTS = 5
 _PREDICATE_ALIASES: dict[str, tuple[str, ...]] = {
@@ -32,6 +37,7 @@ class MemoryContextService:
         scope: ContextScope,
         now: datetime | None = None,
         limit: int = 12,
+        hybrid_query: HybridMemoryQuery | None = None,
     ) -> tuple[ContextCandidate, ...]:
         current_time = now or datetime.now(UTC)
         scope_filter = MemoryAssertion.scope == "global"
@@ -56,20 +62,32 @@ class MemoryContextService:
                     MemoryAssertion.authority_tier.desc(),
                     MemoryAssertion.updated_at.desc(),
                 )
-                .limit(limit * 3)
+                .limit(max(100, limit * 10))
             )
         )
-        query_terms = _terms(query)
+        prepared = hybrid_query or HybridMemoryQuery.lexical(query)
+        ranked = HybridMemoryRetriever().rank(
+            prepared,
+            [
+                HybridMemoryItem(
+                    item_id=str(value.id),
+                    text=value.normalized_text,
+                    embedding=(tuple(value.embedding) if value.embedding is not None else None),
+                    embedding_model=value.embedding_model,
+                    embedding_dimensions=value.embedding_dimensions,
+                    exact_terms=(value.predicate, *_PREDICATE_ALIASES.get(value.predicate, ())),
+                    recency=recency_score(value.updated_at, now=current_time),
+                    confidence=float(value.confidence),
+                    authority=value.authority_tier / 100,
+                )
+                for value in values
+            ],
+            limit=limit,
+        )
+        values_by_id = {str(value.id): value for value in values}
         candidates: list[ContextCandidate] = []
-        normalized_query = f" {' '.join(query.casefold().split())} "
-        for value in values:
-            relevance = _overlap(query_terms, _terms(value.normalized_text))
-            aliases = _PREDICATE_ALIASES.get(value.predicate, ())
-            alias_match = any(alias in normalized_query for alias in aliases)
-            if alias_match:
-                relevance = max(relevance, 0.8)
-            if relevance <= 0 and value.predicate.casefold() not in normalized_query:
-                continue
+        for score in ranked:
+            value = values_by_id[score.item_id]
             content = (
                 f"Confirmed memory ({value.predicate}): {value.value.get('value', value.value)}"
             )
@@ -80,19 +98,19 @@ class MemoryContextService:
                     content=content,
                     source_ref=f"memory-assertion:{value.id}:v{value.version}",
                     scope=scope,
-                    relevance=max(relevance, 0.35),
+                    relevance=score.relevance,
                     importance=0.7,
                     source_reliability=value.authority_tier / 100,
                     confidence=float(value.confidence),
                     temporal_validity=1,
-                    task_utility=max(relevance, 0.35),
-                    recency=0.85,
+                    task_utility=score.score,
+                    recency=score.recency,
                     token_cost=estimate_tokens(content),
                     sensitivity="confidential",
                     provenance_refs=(f"memory-source:{value.source_id}",),
                 )
             )
-        return tuple(candidates[:limit])
+        return tuple(candidates)
 
     async def context_messages(
         self,
@@ -129,16 +147,3 @@ class MemoryContextService:
             )
             for value in values
         ]
-
-
-_TOKEN = re.compile(r"[\w.-]+", re.UNICODE)
-
-
-def _terms(value: str) -> set[str]:
-    return {item.casefold() for item in _TOKEN.findall(value) if len(item) > 1}
-
-
-def _overlap(left: set[str], right: set[str]) -> float:
-    if not left:
-        return 0.0
-    return min(1.0, len(left.intersection(right)) / max(1, min(6, len(left))))

@@ -7,14 +7,17 @@ import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import Literal, cast
 from uuid import UUID, uuid4
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import MemoryAssertion, MemoryConflict, MemoryDecision
-from app.memory.contracts import MemoryDecisionRecord, MemoryMutationProposal
+from app.memory.contracts import MemoryDecisionRecord, MemoryMutationProposal, MemoryOperation
+from app.memory.hybrid import generate_memory_embedding
 from app.memory.sources import MemorySourceRegistry
+from app.providers.embeddings import EmbeddingProvider
 
 MEMORY_POLICY_VERSION = "memory-policy-v1"
 _FORBIDDEN_PREDICATES = {
@@ -43,12 +46,15 @@ def _canonical(value: dict[str, object]) -> tuple[str, str]:
 class MemoryDecisionEngine:
     """Validate proposals and apply one auditable owner-scoped mutation."""
 
+    def __init__(self, embedding_provider: EmbeddingProvider | None = None) -> None:
+        self._embedding_provider = embedding_provider
+
     async def apply(
         self,
         session: AsyncSession,
         *,
         proposal: MemoryMutationProposal,
-        decided_by_type: str,
+        decided_by_type: Literal["system", "user", "it_reviewer", "connector"],
         decided_by_id: UUID | None,
         correlation_id: str,
         run_id: UUID | None = None,
@@ -172,6 +178,16 @@ class MemoryDecisionEngine:
         assert proposal.proposed_value is not None
         rendered, value_hash = _canonical(proposal.proposed_value)
         if active is not None and active.value_hash == value_hash:
+            if active.embedding is None:
+                embedding = await generate_memory_embedding(
+                    self._embedding_provider,
+                    active.normalized_text,
+                    operation_id=f"memory-assertion:{active.id}:embedding",
+                )
+                if embedding is not None:
+                    active.embedding = list(embedding.vector)
+                    active.embedding_model = embedding.model
+                    active.embedding_dimensions = embedding.dimensions
             return await self._finish(
                 session,
                 proposal=proposal,
@@ -191,6 +207,12 @@ class MemoryDecisionEngine:
         status = "active"
         if active is not None and authority < active.authority_tier:
             status = "quarantined"
+        normalized_text = f"{proposal.predicate}: {rendered}"[:1000]
+        embedding = await generate_memory_embedding(
+            self._embedding_provider,
+            normalized_text,
+            operation_id=f"memory-assertion:{proposal.proposal_id}:embedding",
+        )
         assertion = MemoryAssertion(
             owner_id=proposal.owner_id,
             source_id=sources[0].id,
@@ -198,7 +220,7 @@ class MemoryDecisionEngine:
             subject_id=proposal.subject_id,
             predicate=proposal.predicate,
             value=proposal.proposed_value,
-            normalized_text=f"{proposal.predicate}: {rendered}"[:1000],
+            normalized_text=normalized_text,
             value_hash=value_hash,
             scope=scope,
             device_id=device_id,
@@ -208,6 +230,9 @@ class MemoryDecisionEngine:
             valid_from=current_time,
             supersedes_id=active.id if active is not None and status == "active" else None,
             compatibility_fact_id=compatibility_fact_id,
+            embedding=list(embedding.vector) if embedding is not None else None,
+            embedding_model=embedding.model if embedding is not None else None,
+            embedding_dimensions=embedding.dimensions if embedding is not None else None,
         )
         session.add(assertion)
         if active is not None and status == "active":
@@ -255,12 +280,12 @@ class MemoryDecisionEngine:
         session: AsyncSession,
         *,
         proposal: MemoryMutationProposal,
-        decided_by_type: str,
+        decided_by_type: Literal["system", "user", "it_reviewer", "connector"],
         decided_by_id: UUID | None,
         correlation_id: str,
         run_id: UUID | None,
-        status: str,
-        operation: str,
+        status: Literal["accepted", "rejected", "quarantined"],
+        operation: MemoryOperation,
         reason: str,
         source_ids: list[UUID],
         target: MemoryAssertion | None,
@@ -294,9 +319,12 @@ class MemoryDecisionEngine:
             decision_id=row.id,
             proposal_id=row.proposal_id,
             owner_id=row.owner_id,
-            operation=row.operation,
-            status=row.status,
-            decided_by_type=row.decided_by_type,
+            operation=cast(MemoryOperation, row.operation),
+            status=cast(Literal["accepted", "rejected", "quarantined"], row.status),
+            decided_by_type=cast(
+                Literal["system", "user", "it_reviewer", "connector"],
+                row.decided_by_type,
+            ),
             decided_by_id=row.decided_by_id,
             policy_version=row.policy_version,
             reason_code=row.reason_code,

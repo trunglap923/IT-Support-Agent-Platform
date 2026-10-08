@@ -3,16 +3,18 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated, Literal, cast
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.pagination import CursorPage, PageLimit, build_page, decode_cursor
 from app.auth.csrf import require_csrf
 from app.auth.policies import require_roles
+from app.config import Settings
+from app.db import Database
 from app.db.models import UserRole
 from app.dependencies import CurrentPrincipal, get_db_session
 from app.memory.audit import MemoryAuditService
@@ -21,6 +23,7 @@ from app.memory.lifecycle import (
     MemoryLifecycleService,
     MemoryNotFoundError,
 )
+from app.providers.factory import create_embedding_provider
 
 router = APIRouter(prefix="/memory", tags=["memory"])
 
@@ -217,11 +220,16 @@ def _memory_error(error: MemoryConflictError | MemoryNotFoundError) -> HTTPExcep
 async def confirm_candidate(
     candidate_id: UUID,
     payload: CandidateDecisionRequest,
+    request: Request,
     principal: CurrentPrincipal,
     session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> MemoryFactResponse:
+    provider = create_embedding_provider(
+        cast(Settings, request.app.state.settings),
+        cast(Database, request.app.state.database),
+    )
     try:
-        value = await MemoryLifecycleService().confirm_candidate(
+        value = await MemoryLifecycleService(provider).confirm_candidate(
             session,
             owner_id=principal.user_id,
             candidate_id=candidate_id,
@@ -233,6 +241,8 @@ async def confirm_candidate(
     except (MemoryConflictError, MemoryNotFoundError) as error:
         await session.rollback()
         raise _memory_error(error) from error
+    finally:
+        await provider.close()
     return MemoryFactResponse.model_validate(value)
 
 
@@ -371,11 +381,16 @@ async def resolve_conflict(
 async def update_fact(
     fact_id: UUID,
     payload: UpdateFactRequest,
+    request: Request,
     principal: CurrentPrincipal,
     session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> MemoryFactResponse:
+    provider = create_embedding_provider(
+        cast(Settings, request.app.state.settings),
+        cast(Database, request.app.state.database),
+    )
     try:
-        value = await MemoryLifecycleService().update_fact(
+        value = await MemoryLifecycleService(provider).update_fact(
             session,
             owner_id=principal.user_id,
             fact_id=fact_id,
@@ -386,6 +401,8 @@ async def update_fact(
     except (MemoryConflictError, MemoryNotFoundError) as error:
         await session.rollback()
         raise _memory_error(error) from error
+    finally:
+        await provider.close()
     return MemoryFactResponse.model_validate(value)
 
 

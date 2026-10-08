@@ -11,6 +11,7 @@ from app.db.models import AgentRun, IncidentEpisode, MemoryExtractionJob, RunSta
 from app.jobs.dispatch import EpisodeConsolidationDispatcher, MemoryExtractionDispatcher
 from app.memory.episodes import EpisodeMemoryService
 from app.memory.lifecycle import MemoryLifecycleService
+from app.providers.embeddings import EmbeddingProvider
 
 
 async def execute_memory_extraction(database: Database, *, job_id: UUID) -> str:
@@ -50,9 +51,14 @@ async def reconcile_memory_extractions(
     return delivered
 
 
-async def execute_episode_consolidation(database: Database, *, run_id: UUID) -> str:
+async def execute_episode_consolidation(
+    database: Database,
+    *,
+    run_id: UUID,
+    embedding_provider: EmbeddingProvider | None = None,
+) -> str:
     async with database.session() as session, session.begin():
-        episode = await EpisodeMemoryService().consolidate(session, run_id=run_id)
+        episode = await EpisodeMemoryService(embedding_provider).consolidate(session, run_id=run_id)
         return "completed" if episode is not None else "not_ready"
 
 

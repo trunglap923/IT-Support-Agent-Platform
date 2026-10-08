@@ -15,6 +15,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from app.memory.hybrid import (
+    HybridMemoryItem,
+    HybridMemoryQuery,
+    HybridMemoryRetriever,
+    memory_terms,
+)
+from app.providers.embeddings import deterministic_fake_embedding
+
 from evals.public.metrics import aggregate_metrics, query_metrics
 from evals.public_memory.adapters import MEMORY_DATASETS, load_memory_benchmark
 from evals.public_memory.contracts import MemoryRecord, MemoryRetrievalBenchmark
@@ -177,6 +185,48 @@ def run_benchmark(
         "lexical": _lexical_rank,
         "bm25": _bm25_rank,
     }
+    if "hybrid_fake" in variants:
+        vectors = {
+            record.record_id: deterministic_fake_embedding(record.text)
+            for record in benchmark.records
+        }
+        hybrid = HybridMemoryRetriever()
+
+        def hybrid_fake_rank(
+            query: str, records: Sequence[MemoryRecord]
+        ) -> tuple[list[str], list[float]]:
+            prepared = HybridMemoryQuery(
+                text=query,
+                terms=memory_terms(query),
+                vector=deterministic_fake_embedding(query),
+                embedding_model="fake-embedding-v2",
+                embedding_dimensions=1536,
+            )
+            ranked = hybrid.rank(
+                prepared,
+                [
+                    HybridMemoryItem(
+                        item_id=record.record_id,
+                        text=record.text,
+                        embedding=vectors[record.record_id],
+                        embedding_model="fake-embedding-v2",
+                        embedding_dimensions=1536,
+                        # Public adapters do not invent product metadata absent from gold data.
+                        exact_terms=(),
+                        recency=0.5,
+                        confidence=0.5,
+                        authority=0.5,
+                    )
+                    for record in records
+                ],
+                limit=RESULT_LIMIT,
+            )
+            return (
+                [item.item_id for item in ranked],
+                [item.score for item in ranked],
+            )
+
+        rankers = {**rankers, "hybrid_fake": hybrid_fake_rank}
     unknown = set(variants) - set(rankers)
     if unknown:
         raise ValueError(f"Unknown retrieval variant: {min(unknown)!r}")
@@ -212,6 +262,10 @@ def run_benchmark(
                 "Current episodic-memory token-overlap formula without service or recency boost"
             ),
             "bm25": "Dependency-free Okapi BM25 (k1=0.9, b=0.4) over candidate sessions",
+            "hybrid_fake": (
+                "Runtime HybridMemoryRetriever with BM25 and deterministic hashing vectors; "
+                "metadata signals held constant"
+            ),
         },
         "variants": {
             variant: _evaluate_variant(
@@ -271,7 +325,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--query-limit", type=int)
     parser.add_argument("--distractors", type=int, default=31)
     parser.add_argument("--seed", type=int, default=20261008)
-    parser.add_argument("--variant", action="append", choices=("lexical", "bm25"))
+    parser.add_argument(
+        "--variant",
+        action="append",
+        choices=("lexical", "bm25", "hybrid_fake"),
+    )
     parser.add_argument(
         "--include-results",
         action="store_true",
@@ -292,7 +350,7 @@ def main() -> None:
     )
     report = run_benchmark(
         benchmark,
-        variants=tuple(args.variant or ("lexical", "bm25")),
+        variants=tuple(args.variant or ("lexical", "bm25", "hybrid_fake")),
         query_limit=args.query_limit,
         seed=args.seed,
         include_results=args.include_results,

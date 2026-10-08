@@ -369,6 +369,7 @@ async def execute_support_run(
                 database=database,
                 run_id=run_id,
                 support=support_context,
+                embedding_provider=embedding_provider,
                 model_context_limit=context_model_limit,
                 reserved_output_tokens=context_reserved_output_tokens,
                 audit_retention_days=context_audit_retention_days,

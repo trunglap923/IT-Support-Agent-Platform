@@ -38,6 +38,19 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 - [x] MEM-03: Implement accept/reject/edit revision, TTL pending 7 ngày/active 90 ngày.
 - [x] MEM-04: Implement delete/edit cùng epoch update; kiểm tra lại epoch trước commit.
 - [x] MEM-05: Retrieve tối đa năm fact đã xác nhận theo owner/device vào LangGraph context.
+- [x] MEM-06: Ghi embedding cho semantic assertion, incident episode và procedure version mới.
+- [x] MEM-07: Hybrid retrieval kết hợp BM25, cosine, exact metadata, recency, confidence và authority.
+- [x] MEM-08: Dùng chung một query embedding cho các memory lane trong mỗi agent run.
+- [x] MEM-09: Lưu model/dimension cùng vector, bỏ qua vector khác embedding space và hỗ trợ backfill.
+
+Sau khi migrate một database đã có memory, kiểm tra và backfill vector bằng:
+
+```bash
+make memory-reindex-dry-run
+make memory-reindex
+```
+
+Nếu `EMBEDDING_PROVIDER=openai`, lệnh apply yêu cầu `RUN_PAID_REINDEX=1`.
 
 ## Điều kiện hoàn thành
 

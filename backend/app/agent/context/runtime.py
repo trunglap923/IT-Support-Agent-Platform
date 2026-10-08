@@ -32,9 +32,11 @@ from app.db import Database
 from app.db.models import ContextBuildRecord, ContextSummaryArtifact
 from app.diagnostics import log_event
 from app.memory.episodes import EpisodeMemoryService
+from app.memory.hybrid import HybridMemoryQuery, HybridMemoryRetriever
 from app.memory.retrieval import MemoryContextService
 from app.procedures.execution import ProcedureExecutionService
 from app.procedures.retrieval import ProcedureRetriever
+from app.providers.embeddings import EmbeddingProvider
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +50,7 @@ class RuntimeContextBuilder:
         database: Database,
         run_id: UUID,
         support: SupportContext,
+        embedding_provider: EmbeddingProvider | None = None,
         model_context_limit: int = 16_000,
         reserved_output_tokens: int = 1_200,
         audit_retention_days: int = 7,
@@ -65,6 +68,8 @@ class RuntimeContextBuilder:
         )
         self._scope = scope_for_support(support)
         self._manager = DeterministicContextManager()
+        self._memory_retriever = HybridMemoryRetriever(embedding_provider)
+        self._memory_query: HybridMemoryQuery | None = None
         self._policy_version = policy_version
         self._audit_retention_days = audit_retention_days
         safety_margin = max(1, int(model_context_limit * 0.10))
@@ -106,12 +111,18 @@ class RuntimeContextBuilder:
                 scope=self._scope,
                 query=self._support.query,
             )
+            if self._memory_query is None:
+                self._memory_query = await self._memory_retriever.prepare_query(
+                    self._support.query,
+                    operation_id=f"memory-retrieval:{self._run_id}:query",
+                )
             semantic = await MemoryContextService().context_candidates(
                 session,
                 owner_id=self._support.principal.user_id,
                 device_id=self._support.device.id if self._support.device else None,
                 query=self._support.query,
                 scope=self._scope,
+                hybrid_query=self._memory_query,
             )
             episodes = await EpisodeMemoryService().context_candidates(
                 session,
@@ -119,6 +130,7 @@ class RuntimeContextBuilder:
                 device_id=self._support.device.id if self._support.device else None,
                 query=self._support.query,
                 scope=self._scope,
+                hybrid_query=self._memory_query,
             )
             procedure_matches = (
                 await ProcedureRetriever().retrieve(
@@ -126,6 +138,7 @@ class RuntimeContextBuilder:
                     principal=self._support.principal,
                     query=self._support.query,
                     scope=self._scope,
+                    hybrid_query=self._memory_query,
                 )
                 if purpose in {"plan", "tool_selection"}
                 else ()

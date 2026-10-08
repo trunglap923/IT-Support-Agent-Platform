@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import select
@@ -20,13 +21,16 @@ from app.db.models import (
     ToolObservation,
     WorkingMemorySnapshotRecord,
 )
+from app.memory.hybrid import (
+    HybridMemoryItem,
+    HybridMemoryQuery,
+    HybridMemoryRetriever,
+    generate_memory_embedding,
+    recency_score,
+)
+from app.providers.embeddings import EmbeddingProvider
 
-_TOKEN = re.compile(r"[\w.-]+", re.UNICODE)
 _ERROR = re.compile(r"\b(?:0x[0-9a-f]+|[A-Z][A-Z0-9_-]*-\d{2,}|\d{3,5})\b", re.IGNORECASE)
-
-
-def _terms(value: str) -> set[str]:
-    return {item.casefold() for item in _TOKEN.findall(value) if len(item) > 1}
 
 
 def _detected_services(value: str) -> set[str]:
@@ -35,11 +39,24 @@ def _detected_services(value: str) -> set[str]:
 
 
 class EpisodeMemoryService:
+    def __init__(self, embedding_provider: EmbeddingProvider | None = None) -> None:
+        self._embedding_provider = embedding_provider
+
     async def consolidate(self, session: AsyncSession, *, run_id: UUID) -> IncidentEpisode | None:
         existing = await session.scalar(
             select(IncidentEpisode).where(IncidentEpisode.run_id == run_id)
         )
         if existing is not None:
+            if existing.embedding is None:
+                embedding = await generate_memory_embedding(
+                    self._embedding_provider,
+                    existing.summary,
+                    operation_id=f"memory-episode:{existing.run_id}:embedding",
+                )
+                if embedding is not None:
+                    existing.embedding = list(embedding.vector)
+                    existing.embedding_model = embedding.model
+                    existing.embedding_dimensions = embedding.dimensions
             if existing.ticket_id is not None and not existing.verified:
                 ticket = await session.get(Ticket, existing.ticket_id)
                 if ticket is not None and ticket.status == "resolved":
@@ -100,6 +117,11 @@ class EpisodeMemoryService:
         episode_services.update(_detected_services(snapshot.goal.statement + " " + final))
         if ticket is not None and ticket.issue_type != "other":
             episode_services.add(ticket.issue_type)
+        embedding = await generate_memory_embedding(
+            self._embedding_provider,
+            summary or "Completed support run",
+            operation_id=f"memory-episode:{run.id}:embedding",
+        )
         episode = IncidentEpisode(
             run_id=run.id,
             owner_id=record.owner_id,
@@ -113,6 +135,9 @@ class EpisodeMemoryService:
             error_codes=sorted(set(_ERROR.findall(snapshot.goal.statement + " " + final)))[:20],
             source_refs=source_refs,
             verification_refs=[str(item) for item in verification_refs],
+            embedding=list(embedding.vector) if embedding is not None else None,
+            embedding_model=embedding.model if embedding is not None else None,
+            embedding_dimensions=embedding.dimensions if embedding is not None else None,
             started_at=run.created_at,
             completed_at=run.finished_at,
         )
@@ -144,6 +169,8 @@ class EpisodeMemoryService:
         query: str,
         scope: ContextScope,
         limit: int = 3,
+        now: datetime | None = None,
+        hybrid_query: HybridMemoryQuery | None = None,
     ) -> tuple[ContextCandidate, ...]:
         statement = select(IncidentEpisode).where(
             IncidentEpisode.owner_id == owner_id,
@@ -156,17 +183,27 @@ class EpisodeMemoryService:
         rows = list(
             await session.scalars(statement.order_by(IncidentEpisode.completed_at.desc()).limit(50))
         )
-        query_terms = _terms(query)
-        ranked: list[tuple[float, IncidentEpisode]] = []
-        for row in rows:
-            overlap = len(query_terms.intersection(_terms(row.summary))) / max(
-                1, min(8, len(query_terms))
-            )
-            service_match = any(item.casefold() in query.casefold() for item in row.service_ids)
-            score = min(1.0, overlap + (0.25 if service_match else 0))
-            if score > 0:
-                ranked.append((score, row))
-        ranked.sort(key=lambda item: (item[0], item[1].completed_at), reverse=True)
+        current_time = now or datetime.now(UTC)
+        prepared = hybrid_query or HybridMemoryQuery.lexical(query)
+        ranked = HybridMemoryRetriever().rank(
+            prepared,
+            [
+                HybridMemoryItem(
+                    item_id=str(row.id),
+                    text=row.summary,
+                    embedding=(tuple(row.embedding) if row.embedding is not None else None),
+                    embedding_model=row.embedding_model,
+                    embedding_dimensions=row.embedding_dimensions,
+                    exact_terms=tuple((*row.service_ids, *row.error_codes)),
+                    recency=recency_score(row.completed_at, now=current_time, half_life_days=90),
+                    confidence=0.9 if row.verified else 0.65,
+                    authority=0.9 if row.verified else 0.65,
+                )
+                for row in rows
+            ],
+            limit=limit,
+        )
+        rows_by_id = {str(row.id): row for row in rows}
         return tuple(
             ContextCandidate(
                 candidate_id=f"episode:{row.id}",
@@ -176,16 +213,17 @@ class EpisodeMemoryService:
                 ),
                 source_ref=f"incident-episode:{row.id}",
                 scope=scope,
-                relevance=score,
+                relevance=score.relevance,
                 importance=0.7 if row.verified else 0.5,
                 source_reliability=0.9 if row.verified else 0.65,
                 confidence=0.9 if row.verified else 0.65,
                 temporal_validity=1,
-                task_utility=score,
-                recency=0.75,
+                task_utility=score.score,
+                recency=score.recency,
                 token_cost=estimate_tokens(row.summary),
                 sensitivity="confidential",
                 provenance_refs=tuple(row.source_refs[:20]),
             )
-            for score, row in ranked[:limit]
+            for score in ranked
+            for row in (rows_by_id[score.item_id],)
         )

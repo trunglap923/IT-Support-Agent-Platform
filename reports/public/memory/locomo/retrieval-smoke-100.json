@@ -1,6 +1,6 @@
 {
   "schema_version": "public-memory-retrieval-report-v1",
-  "generated_at": "2026-10-08T02:56:56.968200+00:00",
+  "generated_at": "2026-10-08T07:08:45.935072+00:00",
   "dataset": {
     "id": "locomo",
     "name": "LoCoMo",
@@ -32,7 +32,8 @@
   },
   "systems": {
     "lexical": "Current episodic-memory token-overlap formula without service or recency boost",
-    "bm25": "Dependency-free Okapi BM25 (k1=0.9, b=0.4) over candidate sessions"
+    "bm25": "Dependency-free Okapi BM25 (k1=0.9, b=0.4) over candidate sessions",
+    "hybrid_fake": "Runtime HybridMemoryRetriever with BM25 and deterministic hashing vectors; metadata signals held constant"
   },
   "variants": {
     "lexical": {
@@ -88,8 +89,8 @@
         }
       },
       "timing": {
-        "evaluation_seconds": 0.8464203579997047,
-        "mean_query_latency_ms": 8.464203579997047
+        "evaluation_seconds": 0.6956224639980064,
+        "mean_query_latency_ms": 6.956224639980064
       }
     },
     "bm25": {
@@ -145,8 +146,65 @@
         }
       },
       "timing": {
-        "evaluation_seconds": 0.9436817860000701,
-        "mean_query_latency_ms": 9.436817860000701
+        "evaluation_seconds": 0.8789547599990328,
+        "mean_query_latency_ms": 8.789547599990328
+      }
+    },
+    "hybrid_fake": {
+      "name": "hybrid_fake",
+      "metrics": {
+        "ndcg_at_10": 0.7531303251076475,
+        "map_at_10": 0.693604828042328,
+        "recall_at_5": 0.83,
+        "recall_at_10": 0.9166666666666667,
+        "precision_at_10": 0.10300000000000001,
+        "mrr_at_10": 0.702857142857143
+      },
+      "metrics_by_category": {
+        "1": {
+          "ndcg_at_10": 0.3709638401963731,
+          "map_at_10": 0.23045304232804234,
+          "recall_at_5": 0.4,
+          "recall_at_10": 0.6166666666666667,
+          "precision_at_10": 0.16999999999999998,
+          "mrr_at_10": 0.3158333333333333
+        },
+        "2": {
+          "ndcg_at_10": 0.7416315557488966,
+          "map_at_10": 0.6814880952380953,
+          "recall_at_5": 0.8,
+          "recall_at_10": 0.925,
+          "precision_at_10": 0.095,
+          "mrr_at_10": 0.6850595238095238
+        },
+        "3": {
+          "ndcg_at_10": 0.5936010519408085,
+          "map_at_10": 0.513888888888889,
+          "recall_at_5": 0.8333333333333334,
+          "recall_at_10": 0.8333333333333334,
+          "precision_at_10": 0.08333333333333333,
+          "mrr_at_10": 0.513888888888889
+        },
+        "4": {
+          "ndcg_at_10": 0.8374464982013823,
+          "map_at_10": 0.7844322344322344,
+          "recall_at_5": 0.9230769230769231,
+          "recall_at_10": 1.0,
+          "precision_at_10": 0.1,
+          "mrr_at_10": 0.7844322344322344
+        },
+        "5": {
+          "ndcg_at_10": 0.8219497300929731,
+          "map_at_10": 0.79,
+          "recall_at_5": 0.88,
+          "recall_at_10": 0.92,
+          "precision_at_10": 0.09200000000000001,
+          "mrr_at_10": 0.79
+        }
+      },
+      "timing": {
+        "evaluation_seconds": 1.8837140110008477,
+        "mean_query_latency_ms": 18.837140110008477
       }
     }
   }

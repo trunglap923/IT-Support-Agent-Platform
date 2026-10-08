@@ -18,8 +18,10 @@ make public-memory-locomo
 make public-memory-longmemeval
 ```
 
-Both commands run a token-overlap baseline matching the current episodic-memory relevance formula
-and a dependency-free BM25 reference. They do not call a model API or require PostgreSQL.
+Both commands run the previous token-overlap baseline, a dependency-free BM25 reference and the
+runtime `HybridMemoryRetriever` with deterministic fake vectors. The fake-vector variant validates
+fusion and ranking changes without calling a model API or requiring PostgreSQL; it does not measure
+the semantic quality of the configured production embedding model.
 
 ## LoCoMo
 

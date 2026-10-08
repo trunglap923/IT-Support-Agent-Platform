@@ -16,6 +16,7 @@ from app.procedures.contracts import (
     ProcedureStepDefinition,
 )
 from app.procedures.registry import ProcedureRegistryService
+from app.providers.embeddings import EmbeddingProvider
 from app.tools.registry import TOOL_REGISTRY
 
 _KEY = re.compile(r"[^A-Z0-9]+")
@@ -23,6 +24,9 @@ _KEY = re.compile(r"[^A-Z0-9]+")
 
 class ProcedureCompiler:
     """Compile de-identified candidates only when repeated verified traces agree."""
+
+    def __init__(self, embedding_provider: EmbeddingProvider | None = None) -> None:
+        self._registry = ProcedureRegistryService(embedding_provider)
 
     async def compile_verified_episodes(
         self, session: AsyncSession, *, minimum_examples: int = 2, limit: int = 500
@@ -113,7 +117,7 @@ class ProcedureCompiler:
                 example_episode_ids=tuple(item.id for item in values),
                 compiled_signature=signature_key,
             )
-            await ProcedureRegistryService().create_candidate(
+            await self._registry.create_candidate(
                 session,
                 definition=definition,
                 created_by=None,

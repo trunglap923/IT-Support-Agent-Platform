@@ -5,11 +5,16 @@ from __future__ import annotations
 from app.db import Database
 from app.procedures.compiler import ProcedureCompiler
 from app.procedures.registry import ProcedureRegistryService
+from app.providers.embeddings import EmbeddingProvider
 
 
-async def compile_procedure_candidates(database: Database) -> int:
+async def compile_procedure_candidates(
+    database: Database,
+    *,
+    embedding_provider: EmbeddingProvider | None = None,
+) -> int:
     async with database.session() as session, session.begin():
-        return await ProcedureCompiler().compile_verified_episodes(session)
+        return await ProcedureCompiler(embedding_provider).compile_verified_episodes(session)
 
 
 async def count_stale_procedure_versions(database: Database) -> int:

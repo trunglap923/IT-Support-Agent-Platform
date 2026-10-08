@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated, Any, Literal
-from uuid import UUID
+from typing import Annotated, Any, Literal, cast
+from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,6 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.agent.context.contracts import ContextScope
 from app.auth.csrf import require_csrf
 from app.auth.policies import require_roles
+from app.config import Settings
+from app.db import Database
 from app.db.models import (
     Procedure,
     ProcedureApplicability,
@@ -23,6 +25,7 @@ from app.db.models import (
     UserRole,
 )
 from app.dependencies import CurrentPrincipal, get_db_session
+from app.memory.hybrid import HybridMemoryRetriever
 from app.procedures.contracts import (
     ProcedureCandidateDefinition,
     ProcedureReviewDecision,
@@ -33,6 +36,7 @@ from app.procedures.registry import (
     ProcedureRegistryService,
 )
 from app.procedures.retrieval import ProcedureRetriever
+from app.providers.factory import create_embedding_provider
 
 router = APIRouter(prefix="/procedures", tags=["procedures"])
 
@@ -153,19 +157,32 @@ async def _response(session: AsyncSession, version: ProcedureVersion) -> Procedu
 
 @router.get("", response_model=list[ProcedureMatchResponse])
 async def retrieve_procedures(
+    request: Request,
     principal: CurrentPrincipal,
     session: Annotated[AsyncSession, Depends(get_db_session)],
     query: Annotated[str, Query(min_length=2, max_length=500)],
 ) -> list[ProcedureMatchResponse]:
-    matches = await ProcedureRetriever().retrieve(
-        session,
-        principal=principal,
-        query=query,
-        scope=ContextScope(
-            owner_id=principal.user_id,
-            department_id=principal.department_id,
-        ),
+    provider = create_embedding_provider(
+        cast(Settings, request.app.state.settings),
+        cast(Database, request.app.state.database),
     )
+    try:
+        prepared = await HybridMemoryRetriever(provider).prepare_query(
+            query,
+            operation_id=f"procedure-retrieval:{uuid4()}",
+        )
+        matches = await ProcedureRetriever().retrieve(
+            session,
+            principal=principal,
+            query=query,
+            scope=ContextScope(
+                owner_id=principal.user_id,
+                department_id=principal.department_id,
+            ),
+            hybrid_query=prepared,
+        )
+    finally:
+        await provider.close()
     return [
         ProcedureMatchResponse(
             version_id=item.version_id,
@@ -204,11 +221,16 @@ async def list_versions(
 )
 async def create_candidate(
     payload: ProcedureCandidateDefinition,
+    request: Request,
     principal: CurrentPrincipal,
     session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> ProcedureVersionResponse:
+    provider = create_embedding_provider(
+        cast(Settings, request.app.state.settings),
+        cast(Database, request.app.state.database),
+    )
     try:
-        value = await ProcedureRegistryService().create_candidate(
+        value = await ProcedureRegistryService(provider).create_candidate(
             session,
             definition=payload,
             created_by=principal.user_id,
@@ -218,6 +240,8 @@ async def create_candidate(
     except (ProcedureConflictError, ProcedureNotFoundError) as error:
         await session.rollback()
         raise _procedure_error(error) from error
+    finally:
+        await provider.close()
     return await _response(session, value)
 
 

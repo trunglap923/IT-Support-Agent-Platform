@@ -227,9 +227,15 @@ def consolidate_episode(run_id: str) -> dict[str, str]:
 
     async def execute() -> str:
         database = Database(database_url)
+        embedding_provider = create_embedding_provider(settings, database)
         try:
-            return await execute_episode_consolidation(database, run_id=UUID(run_id))
+            return await execute_episode_consolidation(
+                database,
+                run_id=UUID(run_id),
+                embedding_provider=embedding_provider,
+            )
         finally:
+            await embedding_provider.close()
             await database.close()
 
     return {"status": asyncio.run(execute())}
@@ -263,9 +269,14 @@ def compile_procedures() -> dict[str, int]:
 
     async def compile_candidates() -> int:
         database = Database(database_url)
+        embedding_provider = create_embedding_provider(settings, database)
         try:
-            return await compile_procedure_candidates(database)
+            return await compile_procedure_candidates(
+                database,
+                embedding_provider=embedding_provider,
+            )
         finally:
+            await embedding_provider.close()
             await database.close()
 
     return {"created": asyncio.run(compile_candidates())}

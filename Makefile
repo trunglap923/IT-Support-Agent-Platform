@@ -26,7 +26,7 @@ FRONTEND_DOCKER = docker run --rm --user $(PROJECT_UID):$(PROJECT_GID) -e npm_co
 	dev-backend dev-frontend dev-frontend-docker dev-stop spike-openai-live \
 	spike-mcp-stdio spike-langgraph-postgres eval-validate eval-agent-fake \
 	eval-agent-repro eval-agent-live knowledge-validate knowledge-reindex \
-	knowledge-reindex-dry-run retrieval-baseline \
+	knowledge-reindex-dry-run memory-reindex memory-reindex-dry-run retrieval-baseline \
 	public-retrieval-smoke public-retrieval-benchmark public-retrieval-bm25 \
 	public-retrieval-bm25-chunked \
 	public-retrieval-ablation-smoke public-retrieval-ablation \
@@ -80,6 +80,8 @@ help:
 	@echo "  make knowledge-validate      Validate corpus metadata, ACL rules and checksums"
 	@echo "  make knowledge-reindex-dry-run  Preview seed-corpus embedding changes"
 	@echo "  make knowledge-reindex       Re-embed only seed-corpus versions (paid opt-in guarded)"
+	@echo "  make memory-reindex-dry-run  Count durable memory records missing embeddings"
+	@echo "  make memory-reindex          Backfill durable memory embeddings (paid opt-in guarded)"
 	@echo "  make retrieval-baseline      Run isolated PostgreSQL retrieval evaluation"
 	@echo "  make public-retrieval-smoke  Run 10 SciFact queries for integration verification"
 	@echo "  make public-retrieval-benchmark  Run the complete official SciFact test split"
@@ -391,3 +393,13 @@ knowledge-reindex: env-init
 	$(STACK_COMPOSE) build api
 	$(STACK_COMPOSE) up --detach --wait postgres redis
 	$(STACK_COMPOSE) run --rm --no-deps api python -m app.knowledge_reindex
+
+memory-reindex-dry-run: env-init
+	$(STACK_COMPOSE) build api
+	$(STACK_COMPOSE) up --detach --wait postgres
+	$(STACK_COMPOSE) run --rm --no-deps api python -m app.memory.reindex --dry-run
+
+memory-reindex: env-init
+	$(STACK_COMPOSE) build api
+	$(STACK_COMPOSE) up --detach --wait postgres
+	$(STACK_COMPOSE) run --rm --no-deps api python -m app.memory.reindex

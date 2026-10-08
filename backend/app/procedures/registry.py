@@ -19,8 +19,10 @@ from app.db.models import (
     ProcedureStep,
     ProcedureVersion,
 )
+from app.memory.hybrid import generate_memory_embedding
 from app.procedures.contracts import ProcedureCandidateDefinition, ProcedureReviewDecision
 from app.procedures.validation import ProcedureSandboxValidator
+from app.providers.embeddings import EmbeddingProvider
 from app.tools.registry import TOOL_REGISTRY
 
 
@@ -33,6 +35,9 @@ class ProcedureConflictError(RuntimeError):
 
 
 class ProcedureRegistryService:
+    def __init__(self, embedding_provider: EmbeddingProvider | None = None) -> None:
+        self._embedding_provider = embedding_provider
+
     async def create_candidate(
         self,
         session: AsyncSession,
@@ -67,6 +72,16 @@ class ProcedureRegistryService:
                 )
             )
             if duplicate is not None:
+                if duplicate.embedding is None:
+                    embedding = await generate_memory_embedding(
+                        self._embedding_provider,
+                        self._embedding_text(definition),
+                        operation_id=f"procedure-version:{duplicate.id}:embedding",
+                    )
+                    if embedding is not None:
+                        duplicate.embedding = list(embedding.vector)
+                        duplicate.embedding_model = embedding.model
+                        duplicate.embedding_dimensions = embedding.dimensions
                 return duplicate
             procedure.title = definition.title.strip()
             procedure.intent = definition.intent.strip().casefold()
@@ -94,6 +109,15 @@ class ProcedureRegistryService:
         )
         session.add(version)
         await session.flush()
+        embedding = await generate_memory_embedding(
+            self._embedding_provider,
+            self._embedding_text(definition),
+            operation_id=f"procedure-version:{version.id}:embedding",
+        )
+        if embedding is not None:
+            version.embedding = list(embedding.vector)
+            version.embedding_model = embedding.model
+            version.embedding_dimensions = embedding.dimensions
         session.add_all(
             ProcedureApplicability(
                 procedure_version_id=version.id,
@@ -120,6 +144,18 @@ class ProcedureRegistryService:
         )
         await session.flush()
         return version
+
+    @staticmethod
+    def _embedding_text(definition: ProcedureCandidateDefinition) -> str:
+        return "\n".join(
+            (
+                definition.title,
+                definition.intent,
+                definition.description,
+                *(f"{item.signal_type}: {item.value}" for item in definition.applicability),
+                *(item.action for item in definition.steps),
+            )
+        )
 
     async def submit_for_review(
         self, session: AsyncSession, *, version_id: UUID

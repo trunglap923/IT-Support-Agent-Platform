@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import Literal, cast
 from uuid import UUID, uuid4
 
 from sqlalchemy import and_, or_, select
@@ -20,9 +21,10 @@ from app.db.models import (
     User,
     UserDevice,
 )
-from app.memory.contracts import MemoryMutationProposal, MemorySourceReference
+from app.memory.contracts import MemoryMutationProposal, MemoryOperation, MemorySourceReference
 from app.memory.decision import MemoryDecisionEngine
 from app.memory.extractor import extract_candidate_proposals
+from app.providers.embeddings import EmbeddingProvider
 
 
 class MemoryConflictError(RuntimeError):
@@ -41,6 +43,9 @@ class ExtractionResult:
 
 
 class MemoryLifecycleService:
+    def __init__(self, embedding_provider: EmbeddingProvider | None = None) -> None:
+        self._decision_engine = MemoryDecisionEngine(embedding_provider)
+
     async def create_device(
         self,
         session: AsyncSession,
@@ -349,7 +354,7 @@ class MemoryLifecycleService:
         )
         session.add(fact)
         await session.flush()
-        await MemoryDecisionEngine().apply(
+        await self._decision_engine.apply(
             session,
             proposal=self._proposal(
                 owner_id=owner_id,
@@ -458,13 +463,16 @@ class MemoryLifecycleService:
         )
         if assertion is not None:
             now = datetime.now(UTC)
-            await MemoryDecisionEngine().apply(
+            await self._decision_engine.apply(
                 session,
                 proposal=self._proposal(
                     owner_id=owner_id,
                     operation="update",
                     target_id=assertion.id,
-                    subject_type=assertion.subject_type,
+                    subject_type=cast(
+                        Literal["user", "device", "account", "service"],
+                        assertion.subject_type,
+                    ),
                     subject_id=assertion.subject_id,
                     predicate=fact.key,
                     value=normalized,
@@ -510,13 +518,16 @@ class MemoryLifecycleService:
         fact.version += 1
         user.memory_epoch += 1
         if assertion is not None:
-            await MemoryDecisionEngine().apply(
+            await self._decision_engine.apply(
                 session,
                 proposal=self._proposal(
                     owner_id=owner_id,
                     operation="delete",
                     target_id=assertion.id,
-                    subject_type=assertion.subject_type,
+                    subject_type=cast(
+                        Literal["user", "device", "account", "service"],
+                        assertion.subject_type,
+                    ),
                     subject_id=assertion.subject_id,
                     predicate=fact.key,
                     value=None,
@@ -558,8 +569,8 @@ class MemoryLifecycleService:
     def _proposal(
         *,
         owner_id: UUID,
-        operation: str,
-        subject_type: str,
+        operation: MemoryOperation,
+        subject_type: Literal["user", "device", "account", "service"],
         subject_id: str,
         predicate: str,
         value: str | None,
@@ -567,9 +578,7 @@ class MemoryLifecycleService:
         observed_at: datetime,
         target_id: UUID | None = None,
     ) -> MemoryMutationProposal:
-        source_hash = hashlib.sha256(
-            f"{source_ref}:{predicate}:{value or ''}".encode()
-        ).hexdigest()
+        source_hash = hashlib.sha256(f"{source_ref}:{predicate}:{value or ''}".encode()).hexdigest()
         return MemoryMutationProposal(
             proposal_id=uuid4(),
             owner_id=owner_id,
