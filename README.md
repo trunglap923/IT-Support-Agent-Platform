@@ -153,14 +153,17 @@ Tạo một Langfuse project rồi đặt credentials và đúng data-region URL
 LANGFUSE_PUBLIC_KEY=pk-lf-...
 LANGFUSE_SECRET_KEY=<secret>
 LANGFUSE_BASE_URL=https://cloud.langfuse.com
+LANGFUSE_CAPTURE_CONTENT=false
 LOG_PROMPTS=false
 ```
 
 Khi đủ hai key, worker tự bật OpenInference instrumentation cho OpenAI Agents SDK và tạo một
 root `it-support-run` observation. Model/tool spans được gắn `run_id`, actor/session chỉ xuất hiện
-dưới dạng SHA-256 rút gọn. Prompt, output, invocation parameters, embedding text/vector và
-retrieval documents luôn bị ẩn trước khi export. Langfuse không được dùng làm nguồn audit nghiệp
-vụ; PostgreSQL vẫn giữ trạng thái run, approval và tool receipt.
+dưới dạng SHA-256 rút gọn. Mặc định prompt và output bị ẩn trước khi export. Đặt
+`LANGFUSE_CAPTURE_CONTENT=true` trong môi trường development nếu cần xem yêu cầu hiện tại và câu
+trả lời cuối cùng ở observation gốc trên Langfuse. System prompt, context nội bộ, invocation parameters, tool
+schemas, embedding text/vector và retrieval documents vẫn bị ẩn. Langfuse không được dùng làm
+nguồn audit nghiệp vụ; PostgreSQL vẫn giữ trạng thái run, approval và tool receipt.
 
 Sau khi đổi `.env`, rebuild stack và kiểm tra xác thực từ đúng worker process:
 

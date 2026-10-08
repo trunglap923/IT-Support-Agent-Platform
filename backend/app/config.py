@@ -115,6 +115,7 @@ class Settings(BaseSettings):
     langfuse_public_key: str | None = None
     langfuse_secret_key: SecretStr | None = None
     langfuse_base_url: str | None = None
+    langfuse_capture_content: bool = False
     log_prompts: bool = False
 
     app_ai_daily_budget_usd: float = Field(default=1.0, gt=0)

@@ -30,6 +30,9 @@ class GenerationObservation(Protocol):
 
 
 class AIObserver(Protocol):
+    @property
+    def capture_content(self) -> bool: ...
+
     def run(
         self,
         *,
@@ -38,6 +41,7 @@ class AIObserver(Protocol):
         conversation_id: str,
         runtime: str,
         model: str,
+        input_text: str,
     ) -> AbstractContextManager[GenerationObservation | None]: ...
 
     def generation(
@@ -63,6 +67,10 @@ class AIObserver(Protocol):
 
 
 class NoopAIObserver:
+    @property
+    def capture_content(self) -> bool:
+        return False
+
     def run(
         self,
         *,
@@ -71,8 +79,9 @@ class NoopAIObserver:
         conversation_id: str,
         runtime: str,
         model: str,
+        input_text: str,
     ) -> AbstractContextManager[GenerationObservation | None]:
-        del run_id, actor_id, conversation_id, runtime, model
+        del run_id, actor_id, conversation_id, runtime, model, input_text
         return nullcontext(None)
 
     def generation(
@@ -102,8 +111,13 @@ class NoopAIObserver:
 
 
 class LangfuseAIObserver:
-    def __init__(self, client: Langfuse) -> None:
+    def __init__(self, client: Langfuse, *, capture_content: bool = False) -> None:
         self._client = client
+        self._capture_content = capture_content
+
+    @property
+    def capture_content(self) -> bool:
+        return self._capture_content
 
     def run(
         self,
@@ -113,6 +127,7 @@ class LangfuseAIObserver:
         conversation_id: str,
         runtime: str,
         model: str,
+        input_text: str,
     ) -> AbstractContextManager[GenerationObservation | None]:
         actor_hash = _hash_identifier(actor_id)
         conversation_hash = _hash_identifier(conversation_id)
@@ -123,6 +138,7 @@ class LangfuseAIObserver:
                 self._client.start_as_current_observation(
                     as_type="agent",
                     name="it-support-run",
+                    input={"message": input_text} if self._capture_content else None,
                     metadata={
                         "run_id": run_id,
                         "actor_hash": actor_hash,
@@ -266,7 +282,7 @@ def _hash_identifier(value: str) -> str:
     return hashlib.sha256(value.encode()).hexdigest()[:16]
 
 
-def _instrument_openai_agents() -> None:
+def _instrument_openai_agents(*, capture_content: bool) -> None:
     global _agents_instrumented
 
     if _agents_instrumented:
@@ -278,8 +294,8 @@ def _instrument_openai_agents() -> None:
             OpenAIAgentsInstrumentor().instrument(
                 exclusive_processor=True,
                 config=TraceConfig(
-                    hide_inputs=True,
-                    hide_outputs=True,
+                    hide_inputs=not capture_content,
+                    hide_outputs=not capture_content,
                     hide_llm_invocation_parameters=True,
                     hide_llm_tools=True,
                     hide_embeddings_text=True,
@@ -299,7 +315,7 @@ def create_ai_observer(settings: Settings) -> AIObserver:
     secret_key = secret.get_secret_value().strip() if secret is not None else ""
     if not public_key or not secret_key:
         return NoopAIObserver()
-    _instrument_openai_agents()
+    _instrument_openai_agents(capture_content=settings.langfuse_capture_content)
     try:
         return LangfuseAIObserver(
             Langfuse(
@@ -308,7 +324,8 @@ def create_ai_observer(settings: Settings) -> AIObserver:
                 base_url=(settings.langfuse_base_url or "").strip() or None,
                 environment=settings.app_env.value,
                 release=settings.app_version,
-            )
+            ),
+            capture_content=settings.langfuse_capture_content,
         )
     except Exception:
         logger.warning("Langfuse client initialization failed; using no-op observability")

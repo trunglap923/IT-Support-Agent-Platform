@@ -121,6 +121,16 @@ development khi cần xem nội dung từng delta:
 LOG_PROMPTS=true
 ```
 
+`LOG_PROMPTS` chỉ điều khiển application log. Muốn xem prompt và câu trả lời trong Langfuse, bật
+riêng:
+
+```ini
+LANGFUSE_CAPTURE_CONTENT=true
+```
+
+Giá trị này gửi yêu cầu hiện tại và câu trả lời cuối cùng tới Langfuse project đã cấu hình. Dùng `false`
+cho dữ liệu nhạy cảm hoặc môi trường production.
+
 Sau khi đổi, chạy `make up`; điều tra xong nên trả lại `false`. Ưu tiên log theo service và
 không in `.env`:
 

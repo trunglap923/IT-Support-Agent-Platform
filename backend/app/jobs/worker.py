@@ -112,16 +112,20 @@ def _update_run_observation(
         0, additional_output_tokens
     )
     model_calls = counters.model_calls + max(0, additional_model_calls)
+    observation_output: dict[str, object] = {
+        "outcome": str(result.get("outcome", "unknown")),
+        "citation_count": citation_count,
+        "model_calls": model_calls,
+        "retrieval_calls": counters.retrieval_calls,
+        "tool_calls": counters.tool_calls,
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+    }
+    answer = result.get("answer")
+    if observer is not None and observer.capture_content and isinstance(answer, str):
+        observation_output["answer"] = answer
     observation.update(
-        output={
-            "outcome": str(result.get("outcome", "unknown")),
-            "citation_count": citation_count,
-            "model_calls": model_calls,
-            "retrieval_calls": counters.retrieval_calls,
-            "tool_calls": counters.tool_calls,
-            "input_tokens": input_tokens,
-            "output_tokens": output_tokens,
-        },
+        output=observation_output,
     )
     if observer is not None:
         observer.record_run_usage(
@@ -567,6 +571,7 @@ async def execute_support_run(
                     conversation_id=str(conversation_id),
                     runtime="openai_agents",
                     model=model,
+                    input_text=query,
                 ) as run_observation:
                     try:
                         runtime_result = await runtime.run(
@@ -616,6 +621,7 @@ async def execute_support_run(
                     conversation_id=str(conversation_id),
                     runtime="langgraph",
                     model=model,
+                    input_text=query,
                 ) as run_observation:
                     result = dict(
                         await run_support_graph(
