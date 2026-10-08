@@ -1,0 +1,153 @@
+{
+  "schema_version": "public-memory-retrieval-report-v1",
+  "generated_at": "2026-10-08T02:51:07.319122+00:00",
+  "dataset": {
+    "id": "locomo",
+    "name": "LoCoMo",
+    "source_url": "https://raw.githubusercontent.com/snap-research/locomo/main/data/locomo10.json",
+    "homepage_url": "https://github.com/snap-research/locomo",
+    "citation_url": "https://aclanthology.org/2024.acl-long.747/",
+    "checksum": {
+      "algorithm": "sha256",
+      "value": "79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4"
+    },
+    "benchmark_scope": "Session-level retrieval derived from official turn-level evidence labels.",
+    "paper_comparable": false,
+    "license_note": "The source repository publishes the dataset for research use. The downloaded file is cached locally and is not committed to this repository; verify upstream terms before redistribution.",
+    "official_queries": 1986,
+    "retrieval_eligible_queries": 1982,
+    "excluded_queries": 4,
+    "evaluated_queries": 1982,
+    "full_retrieval_split": true,
+    "indexed_records": 272
+  },
+  "sampling": {
+    "query_limit": null,
+    "seed": 20261008
+  },
+  "derivation": {
+    "retrieval_unit": "conversation session",
+    "gold_mapping": "Official evidence turn D<n>:<turn> maps to session_<n>"
+  },
+  "systems": {
+    "lexical": "Current episodic-memory token-overlap formula without service or recency boost",
+    "bm25": "Dependency-free Okapi BM25 (k1=0.9, b=0.4) over candidate sessions"
+  },
+  "variants": {
+    "lexical": {
+      "name": "lexical",
+      "metrics": {
+        "ndcg_at_10": 0.6918933994224519,
+        "map_at_10": 0.6211802778769318,
+        "recall_at_5": 0.77065754488812,
+        "recall_at_10": 0.871775343167876,
+        "precision_at_10": 0.1047931382441978,
+        "mrr_at_10": 0.6536965627152307
+      },
+      "metrics_by_category": {
+        "1": {
+          "ndcg_at_10": 0.4809585624273366,
+          "map_at_10": 0.3554901048283774,
+          "recall_at_5": 0.4616148823595632,
+          "recall_at_10": 0.6281295733423393,
+          "precision_at_10": 0.16489361702127658,
+          "mrr_at_10": 0.5452029156816391
+        },
+        "2": {
+          "ndcg_at_10": 0.6096920030964005,
+          "map_at_10": 0.5268555605004204,
+          "recall_at_5": 0.7128764278296988,
+          "recall_at_10": 0.8541017653167187,
+          "precision_at_10": 0.09314641744548287,
+          "mrr_at_10": 0.5400286802155961
+        },
+        "3": {
+          "ndcg_at_10": 0.4752638026609301,
+          "map_at_10": 0.3710506168046929,
+          "recall_at_5": 0.5482013457556936,
+          "recall_at_10": 0.7071687370600415,
+          "precision_at_10": 0.10978260869565216,
+          "mrr_at_10": 0.4431849551414769
+        },
+        "4": {
+          "ndcg_at_10": 0.7684830941783665,
+          "map_at_10": 0.714574958005398,
+          "recall_at_5": 0.8656361474435196,
+          "recall_at_10": 0.9375743162901308,
+          "precision_at_10": 0.09381688466111772,
+          "mrr_at_10": 0.714674046392239
+        },
+        "5": {
+          "ndcg_at_10": 0.7846921928431265,
+          "map_at_10": 0.7325476902270623,
+          "recall_at_5": 0.874439461883408,
+          "recall_at_10": 0.9484304932735426,
+          "precision_at_10": 0.09484304932735427,
+          "mrr_at_10": 0.7325476902270623
+        }
+      },
+      "timing": {
+        "evaluation_seconds": 12.84155351299978,
+        "mean_query_latency_ms": 6.479088553481222
+      }
+    },
+    "bm25": {
+      "name": "bm25",
+      "metrics": {
+        "ndcg_at_10": 0.77052021163203,
+        "map_at_10": 0.712131614137975,
+        "recall_at_5": 0.8371296029343456,
+        "recall_at_10": 0.9084384460141272,
+        "precision_at_10": 0.10953582240161454,
+        "mrr_at_10": 0.7461542773853571
+      },
+      "metrics_by_category": {
+        "1": {
+          "ndcg_at_10": 0.5395845223659536,
+          "map_at_10": 0.40922364079595586,
+          "recall_at_5": 0.5147979286277159,
+          "recall_at_10": 0.6924856467409659,
+          "precision_at_10": 0.17907801418439717,
+          "mrr_at_10": 0.6052698975571316
+        },
+        "2": {
+          "ndcg_at_10": 0.7512375865454116,
+          "map_at_10": 0.6910510310043021,
+          "recall_at_5": 0.833852544132918,
+          "recall_at_10": 0.9236760124610592,
+          "precision_at_10": 0.10062305295950157,
+          "mrr_at_10": 0.7043762053107848
+        },
+        "3": {
+          "ndcg_at_10": 0.526345279569596,
+          "map_at_10": 0.442737910381544,
+          "recall_at_5": 0.5635998964803313,
+          "recall_at_10": 0.6874353002070394,
+          "precision_at_10": 0.10543478260869567,
+          "mrr_at_10": 0.522851966873706
+        },
+        "4": {
+          "ndcg_at_10": 0.8401374888217623,
+          "map_at_10": 0.797358586716494,
+          "recall_at_5": 0.9292508917954816,
+          "recall_at_10": 0.9720570749108205,
+          "precision_at_10": 0.09726516052318669,
+          "mrr_at_10": 0.7979531170375403
+        },
+        "5": {
+          "ndcg_at_10": 0.8495102355311717,
+          "map_at_10": 0.8136904761904762,
+          "recall_at_5": 0.9260089686098655,
+          "recall_at_10": 0.9596412556053812,
+          "precision_at_10": 0.09596412556053813,
+          "mrr_at_10": 0.8136904761904762
+        }
+      },
+      "timing": {
+        "evaluation_seconds": 17.25034933500001,
+        "mean_query_latency_ms": 8.70350622351161
+      }
+    }
+  },
+  "includes_per_query_results": false
+}

@@ -1,0 +1,173 @@
+{
+  "schema_version": "public-memory-retrieval-report-v1",
+  "generated_at": "2026-10-08T02:56:59.293847+00:00",
+  "dataset": {
+    "id": "longmemeval-oracle-mix",
+    "name": "LongMemEval Oracle Mix",
+    "source_url": "https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned/resolve/main/longmemeval_oracle.json",
+    "homepage_url": "https://github.com/xiaowu0162/LongMemEval",
+    "citation_url": "https://arxiv.org/abs/2410.10813",
+    "checksum": {
+      "algorithm": "sha256",
+      "value": "821a2034d219ab45846873dd14c14f12cfe7776e73527a483f9dac095d38620c"
+    },
+    "benchmark_scope": "Derived smoke retrieval task: official oracle evidence sessions mixed with fixed-seed distractor sessions.",
+    "paper_comparable": false,
+    "license_note": "LongMemEval is distributed under MIT. The downloaded dataset is cached locally and is not committed to this repository.",
+    "official_queries": 500,
+    "retrieval_eligible_queries": 470,
+    "excluded_queries": 30,
+    "evaluated_queries": 100,
+    "full_retrieval_split": false,
+    "indexed_records": 948
+  },
+  "sampling": {
+    "query_limit": 100,
+    "seed": 20261008
+  },
+  "includes_per_query_results": false,
+  "derivation": {
+    "retrieval_unit": "conversation session",
+    "gold_mapping": "Official answer_session_ids",
+    "distractor_count": 31,
+    "distractor_seed": 20261008,
+    "excluded": "Official abstention questions (*_abs) are excluded from retrieval",
+    "warning": "Derived candidate pool; do not compare this score with the paper."
+  },
+  "systems": {
+    "lexical": "Current episodic-memory token-overlap formula without service or recency boost",
+    "bm25": "Dependency-free Okapi BM25 (k1=0.9, b=0.4) over candidate sessions"
+  },
+  "variants": {
+    "lexical": {
+      "name": "lexical",
+      "metrics": {
+        "ndcg_at_10": 0.7683225169579525,
+        "map_at_10": 0.6908882275132275,
+        "recall_at_5": 0.7948333333333334,
+        "recall_at_10": 0.8958333333333333,
+        "precision_at_10": 0.17800000000000002,
+        "mrr_at_10": 0.7793055555555556
+      },
+      "metrics_by_category": {
+        "knowledge-update": {
+          "ndcg_at_10": 0.8922591673889568,
+          "map_at_10": 0.8357142857142856,
+          "recall_at_5": 0.9642857142857143,
+          "recall_at_10": 1.0,
+          "precision_at_10": 0.2,
+          "mrr_at_10": 0.875
+        },
+        "multi-session": {
+          "ndcg_at_10": 0.8291126151718848,
+          "map_at_10": 0.7430753968253968,
+          "recall_at_5": 0.8006410256410257,
+          "recall_at_10": 0.9019230769230769,
+          "precision_at_10": 0.23846153846153847,
+          "mrr_at_10": 0.8824786324786325
+        },
+        "single-session-assistant": {
+          "ndcg_at_10": 0.7752168181221006,
+          "map_at_10": 0.7326388888888888,
+          "recall_at_5": 0.75,
+          "recall_at_10": 0.9166666666666666,
+          "precision_at_10": 0.09166666666666667,
+          "mrr_at_10": 0.7326388888888888
+        },
+        "single-session-preference": {
+          "ndcg_at_10": 0.3511588420101352,
+          "map_at_10": 0.225,
+          "recall_at_5": 0.75,
+          "recall_at_10": 0.75,
+          "precision_at_10": 0.07500000000000001,
+          "mrr_at_10": 0.225
+        },
+        "single-session-user": {
+          "ndcg_at_10": 0.729336551117407,
+          "map_at_10": 0.6424242424242425,
+          "recall_at_5": 0.9090909090909091,
+          "recall_at_10": 1.0,
+          "precision_at_10": 0.1,
+          "mrr_at_10": 0.6424242424242425
+        },
+        "temporal-reasoning": {
+          "ndcg_at_10": 0.7289017003055641,
+          "map_at_10": 0.6457736091069424,
+          "recall_at_5": 0.7020202020202021,
+          "recall_at_10": 0.8222222222222222,
+          "precision_at_10": 0.19090909090909092,
+          "mrr_at_10": 0.7872053872053872
+        }
+      },
+      "timing": {
+        "evaluation_seconds": 3.945537042000069,
+        "mean_query_latency_ms": 39.45537042000069
+      }
+    },
+    "bm25": {
+      "name": "bm25",
+      "metrics": {
+        "ndcg_at_10": 0.8730572490593835,
+        "map_at_10": 0.8292978835978836,
+        "recall_at_5": 0.8803333333333333,
+        "recall_at_10": 0.9328333333333333,
+        "precision_at_10": 0.187,
+        "mrr_at_10": 0.8806666666666666
+      },
+      "metrics_by_category": {
+        "knowledge-update": {
+          "ndcg_at_10": 0.9770630826137678,
+          "map_at_10": 0.9523809523809523,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "precision_at_10": 0.2,
+          "mrr_at_10": 1.0
+        },
+        "multi-session": {
+          "ndcg_at_10": 0.8796082426918306,
+          "map_at_10": 0.8191330891330891,
+          "recall_at_5": 0.8243589743589743,
+          "recall_at_10": 0.925,
+          "precision_at_10": 0.25,
+          "mrr_at_10": 0.907051282051282
+        },
+        "single-session-assistant": {
+          "ndcg_at_10": 0.9692441461309548,
+          "map_at_10": 0.9583333333333334,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "precision_at_10": 0.10000000000000002,
+          "mrr_at_10": 0.9583333333333334
+        },
+        "single-session-preference": {
+          "ndcg_at_10": 0.6967209362953538,
+          "map_at_10": 0.6041666666666666,
+          "recall_at_5": 0.75,
+          "recall_at_10": 1.0,
+          "precision_at_10": 0.1,
+          "mrr_at_10": 0.6041666666666666
+        },
+        "single-session-user": {
+          "ndcg_at_10": 0.8874417733766287,
+          "map_at_10": 0.8484848484848485,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "precision_at_10": 0.1,
+          "mrr_at_10": 0.8484848484848485
+        },
+        "temporal-reasoning": {
+          "ndcg_at_10": 0.8053743767715821,
+          "map_at_10": 0.7590604457271124,
+          "recall_at_5": 0.8060606060606061,
+          "recall_at_10": 0.8555555555555556,
+          "precision_at_10": 0.20303030303030303,
+          "mrr_at_10": 0.8252525252525252
+        }
+      },
+      "timing": {
+        "evaluation_seconds": 6.03861602500001,
+        "mean_query_latency_ms": 60.3861602500001
+      }
+    }
+  }
+}

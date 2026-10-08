@@ -1,0 +1,153 @@
+{
+  "schema_version": "public-memory-retrieval-report-v1",
+  "generated_at": "2026-10-08T02:56:56.968200+00:00",
+  "dataset": {
+    "id": "locomo",
+    "name": "LoCoMo",
+    "source_url": "https://raw.githubusercontent.com/snap-research/locomo/main/data/locomo10.json",
+    "homepage_url": "https://github.com/snap-research/locomo",
+    "citation_url": "https://aclanthology.org/2024.acl-long.747/",
+    "checksum": {
+      "algorithm": "sha256",
+      "value": "79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4"
+    },
+    "benchmark_scope": "Session-level retrieval derived from official turn-level evidence labels.",
+    "paper_comparable": false,
+    "license_note": "The source repository publishes the dataset for research use. The downloaded file is cached locally and is not committed to this repository; verify upstream terms before redistribution.",
+    "official_queries": 1986,
+    "retrieval_eligible_queries": 1982,
+    "excluded_queries": 4,
+    "evaluated_queries": 100,
+    "full_retrieval_split": false,
+    "indexed_records": 272
+  },
+  "sampling": {
+    "query_limit": 100,
+    "seed": 20261008
+  },
+  "includes_per_query_results": false,
+  "derivation": {
+    "retrieval_unit": "conversation session",
+    "gold_mapping": "Official evidence turn D<n>:<turn> maps to session_<n>"
+  },
+  "systems": {
+    "lexical": "Current episodic-memory token-overlap formula without service or recency boost",
+    "bm25": "Dependency-free Okapi BM25 (k1=0.9, b=0.4) over candidate sessions"
+  },
+  "variants": {
+    "lexical": {
+      "name": "lexical",
+      "metrics": {
+        "ndcg_at_10": 0.6601492618420371,
+        "map_at_10": 0.5784583333333333,
+        "recall_at_5": 0.7725,
+        "recall_at_10": 0.8983333333333333,
+        "precision_at_10": 0.1,
+        "mrr_at_10": 0.588297619047619
+      },
+      "metrics_by_category": {
+        "1": {
+          "ndcg_at_10": 0.3204247338233421,
+          "map_at_10": 0.18541666666666665,
+          "recall_at_5": 0.425,
+          "recall_at_10": 0.5333333333333333,
+          "precision_at_10": 0.15,
+          "mrr_at_10": 0.27666666666666667
+        },
+        "2": {
+          "ndcg_at_10": 0.562101922423766,
+          "map_at_10": 0.4621825396825397,
+          "recall_at_5": 0.7,
+          "recall_at_10": 0.875,
+          "precision_at_10": 0.09,
+          "mrr_at_10": 0.46575396825396825
+        },
+        "3": {
+          "ndcg_at_10": 0.4970076079517984,
+          "map_at_10": 0.3904761904761905,
+          "recall_at_5": 0.6666666666666666,
+          "recall_at_10": 0.8333333333333334,
+          "precision_at_10": 0.08333333333333333,
+          "mrr_at_10": 0.3904761904761905
+        },
+        "4": {
+          "ndcg_at_10": 0.7649048267636129,
+          "map_at_10": 0.6920126170126171,
+          "recall_at_5": 0.8461538461538461,
+          "recall_at_10": 1.0,
+          "precision_at_10": 0.1,
+          "mrr_at_10": 0.6920126170126171
+        },
+        "5": {
+          "ndcg_at_10": 0.7502122602401312,
+          "map_at_10": 0.6966666666666668,
+          "recall_at_5": 0.88,
+          "recall_at_10": 0.92,
+          "precision_at_10": 0.09200000000000001,
+          "mrr_at_10": 0.6966666666666668
+        }
+      },
+      "timing": {
+        "evaluation_seconds": 0.8464203579997047,
+        "mean_query_latency_ms": 8.464203579997047
+      }
+    },
+    "bm25": {
+      "name": "bm25",
+      "metrics": {
+        "ndcg_at_10": 0.7486513771925835,
+        "map_at_10": 0.6886428571428571,
+        "recall_at_5": 0.835,
+        "recall_at_10": 0.9116666666666667,
+        "precision_at_10": 0.10300000000000001,
+        "mrr_at_10": 0.6998690476190477
+      },
+      "metrics_by_category": {
+        "1": {
+          "ndcg_at_10": 0.40122160338443685,
+          "map_at_10": 0.26416666666666666,
+          "recall_at_5": 0.45,
+          "recall_at_10": 0.6166666666666667,
+          "precision_at_10": 0.16999999999999998,
+          "mrr_at_10": 0.3792857142857143
+        },
+        "2": {
+          "ndcg_at_10": 0.7175867664507776,
+          "map_at_10": 0.6564880952380953,
+          "recall_at_5": 0.8,
+          "recall_at_10": 0.9,
+          "precision_at_10": 0.095,
+          "mrr_at_10": 0.6550595238095238
+        },
+        "3": {
+          "ndcg_at_10": 0.6154226775360513,
+          "map_at_10": 0.5416666666666666,
+          "recall_at_5": 0.8333333333333334,
+          "recall_at_10": 0.8333333333333334,
+          "precision_at_10": 0.08333333333333333,
+          "mrr_at_10": 0.5416666666666666
+        },
+        "4": {
+          "ndcg_at_10": 0.8366404432124697,
+          "map_at_10": 0.7844322344322344,
+          "recall_at_5": 0.9230769230769231,
+          "recall_at_10": 1.0,
+          "precision_at_10": 0.1,
+          "mrr_at_10": 0.7844322344322344
+        },
+        "5": {
+          "ndcg_at_10": 0.8071869202358315,
+          "map_at_10": 0.77,
+          "recall_at_5": 0.88,
+          "recall_at_10": 0.92,
+          "precision_at_10": 0.09200000000000001,
+          "mrr_at_10": 0.77
+        }
+      },
+      "timing": {
+        "evaluation_seconds": 0.9436817860000701,
+        "mean_query_latency_ms": 9.436817860000701
+      }
+    }
+  }
+}
