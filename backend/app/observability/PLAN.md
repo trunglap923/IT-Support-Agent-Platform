@@ -1,6 +1,7 @@
 # Logs, trace và feedback telemetry
 
-Trạng thái: Langfuse trace, usage metadata và owner-scoped message feedback đã có.
+Trạng thái: Langfuse v4/OpenInference trace cho LangGraph và OpenAI Agents, usage metadata và
+owner-scoped message feedback đã có.
 Work packages: WP-03, WP-04, WP-06, WP-13.
 Nguồn: [kế hoạch tổng](../../../plan.md), mục 18; [thứ tự triển khai](../../../docs/implementation-roadmap.md).
 
@@ -31,7 +32,7 @@ Các tên dưới đây là đầu ra cần tạo; hiện tại thư mục chứ
 
 ## Các bước triển khai
 
-- [x] OBS-01a: Gắn run ID và pseudonymous actor; request/conversation propagation còn WP-13.
+- [x] OBS-01: Gắn run ID, pseudonymous actor/session và root Agent observation.
 - [ ] OBS-02: Instrument queue wait, retrieval, model, MCP, approval wait, validation, memory.
 - [x] OBS-03: Thu token/cost từ provider response và ledger cho embedding/chat.
 - [x] OBS-04a: Gắn feedback metadata; API/UI lưu feedback có ownership, CSRF và idempotent update.

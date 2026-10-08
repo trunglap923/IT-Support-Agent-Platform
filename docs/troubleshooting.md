@@ -77,6 +77,19 @@ Fake mode không cần key. `TEXT_PROVIDER=openai` hoặc `EMBEDDING_PROVIDER=op
 `OPENAI_API_KEY`; live spike/eval và paid re-index còn yêu cầu biến opt-in riêng. Không đưa
 key vào log, issue, ảnh chụp hoặc commit. Langfuse thiếu key sẽ dùng no-op trong fake mode.
 
+Kiểm tra Langfuse từ cùng container chạy Agent:
+
+```bash
+docker compose --file infra/compose.yaml --env-file .env exec worker-agent \
+  python -c 'from langfuse import get_client; print(get_client().auth_check())'
+```
+
+Nếu kết quả là `False`, kiểm tra `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` và
+`LANGFUSE_BASE_URL` có đúng project/data region. Nếu xác thực thành công nhưng chưa thấy trace,
+bật tạm `LANGFUSE_DEBUG=true`, chạy lại `make up`, gửi đúng một yêu cầu rồi xem
+`make logs-agent`. Tắt debug sau khi điều tra. Không tắt các biến `OPENINFERENCE_HIDE_*`; chúng
+giữ token, latency và cấu trúc Agent/tool span trong khi loại nội dung chat và tài liệu khỏi trace.
+
 Nếu Docker build báo `UnknownIssuer`, đặt `HOST_CA_BUNDLE` tới CA bundle của host (mặc định
 Linux là `/etc/ssl/certs/ca-certificates.crt`). Compose chỉ mount file này như BuildKit
 secret trong bước cài dependency; certificate không được copy vào image.

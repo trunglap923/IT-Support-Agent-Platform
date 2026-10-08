@@ -18,7 +18,7 @@ Lý do: G-10 có local reproducibility evidence, nhưng G-05–G-09 chưa đư�
 | Browser workflow suite | pass | 21 Playwright checks; desktop/mobile screenshots reviewed |
 | Deterministic evaluation | pass | 120 valid cases; 80/80 development checks; 160 reproducibility runs cùng digest |
 | Backup/restore drill | pass | Manifest verified; isolated DB/volume restored and cleaned |
-| Markdown internal links | pass | 513 relative links checked after the screenshot/document update |
+| Markdown internal links | pass | 514 relative links checked after the Langfuse documentation update |
 | Independent clean-machine reviewer | not run | Local isolated verification, chưa phải máy của reviewer khác |
 
 G-10 status: **local_pass / independent_review_pending**. Đây không thay đổi overall release decision khi các gate khác còn `not_measured`.

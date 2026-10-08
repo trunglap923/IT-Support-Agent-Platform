@@ -44,7 +44,7 @@ from app.jobs.dispatch import (
     MemoryExtractionDispatcher,
 )
 from app.memory.lifecycle import MemoryLifecycleService
-from app.observability import AIObserver, NoopAIObserver
+from app.observability import AIObserver, GenerationObservation, NoopAIObserver
 from app.procedures.execution import ProcedureExecutionService
 from app.providers.base import StructuredResponseProvider
 from app.providers.embeddings import EmbeddingProvider, FakeEmbeddingProvider
@@ -84,6 +84,34 @@ def _working_counters(result: Mapping[str, object]) -> WorkingCounters:
         model_calls=value("model_calls"),
         tool_calls=value("tool_calls"),
         retrieval_calls=value("retrieval_calls"),
+    )
+
+
+def _update_run_observation(
+    observation: GenerationObservation | None,
+    result: Mapping[str, object],
+) -> None:
+    if observation is None:
+        return
+    counters = _working_counters(result)
+    citations = result.get("citations", [])
+    citation_count = len(citations) if isinstance(citations, list) else 0
+    raw_input_tokens = result.get("input_tokens", 0)
+    raw_output_tokens = result.get("output_tokens", 0)
+    observation.update(
+        output={
+            "outcome": str(result.get("outcome", "unknown")),
+            "citation_count": citation_count,
+            "model_calls": counters.model_calls,
+            "retrieval_calls": counters.retrieval_calls,
+            "tool_calls": counters.tool_calls,
+        },
+        usage_details={
+            "input_tokens": max(0, raw_input_tokens) if isinstance(raw_input_tokens, int) else 0,
+            "output_tokens": (
+                max(0, raw_output_tokens) if isinstance(raw_output_tokens, int) else 0
+            ),
+        },
     )
 
 
@@ -515,19 +543,27 @@ async def execute_support_run(
                     on_stream_started=start_response_stream,
                     on_text_delta=stream_text_delta,
                 )
-                try:
-                    runtime_result = await runtime.run(
-                        query=query,
-                        serialized_state=(
-                            persisted_runtime.serialized_state
-                            if persisted_runtime is not None
-                            and persisted_runtime.status == "paused"
-                            else None
-                        ),
-                    )
-                finally:
-                    await runtime.close()
-                result = runtime_result.as_graph_result()
+                with observer.run(
+                    run_id=str(run_id),
+                    actor_id=str(actor_id),
+                    conversation_id=str(conversation_id),
+                    runtime="openai_agents",
+                    model=model,
+                ) as run_observation:
+                    try:
+                        runtime_result = await runtime.run(
+                            query=query,
+                            serialized_state=(
+                                persisted_runtime.serialized_state
+                                if persisted_runtime is not None
+                                and persisted_runtime.status == "paused"
+                                else None
+                            ),
+                        )
+                    finally:
+                        await runtime.close()
+                    result = runtime_result.as_graph_result()
+                    _update_run_observation(run_observation, result)
             else:
                 nodes = RAGGraphNodes(
                     session=session,
@@ -547,17 +583,25 @@ async def execute_support_run(
                     context_builder=context_builder,
                 )
                 log_event(logger, "worker.graph.started", run_id=str(run_id))
-                result = dict(
-                    await run_support_graph(
-                        build_support_graph(nodes.graph_nodes()),
-                        {
-                            "run_id": str(run_id),
-                            "conversation_id": str(conversation_id),
-                            "actor_id": str(actor_id),
-                            "query": query,
-                        },
+                with observer.run(
+                    run_id=str(run_id),
+                    actor_id=str(actor_id),
+                    conversation_id=str(conversation_id),
+                    runtime="langgraph",
+                    model=model,
+                ) as run_observation:
+                    result = dict(
+                        await run_support_graph(
+                            build_support_graph(nodes.graph_nodes()),
+                            {
+                                "run_id": str(run_id),
+                                "conversation_id": str(conversation_id),
+                                "actor_id": str(actor_id),
+                                "query": query,
+                            },
+                        )
                     )
-                )
+                    _update_run_observation(run_observation, result)
             result["model_calls"] = (
                 int(result.get("model_calls", 0)) + request_policy.analysis_model_calls
             )

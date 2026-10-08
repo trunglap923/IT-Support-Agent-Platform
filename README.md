@@ -9,7 +9,7 @@ Portfolio prototype cho trợ lý IT có trạng thái: chat RAG kèm nguồn, s
 - clean-room Compose 7/7 service healthy, Alembic head `0026_memory_embedding_identity` và seed 43 bản ghi;
 - backend `283 passed, 1 skipped`; frontend lint/typecheck, `51 passed`, production build;
 - Playwright `21 passed`; evaluation schema 120 case, `80/80` development checks và 160 reproducibility runs cùng digest;
-- production frontend dependencies có `0` npm audit finding; Markdown có 513 relative links hợp lệ;
+- production frontend dependencies có `0` npm audit finding; Markdown có 514 relative links hợp lệ;
 - backup PostgreSQL/document storage restore thành công vào database và volume tạm;
 - G-01–G-04 pass; G-05–G-09 vẫn `not_measured`, nên release decision là **not ready**.
 
@@ -144,6 +144,34 @@ TEXT_PROVIDER=openai RUN_LIVE_EVAL=1 make eval-agent-live
 migration và luôn xóa container sau khi hoàn tất. Nó không ghi usage/cost ledger vào database
 development. Không commit hoặc gửi API key vào chat. Budget guard/token cap vẫn không thay thế
 việc giám sát billing của nhà cung cấp.
+
+### Langfuse tracing
+
+Tạo một Langfuse project rồi đặt credentials và đúng data-region URL trong `.env`:
+
+```dotenv
+LANGFUSE_PUBLIC_KEY=pk-lf-...
+LANGFUSE_SECRET_KEY=<secret>
+LANGFUSE_BASE_URL=https://cloud.langfuse.com
+LOG_PROMPTS=false
+```
+
+Khi đủ hai key, worker tự bật OpenInference instrumentation cho OpenAI Agents SDK và tạo một
+root `it-support-run` observation. Model/tool spans được gắn `run_id`, actor/session chỉ xuất hiện
+dưới dạng SHA-256 rút gọn. Prompt, output, invocation parameters, embedding text/vector và
+retrieval documents luôn bị ẩn trước khi export. Langfuse không được dùng làm nguồn audit nghiệp
+vụ; PostgreSQL vẫn giữ trạng thái run, approval và tool receipt.
+
+Sau khi đổi `.env`, rebuild stack và kiểm tra xác thực từ đúng worker process:
+
+```bash
+make up
+docker compose --file infra/compose.yaml --env-file .env exec worker-agent \
+  python -c 'from langfuse import get_client; print(get_client().auth_check())'
+```
+
+Kết quả `True` xác nhận credential/base URL. Gửi một chat request rồi tìm trace theo metadata
+`run_id` trong Langfuse. Nếu trace chưa xuất hiện, xem [troubleshooting](docs/troubleshooting.md).
 
 ### Public retrieval và memory evidence
 
