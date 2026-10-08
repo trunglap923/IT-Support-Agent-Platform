@@ -23,6 +23,20 @@ runtime `HybridMemoryRetriever` with deterministic fake vectors. The fake-vector
 fusion and ranking changes without calling a model API or requiring PostgreSQL; it does not measure
 the semantic quality of the configured production embedding model.
 
+## Production embedding comparison
+
+Run the same LoCoMo hybrid ranking with the configured `text-embedding-3-small` model:
+
+```bash
+RUN_PAID_PUBLIC_MEMORY_BENCHMARK=true make public-memory-locomo-openai
+```
+
+This paid variant uses the application budget ledger and requires `OPENAI_API_KEY`, PostgreSQL and
+the current migrations. Record and query vectors are cached by model, dimensions and content hash
+in `.cache/public-benchmarks/memory/embeddings/public-memory.sqlite3`, so completed batches are not
+requested again. Its output is written to `reports/public/memory/locomo/retrieval-openai.json` and
+does not overwrite the provider-free baseline.
+
 ## LoCoMo
 
 The adapter uses the official `locomo10.json`. Each conversation session is a retrievable memory

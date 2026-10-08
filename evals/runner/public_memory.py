@@ -1,11 +1,13 @@
-"""Run fast, provider-free retrieval evaluation on public memory datasets."""
+"""Run retrieval evaluation on public conversational-memory datasets."""
 
 from __future__ import annotations
 
 import argparse
+import asyncio
 import hashlib
 import json
 import math
+import os
 import re
 import time
 from collections import Counter, defaultdict
@@ -15,6 +17,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from app.config import AIProvider, Settings
+from app.db import Database
 from app.memory.hybrid import (
     HybridMemoryItem,
     HybridMemoryQuery,
@@ -22,14 +26,22 @@ from app.memory.hybrid import (
     memory_terms,
 )
 from app.providers.embeddings import deterministic_fake_embedding
+from app.providers.factory import create_embedding_provider
 
 from evals.public.metrics import aggregate_metrics, query_metrics
 from evals.public_memory.adapters import MEMORY_DATASETS, load_memory_benchmark
 from evals.public_memory.contracts import MemoryRecord, MemoryRetrievalBenchmark
+from evals.public_memory.embeddings import (
+    BenchmarkEmbeddings,
+    prepare_benchmark_embeddings,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CACHE_DIR = ROOT / ".cache" / "public-benchmarks"
 DEFAULT_REPORT_DIR = ROOT / "reports" / "public" / "memory"
+DEFAULT_EMBEDDING_CACHE = (
+    DEFAULT_CACHE_DIR / "memory" / "embeddings" / "public-memory.sqlite3"
+)
 RESULT_LIMIT = 10
 _TOKEN = re.compile(r"[\w.-]+", re.UNICODE)
 
@@ -178,8 +190,9 @@ def run_benchmark(
     query_limit: int | None,
     seed: int,
     include_results: bool = False,
+    production_embeddings: BenchmarkEmbeddings | None = None,
 ) -> dict[str, Any]:
-    rankers: Mapping[
+    rankers: dict[
         str, Callable[[str, Sequence[MemoryRecord]], tuple[list[str], list[float]]]
     ] = {
         "lexical": _lexical_rank,
@@ -227,6 +240,47 @@ def run_benchmark(
             )
 
         rankers = {**rankers, "hybrid_fake": hybrid_fake_rank}
+    if "hybrid_openai" in variants:
+        if production_embeddings is None:
+            raise ValueError("hybrid_openai requires precomputed production embeddings")
+        hybrid = HybridMemoryRetriever()
+
+        def hybrid_openai_rank(
+            query: str, records: Sequence[MemoryRecord]
+        ) -> tuple[list[str], list[float]]:
+            prepared = HybridMemoryQuery(
+                text=query,
+                terms=memory_terms(query),
+                vector=production_embeddings.query_vectors[query],
+                embedding_model=production_embeddings.model,
+                embedding_dimensions=production_embeddings.dimensions,
+            )
+            ranked = hybrid.rank(
+                prepared,
+                [
+                    HybridMemoryItem(
+                        item_id=record.record_id,
+                        text=record.text,
+                        embedding=production_embeddings.record_vectors[
+                            record.record_id
+                        ],
+                        embedding_model=production_embeddings.model,
+                        embedding_dimensions=production_embeddings.dimensions,
+                        exact_terms=(),
+                        recency=0.5,
+                        confidence=0.5,
+                        authority=0.5,
+                    )
+                    for record in records
+                ],
+                limit=RESULT_LIMIT,
+            )
+            return (
+                [item.item_id for item in ranked],
+                [item.score for item in ranked],
+            )
+
+        rankers["hybrid_openai"] = hybrid_openai_rank
     unknown = set(variants) - set(rankers)
     if unknown:
         raise ValueError(f"Unknown retrieval variant: {min(unknown)!r}")
@@ -266,7 +320,22 @@ def run_benchmark(
                 "Runtime HybridMemoryRetriever with BM25 and deterministic hashing vectors; "
                 "metadata signals held constant"
             ),
+            "hybrid_openai": (
+                "Runtime HybridMemoryRetriever with BM25 and text-embedding-3-small vectors; "
+                "metadata signals held constant"
+            ),
         },
+        "embedding_run": (
+            {
+                "model": production_embeddings.model,
+                "dimensions": production_embeddings.dimensions,
+                "cache_hits": production_embeddings.cache_hits,
+                "api_inputs": production_embeddings.api_inputs,
+                "input_tokens": production_embeddings.input_tokens,
+            }
+            if production_embeddings is not None
+            else None
+        ),
         "variants": {
             variant: _evaluate_variant(
                 benchmark,
@@ -328,7 +397,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--variant",
         action="append",
-        choices=("lexical", "bm25", "hybrid_fake"),
+        choices=("lexical", "bm25", "hybrid_fake", "hybrid_openai"),
     )
     parser.add_argument(
         "--include-results",
@@ -336,10 +405,21 @@ def parse_args() -> argparse.Namespace:
         help="Include per-query rankings in JSON (large on full runs)",
     )
     parser.add_argument("--no-download", action="store_true")
+    parser.add_argument("--embedding-cache", type=Path, default=DEFAULT_EMBEDDING_CACHE)
     return parser.parse_args()
 
 
-def main() -> None:
+def _paid_openai_enabled() -> bool:
+    return os.getenv(
+        "RUN_PAID_PUBLIC_MEMORY_BENCHMARK", "false"
+    ).strip().casefold() in {
+        "1",
+        "true",
+        "yes",
+    }
+
+
+async def async_main() -> None:
     args = parse_args()
     benchmark = load_memory_benchmark(
         args.dataset,
@@ -348,19 +428,53 @@ def main() -> None:
         seed=args.seed,
         allow_download=not args.no_download,
     )
+    variants = tuple(args.variant or ("lexical", "bm25", "hybrid_fake"))
+    selected_queries = _select_queries(
+        benchmark,
+        query_limit=args.query_limit,
+        seed=args.seed,
+    )
+    production_embeddings: BenchmarkEmbeddings | None = None
+    if "hybrid_openai" in variants:
+        if not _paid_openai_enabled():
+            raise SystemExit(
+                "OpenAI memory benchmark is paid; set "
+                "RUN_PAID_PUBLIC_MEMORY_BENCHMARK=true for this command only"
+            )
+        settings = Settings(embedding_provider=AIProvider.OPENAI)
+        if settings.database_url is None:
+            raise SystemExit(
+                "DATABASE_URL is required for the guarded OpenAI benchmark"
+            )
+        database = Database(settings.database_url.get_secret_value())
+        provider = create_embedding_provider(settings, database, timeout_seconds=120.0)
+        try:
+            production_embeddings = await prepare_benchmark_embeddings(
+                benchmark,
+                queries=selected_queries,
+                provider=provider,
+                model=settings.embedding_model,
+                dimensions=settings.embedding_dimensions,
+                cache_path=args.embedding_cache,
+            )
+        finally:
+            await provider.close()
+            await database.close()
     report = run_benchmark(
         benchmark,
-        variants=tuple(args.variant or ("lexical", "bm25", "hybrid_fake")),
+        variants=variants,
         query_limit=args.query_limit,
         seed=args.seed,
         include_results=args.include_results,
+        production_embeddings=production_embeddings,
     )
     destination = args.report_dir / args.dataset
     destination.mkdir(parents=True, exist_ok=True)
+    provider_suffix = "-openai" if "hybrid_openai" in variants else ""
     report_stem = (
-        f"retrieval-smoke-{args.query_limit}"
+        f"retrieval-smoke-{args.query_limit}{provider_suffix}"
         if args.query_limit is not None
-        else "retrieval"
+        else f"retrieval{provider_suffix}"
     )
     json_path = destination / f"{report_stem}.json"
     markdown_path = destination / f"{report_stem}.md"
@@ -377,6 +491,10 @@ def main() -> None:
         "reports": {"json": str(json_path), "markdown": str(markdown_path)},
     }
     print(json.dumps(summary, ensure_ascii=False, indent=2))
+
+
+def main() -> None:
+    asyncio.run(async_main())
 
 
 if __name__ == "__main__":

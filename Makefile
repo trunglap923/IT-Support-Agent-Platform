@@ -31,7 +31,7 @@ FRONTEND_DOCKER = docker run --rm --user $(PROJECT_UID):$(PROJECT_GID) -e npm_co
 	public-retrieval-bm25-chunked \
 	public-retrieval-ablation-smoke public-retrieval-ablation \
 	public-retrieval-fusion-tuning \
-	public-memory-smoke public-memory-locomo public-memory-longmemeval \
+	public-memory-smoke public-memory-locomo public-memory-locomo-openai public-memory-longmemeval \
 	export-memory-context-contracts memory-context-baseline \
 	wp13-gate-tests quality-report \
 	db-up db-down db-status redis-up redis-down redis-status services-up services-down \
@@ -92,6 +92,7 @@ help:
 	@echo "  make public-retrieval-fusion-tuning  Tune weighted RRF on the SciFact train split"
 	@echo "  make public-memory-smoke  Run 100 fixed queries from LoCoMo and LongMemEval"
 	@echo "  make public-memory-locomo  Run all eligible LoCoMo session-retrieval queries"
+	@echo "  make public-memory-locomo-openai  Run LoCoMo hybrid with text-embedding-3-small"
 	@echo "  make public-memory-longmemeval  Run the full derived LongMemEval oracle mix"
 	@echo "  make export-memory-context-contracts  Regenerate versioned memory/context schemas"
 	@echo "  make memory-context-baseline  Measure the current context builder on Phase 0 cases"
@@ -318,6 +319,9 @@ public-memory-smoke:
 
 public-memory-locomo:
 	PYTHONPATH=$(CURDIR)/backend:$(CURDIR) UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --project backend --frozen python -m evals.runner.public_memory --dataset locomo
+
+public-memory-locomo-openai: db-up
+	$(STACK_COMPOSE) run --rm --no-deps --user $(PROJECT_UID):$(PROJECT_GID) -e PYTHONPATH=/workspace/backend:/workspace -e SSL_CERT_FILE=/tmp/host-ca.crt -e RUN_PAID_PUBLIC_MEMORY_BENCHMARK -v $(HOST_CA_BUNDLE):/tmp/host-ca.crt:ro -v $(CURDIR):/workspace -w /workspace api python -m evals.runner.public_memory --dataset locomo --variant lexical --variant bm25 --variant hybrid_openai --no-download
 
 public-memory-longmemeval:
 	PYTHONPATH=$(CURDIR)/backend:$(CURDIR) UV_CACHE_DIR=$(UV_CACHE_DIR) $(UV) --system-certs run --project backend --frozen python -m evals.runner.public_memory --dataset longmemeval-oracle-mix
