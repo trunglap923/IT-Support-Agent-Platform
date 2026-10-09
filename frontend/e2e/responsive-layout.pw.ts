@@ -412,7 +412,7 @@ test("memory workspace remains clear on desktop and mobile", async ({ page }, te
   await page.goto("/settings/memory");
   await expect(page.getByRole("heading", { name: "Memory & thiết bị" })).toBeVisible();
   await expect(page.getByText("preferred_language · Mọi thiết bị")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Xác nhận" })).toHaveCSS("background-color", "rgb(36, 99, 212)");
+  await expect(page.getByRole("button", { name: "Xác nhận" })).toHaveCSS("background-color", "rgb(37, 99, 235)");
   await expectNoHorizontalOverflow(page);
   await page.screenshot({ path: testInfo.outputPath("memory-desktop.png"), fullPage: true });
 

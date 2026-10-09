@@ -1,5 +1,15 @@
-import { useEffect, useId, useRef, type ComponentType, type ReactNode } from "react";
-import { Inbox, X, type LucideProps } from "lucide-react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  type ButtonHTMLAttributes,
+  type ComponentType,
+  type HTMLAttributes,
+  type InputHTMLAttributes,
+  type ReactNode,
+  type SelectHTMLAttributes,
+} from "react";
+import { Inbox, Search, X, type LucideProps } from "lucide-react";
 
 import { formatStatus } from "../utils/format";
 
@@ -20,6 +30,162 @@ export function PageHeader({ eyebrow, title, description, actions }: PageHeaderP
       </div>
       {actions ? <div className="page-header-actions">{actions}</div> : null}
     </header>
+  );
+}
+
+export type ButtonVariant = "primary" | "secondary" | "danger" | "ghost";
+export type ButtonSize = "sm" | "md" | "lg";
+
+interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  icon?: ComponentType<LucideProps>;
+}
+
+export function Button({
+  variant = "secondary",
+  size = "md",
+  icon: Icon,
+  className = "",
+  children,
+  type = "button",
+  ...props
+}: ButtonProps) {
+  return (
+    <button className={`product-button ${variant} size-${size} ${className}`.trim()} type={type} {...props}>
+      {Icon ? <Icon aria-hidden="true" size={16} strokeWidth={1.9} /> : null}
+      {children}
+    </button>
+  );
+}
+
+interface PanelProps extends HTMLAttributes<HTMLElement> {
+  children: ReactNode;
+}
+
+export function Panel({ className = "", children, ...props }: PanelProps) {
+  return <section className={`product-panel ${className}`.trim()} {...props}>{children}</section>;
+}
+
+interface FieldFrameProps {
+  id: string;
+  label: string;
+  hint?: string;
+  error?: string;
+  children: ReactNode;
+}
+
+function FieldFrame({ id, label, hint, error, children }: FieldFrameProps) {
+  return (
+    <div className={error ? "product-field has-error" : "product-field"}>
+      <label className="product-field-label" htmlFor={id}>{label}</label>
+      {children}
+      {error ? <span className="product-field-error" id={`${id}-error`}>{error}</span> : null}
+      {!error && hint ? <span className="product-field-hint" id={`${id}-hint`}>{hint}</span> : null}
+    </div>
+  );
+}
+
+interface TextFieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "size"> {
+  label: string;
+  hint?: string;
+  error?: string;
+}
+
+export function TextField({ label, hint, error, id, className = "", ...props }: TextFieldProps) {
+  const generatedId = useId();
+  const controlId = id ?? generatedId;
+  const descriptionId = error ? `${controlId}-error` : hint ? `${controlId}-hint` : undefined;
+  return (
+    <FieldFrame error={error} hint={hint} id={controlId} label={label}>
+      <input
+        aria-describedby={descriptionId}
+        aria-invalid={error ? true : undefined}
+        className={`product-field-control ${className}`.trim()}
+        id={controlId}
+        {...props}
+      />
+    </FieldFrame>
+  );
+}
+
+interface SelectFieldProps extends SelectHTMLAttributes<HTMLSelectElement> {
+  label: string;
+  hint?: string;
+  error?: string;
+}
+
+export function SelectField({ label, hint, error, id, className = "", children, ...props }: SelectFieldProps) {
+  const generatedId = useId();
+  const controlId = id ?? generatedId;
+  const descriptionId = error ? `${controlId}-error` : hint ? `${controlId}-hint` : undefined;
+  return (
+    <FieldFrame error={error} hint={hint} id={controlId} label={label}>
+      <select
+        aria-describedby={descriptionId}
+        aria-invalid={error ? true : undefined}
+        className={`product-field-control ${className}`.trim()}
+        id={controlId}
+        {...props}
+      >
+        {children}
+      </select>
+    </FieldFrame>
+  );
+}
+
+interface SearchFieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "type"> {
+  label: string;
+}
+
+export function SearchField({ label, className = "", ...props }: SearchFieldProps) {
+  return (
+    <label className={`product-search ${className}`.trim()}>
+      <Search aria-hidden="true" size={16} />
+      <span className="sr-only">{label}</span>
+      <input type="search" {...props} />
+    </label>
+  );
+}
+
+interface ToolbarProps extends HTMLAttributes<HTMLDivElement> {
+  label: string;
+}
+
+export function Toolbar({ label, className = "", children, ...props }: ToolbarProps) {
+  return <div aria-label={label} className={`product-toolbar ${className}`.trim()} role="toolbar" {...props}>{children}</div>;
+}
+
+export interface TabItem {
+  value: string;
+  label: string;
+  disabled?: boolean;
+}
+
+interface TabsProps {
+  label: string;
+  items: TabItem[];
+  value: string;
+  onChange: (value: string) => void;
+}
+
+export function Tabs({ label, items, value, onChange }: TabsProps) {
+  return (
+    <div aria-label={label} className="product-tabs" role="tablist">
+      {items.map((item) => (
+        <button
+          aria-selected={item.value === value}
+          className="product-tab"
+          disabled={item.disabled}
+          key={item.value}
+          onClick={() => onChange(item.value)}
+          role="tab"
+          type="button"
+        >
+          {item.label}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -61,18 +227,14 @@ export function SectionHeader({ title, description, actions }: SectionHeaderProp
   );
 }
 
-interface IconButtonProps {
+interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> {
   label: string;
   icon: ComponentType<LucideProps>;
-  onClick?: () => void;
-  disabled?: boolean;
-  type?: "button" | "submit";
-  className?: string;
 }
 
-export function IconButton({ label, icon: Icon, className = "", ...props }: IconButtonProps) {
+export function IconButton({ label, icon: Icon, className = "", type = "button", ...props }: IconButtonProps) {
   return (
-    <button aria-label={label} className={`icon-button ${className}`.trim()} {...props}>
+    <button aria-label={label} className={`icon-button ${className}`.trim()} type={type} {...props}>
       <Icon aria-hidden="true" size={17} />
     </button>
   );
@@ -232,17 +394,16 @@ export function ConfirmDialog({
       <h2 id={titleId}>{title}</h2>
       <p id={descriptionId}>{description}</p>
       <div className="confirm-dialog-actions">
-        <button autoFocus className="secondary-button" disabled={busy} onClick={onCancel} type="button">
+        <Button autoFocus disabled={busy} onClick={onCancel} variant="secondary">
           Hủy
-        </button>
-        <button
-          className={tone === "danger" ? "danger-button" : "primary-button"}
+        </Button>
+        <Button
           disabled={busy}
           onClick={onConfirm}
-          type="button"
+          variant={tone === "danger" ? "danger" : "primary"}
         >
           {busy ? "Đang xử lý…" : confirmLabel}
-        </button>
+        </Button>
       </div>
     </dialog>
   );
