@@ -1,333 +1,352 @@
 # IT Support Agent Platform
 
-Portfolio prototype cho trợ lý IT có trạng thái: chat RAG kèm nguồn, service status mô phỏng, ticket cần phê duyệt, confirmed memory và quản trị tài liệu có version/ACL.
+**Stack:** Python 3.12 · Node.js 22 · React · FastAPI · PostgreSQL with pgvector · Redis · Docker Compose<br>
+**Quality:** [GitHub Actions CI](https://github.com/trunglap923/IT-Support-Agent-Platform/actions/workflows/ci.yml) · Ruff · mypy · pytest · Vitest · Playwright
 
-## Trạng thái
+A stateful AI support workspace that combines grounded IT guidance, governed actions, scoped memory, and document lifecycle management in one operational product.
 
-Ứng dụng và local stack đã triển khai qua WP-01–WP-14. Bằng chứng local ngày 2026-10-08:
+[Quick start](#quick-start) · [Architecture](#architecture) · [Evaluation](#evaluation) · [Demo guide](docs/demo-script.md) · [Technical documentation](#documentation)
 
-- clean-room Compose 7/7 service healthy, Alembic head `0026_memory_embedding_identity` và seed 43 bản ghi;
-- backend `283 passed, 1 skipped`; frontend lint/typecheck, `51 passed`, production build;
-- Playwright `21 passed`; evaluation schema 120 case, `80/80` development checks và 160 reproducibility runs cùng digest;
-- production frontend dependencies có `0` npm audit finding; Markdown có 514 relative links hợp lệ;
-- backup PostgreSQL/document storage restore thành công vào database và volume tạm;
-- G-01–G-04 pass; G-05–G-09 vẫn `not_measured`, nên release decision là **not ready**.
+## Overview
 
-GitHub Actions đã được cấu hình nhưng chưa có bằng chứng remote run sau push. Fake mode chứng minh contract/wiring, không chứng minh chất lượng semantic của model thật.
+This project explores what an internal IT support agent needs beyond a chat interface:
 
-## Kiến trúc
+- answers grounded in published internal documents, with source citations;
+- access to operational context such as devices, service status, and tickets;
+- approval before actions that create business side effects;
+- memory with consent, scope, provenance, and lifecycle controls;
+- asynchronous execution with durable run state and recovery;
+- evaluation and observability for retrieval, memory, cost, and agent behavior.
 
-```text
-Browser → Nginx/React → FastAPI → PostgreSQL/pgvector
-                              ↘ Redis → Celery agent/background + scheduler
-Agent worker → runtime selector → OpenAI Agents SDK (primary OpenAI runtime)
-                                ↘ LangGraph (fake/rollback runtime)
-Both runtimes → scoped context + hybrid RAG + governed tools/MCP → business services
-              ↘ fake hoặc OpenAI provider → optional Langfuse
+The repository contains the complete web application, API, workers, database migrations, deterministic demo data, evaluation harnesses, and local infrastructure.
+
+## Product preview
+
+| Desktop workspace | Mobile workspace |
+| --- | --- |
+| ![Desktop chat workspace showing the conversation, sources, device context, and ticket actions](docs/assets/chat-workspace-desktop.png) | ![Mobile chat workspace with responsive navigation and conversation controls](docs/assets/chat-workspace-mobile.png) |
+
+The main workspace keeps the conversation in focus while exposing the sources, device context, ticket history, approvals, and suggested actions needed by a support operator.
+
+## Key capabilities
+
+### Grounded support conversations
+
+- Hybrid retrieval combines dense vectors, BM25, exact terms, metadata signals, and train selected fusion weights.
+- Query analysis preserves error codes, versions, products, services, and operating systems.
+- Evidence selection applies score thresholds, context budgets, document diversity, and parent or neighboring chunk expansion.
+- Citation validation restricts the final answer to sources retrieved during the current run.
+- The agent can decline internal guidance when the available evidence is insufficient.
+
+### Agent orchestration and governed tools
+
+- OpenAI Agents SDK is the primary live runtime; LangGraph remains available for deterministic and rollback workflows.
+- The runtime selects retrieval, memory, read tools, or approval gated actions from the latest request and scoped context.
+- Actor identity, role, and approval state come from trusted application context rather than model arguments.
+- Ticket creation uses approval checkpoints, idempotency receipts, and reconciliation after interrupted work.
+- Progress events expose observable task steps without storing private chain of thought.
+
+### Memory and context management
+
+- Working memory tracks the active request, constraints, collected observations, and proposed actions.
+- Semantic, episodic, and procedural memory have separate contracts and retrieval policies.
+- Durable memory is filtered by owner, scope, consent, confidence, authority, and lifecycle state.
+- Hybrid memory retrieval combines metadata filters, BM25, vector similarity, exact predicates, recency, and confidence.
+- The context builder prioritizes the latest request and distinguishes proposed steps from actions the user confirmed.
+
+### Knowledge governance
+
+- Administrators can upload, preview, process, publish, revoke, and version PDF documents.
+- Processing extracts text, creates token aware chunks, generates embeddings, and records source metadata.
+- Retrieval rechecks publication state, document version, and access control before returning evidence.
+- The ingestion path currently supports text layer PDFs up to 10 MB and 100 pages; scanned documents require an external OCR step.
+
+### Operational product surface
+
+- Role aware employee, IT operator, and administrator workflows.
+- Conversation history, run streaming, citations, feedback, and contextual quick actions.
+- Ticket queues, service status, device context, approvals, and memory settings.
+- Responsive React interface designed for information dense internal operations.
+
+## How a request is handled
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant API as FastAPI
+    participant W as Agent worker
+    participant C as Context builder
+    participant A as Agent runtime
+    participant R as Retrieval and memory
+    participant T as Governed tools
+
+    U->>API: Send message
+    API->>API: Persist message and run
+    API-->>W: Queue run through Redis
+    W->>C: Build owner scoped context
+    C-->>A: Latest request plus relevant context
+    A->>R: Retrieve evidence when required
+    R-->>A: Authorized chunks, memories, and citations
+    A->>T: Read data or propose an action
+    T-->>A: Observation or approval checkpoint
+    A->>API: Persist structured result and progress
+    API-->>U: Stream updates over SSE
 ```
 
-PostgreSQL là nguồn trạng thái bền vững. Redis là broker/rate-limit/cache; side effect ticket được bảo vệ bởi approval, idempotency receipt và reconciliation. Working, semantic, episodic và procedural memory đều có contract và lifecycle riêng. Xem [bản đồ kiến trúc](docs/architecture.md), [ADR runtime](docs/adr/0002-runtime-and-integration.md) và [ADR Agents SDK](docs/adr/0003-openai-agents-orchestrator.md).
+The current user message remains the final user turn. Conversation history is selected and summarized separately, which prevents an older topic from silently replacing a new request.
 
-## Giao diện
+## Architecture
 
-Ảnh dưới được Playwright chụp từ workflow responsive ngày 2026-10-08:
+```mermaid
+flowchart LR
+    Browser[React and TypeScript] --> Nginx[Nginx]
+    Nginx --> API[FastAPI API]
+    API --> PG[(PostgreSQL and pgvector)]
+    API --> Redis[(Redis)]
+    Redis --> AgentWorker[Agent worker]
+    Redis --> BackgroundWorker[Background worker]
+    Redis --> Scheduler[Celery scheduler]
+    AgentWorker --> Runtime[OpenAI Agents SDK or LangGraph]
+    Runtime --> RAG[Hybrid knowledge retrieval]
+    Runtime --> Memory[Scoped memory retrieval]
+    Runtime --> Tools[Governed tools and MCP]
+    RAG --> PG
+    Memory --> PG
+    Tools --> PG
+    Runtime -. OpenInference traces .-> Langfuse[Langfuse]
+```
 
-| Desktop | Mobile |
-|---|---|
-| ![Chat workspace desktop](docs/assets/chat-workspace-desktop.png) | ![Chat workspace mobile](docs/assets/chat-workspace-mobile.png) |
+PostgreSQL is the durable source of truth. Redis handles queues, rate limits, and ephemeral coordination. Langfuse provides supplementary tracing and never replaces the application audit trail.
 
-## Quick start bằng Docker
+The local Compose stack runs seven services: frontend, API, agent worker, background worker, scheduler, PostgreSQL with pgvector, and Redis. See the [architecture map](docs/architecture.md), [runtime ADR](docs/adr/0002-runtime-and-integration.md), and [Agents SDK ADR](docs/adr/0003-openai-agents-orchestrator.md) for the detailed boundaries.
 
-Yêu cầu: Docker Engine có Compose plugin và GNU Make. Không cần cài Python/Node trên host.
+## Technical highlights
+
+| Area | Implementation |
+| --- | --- |
+| Frontend | React, TypeScript, Vite, Nginx, responsive product UI |
+| API and persistence | FastAPI, async SQLAlchemy, Alembic, PostgreSQL 17, pgvector |
+| Asynchronous work | Redis, Celery workers, scheduled reconciliation, SSE updates |
+| Agent runtime | OpenAI Agents SDK, structured outputs, LangGraph fallback |
+| Retrieval | OpenAI embeddings, BM25, exact matching, weighted reciprocal rank fusion, optional cross encoder experiment |
+| Memory | Working, semantic, episodic, and procedural memory with scoped hybrid retrieval |
+| Safety and governance | RBAC, ACL filtering, approval checkpoints, idempotency, citation allowlists |
+| Observability | Structured logs, request and run IDs, usage ledger, OpenInference, optional Langfuse export |
+| Quality | Ruff, mypy, pytest, Vitest, Playwright, public benchmarks, deterministic evals |
+
+## Evaluation
+
+The repository separates deterministic contract tests, public retrieval benchmarks, memory retrieval adaptations, and live model evaluation. Public metrics are linked to their generated reports so that the dataset, split, configuration, and limitations remain reviewable.
+
+### Public retrieval benchmark
+
+The retrieval pipeline was tuned on the SciFact train split and then evaluated on the complete official test split.
+
+| Dataset | Evaluation setup | nDCG@10 | MAP@10 | Recall@5 | Recall@10 | MRR@10 |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| SciFact | 300 test queries, 5,183 documents, OpenAI `text-embedding-3-small`, BM25 and weighted RRF | 0.7318 | 0.6863 | 0.7897 | 0.8569 | 0.7003 |
+
+The fusion weights were selected using 809 train queries before the held out test run. SciFact measures scientific claim retrieval and does not represent end to end IT support accuracy. Full configuration, ablations, and baseline comparisons are in the [SciFact comparison report](reports/public/scifact/comparison.md).
+
+### Public memory retrieval adaptation
+
+| Dataset | Evaluation setup | nDCG@10 | MAP@10 | Recall@5 | Recall@10 | MRR@10 |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| LoCoMo | 1,982 session retrieval queries, 272 indexed records, hybrid retrieval with `text-embedding-3-small` | 0.7860 | 0.7278 | 0.8456 | 0.9246 | 0.7605 |
+
+This is a session retrieval adaptation derived from LoCoMo evidence labels and is explicitly marked `paper_comparable: false`. Methodology and per query results are available in the [LoCoMo report](reports/public/memory/locomo/retrieval-openai.md).
+
+### Reproduce evaluations
+
+```bash
+make eval                               # deterministic agent and contract evaluation
+make retrieval-baseline                 # isolated internal retrieval baseline
+make public-retrieval-smoke              # 10-query SciFact integration check
+make public-retrieval-benchmark          # complete SciFact test split
+make public-memory-smoke                 # fixed LoCoMo and LongMemEval sample
+make public-memory-locomo-openai         # paid OpenAI embedding run
+```
+
+Paid benchmark targets require an API key and an explicit opt in flag. See [infra/commands.md](infra/commands.md) for their data boundaries and configuration.
+
+## Quick start
+
+### Prerequisites
+
+- Docker Engine with the Compose plugin
+- GNU Make
+
+Python and Node.js are not required on the host for the Docker workflow.
+
+### Start the demo
 
 ```bash
 cp .env.example .env
 ```
 
-Sửa ít nhất hai giá trị local trong `.env`:
+Set local values in `.env` before seeding:
 
 ```dotenv
-POSTGRES_PASSWORD=your-local-database-password
-DEMO_SEED_PASSWORD=your-demo-password-at-least-12-characters
+POSTGRES_PASSWORD=replace-with-a-local-database-password
+DEMO_SEED_PASSWORD=replace-with-at-least-12-characters
 ```
 
-Sau đó:
+Build the images, migrate the database, seed the demo scenarios, and start the stack:
 
 ```bash
 make bootstrap
-make migrate
-make seed-dry-run
-make seed
-make up
-```
-
-Mở http://127.0.0.1:5173. Tất cả tài khoản local dưới đây dùng password từ
-`DEMO_SEED_PASSWORD` trong `.env`:
-
-| Email | Role | Department |
-|---|---|---|
-| `employee.engineering@example.com` | employee | Engineering |
-| `employee.engineering.second@example.com` | employee | Engineering |
-| `employee.operations@example.com` | employee | Operations |
-| `it.engineering@example.com` | IT | Engineering |
-| `it.operations@example.com` | IT | Operations |
-| `admin@example.com` | admin | Operations |
-
-Stack mặc định dùng `TEXT_PROVIDER=fake` và `EMBEDDING_PROVIDER=fake`; không gọi API trả
-phí. Hai provider có thể cấu hình độc lập. `make down` dừng container nhưng giữ PostgreSQL,
-Redis và document volumes. PostgreSQL/Redis không publish ra host; chỉ frontend `5173` và
-API `8000` bind loopback.
-
-Lệnh gộp sau khi đã cấu hình `.env`:
-
-```bash
 make demo
 ```
 
-`make seed-dry-run` validate toàn bộ input và hiển thị bảng `created/updated/unchanged`
-mà không lưu thay đổi vào database hoặc document storage. `make seed` dùng cùng validator và
-in cùng summary sau khi áp dụng. Không có seed target reset/xóa database đang sử dụng.
+Open [http://127.0.0.1:5173](http://127.0.0.1:5173). Check API readiness at [http://127.0.0.1:8000/api/v1/health/ready](http://127.0.0.1:8000/api/v1/health/ready).
 
-Seed account chạy lại không tạo bản sao, chỉ cập nhật hash khi password environment thay đổi
-và giữ memory ở chế độ always-on nhưng không tự tạo confirmed fact. Seed còn tạo ba thiết bị demo
-(Ubuntu/Windows cho Engineering, Windows cho Operations), trạng thái `healthy` mặc định cho
-VPN, Docker Registry và GitLab, cùng 18 ticket thuộc nhiều user/phòng ban và cân bằng giữa
-`open`, `in_progress`, `resolved`. Corpus tự viết được ingest bằng fake embedding thành
-41 chunks: 9 document hiện hành từ 11 versions, với scope company, Engineering và IT-only.
-Chạy seed lại tái sử dụng ingestion jobs và không tạo thêm version/chunk. Manual UC-01–UC-12
-vẫn cần được chạy và ghi evidence trước khi tuyên bố demo hoàn chỉnh.
-
-Text generation và embedding được cấu hình độc lập. Để preview thay đổi embedding cho đúng
-11 seed-corpus versions mà không ghi dữ liệu:
+Useful lifecycle commands:
 
 ```bash
-make knowledge-reindex-dry-run
+make status
+make logs-agent
+make down       # stop containers and preserve named volumes
 ```
 
-Đổi sang OpenAI embedding cần giữ `EMBEDDING_DIMENSIONS=1536`, đặt
-`EMBEDDING_PROVIDER=openai`, cấu hình `OPENAI_API_KEY`, kiểm tra dry-run, rồi opt-in riêng cho
-lần gọi trả phí bằng `RUN_PAID_REINDEX=1 make knowledge-reindex`. Mọi paid embedding call đi
-qua usage ledger/budget guard; command không reset database và không chạm tài liệu upload.
+### Demo accounts
 
-## Các route chính
+All seeded accounts use `DEMO_SEED_PASSWORD` from `.env`.
 
-| Route | Chức năng |
-|---|---|
-| `/chat` | Conversation, message, run/SSE, citation, approval card |
-| `/tickets` | Ticket và approval của người dùng |
-| `/operations` | Hàng đợi IT, resolve/reopen, service status theo role |
-| `/admin/documents` | Upload, preview, process, publish/revoke/version/ACL |
-| `/settings/memory` | Consent, device, candidate và fact memory |
+| Email | Role | Department |
+| --- | --- | --- |
+| employee.engineering@example.com | Employee | Engineering |
+| employee.operations@example.com | Employee | Operations |
+| it.engineering@example.com | IT operator | Engineering |
+| it.operations@example.com | IT operator | Operations |
+| admin@example.com | Administrator | Operations |
 
-Liveness: http://127.0.0.1:8000/api/v1/health/live. Readiness: http://127.0.0.1:8000/api/v1/health/ready.
+The seed is idempotent and includes users, devices, service states, tickets, approvals, and a small published knowledge corpus. Run `make seed-dry-run` to preview changes without writing them.
 
-## Kiểm thử và evaluation
+## Runtime modes
 
-```bash
-make test          # isolated PostgreSQL/Redis + backend + frontend checks
-make test-e2e      # 21 deterministic browser checks
-make eval          # validate 120 cases + 80 deterministic development checks
-make clean-verify  # fresh volumes, migration, seed, 7-service readiness
-make docs-check    # relative links trong Markdown
-```
-
-`make test`, `make eval` và `make clean-verify` dùng Compose project/volumes tạm rồi tự xóa; không reset database development. Chi tiết command và data boundary ở [infra/commands.md](infra/commands.md).
-
-Live OpenAI chỉ chạy khi có key và opt-in rõ ràng; không chạy trong CI:
-
-```bash
-RUN_OPENAI_LIVE_SPIKE=1 make spike-openai-live
-TEXT_PROVIDER=openai RUN_LIVE_EVAL=1 make eval-agent-live
-```
-
-`eval-agent-live` tự tạo PostgreSQL/pgvector cô lập trên một cổng host ngẫu nhiên, chạy
-migration và luôn xóa container sau khi hoàn tất. Nó không ghi usage/cost ledger vào database
-development. Không commit hoặc gửi API key vào chat. Budget guard/token cap vẫn không thay thế
-việc giám sát billing của nhà cung cấp.
-
-### Langfuse tracing
-
-Tạo một Langfuse project rồi đặt credentials và đúng data-region URL trong `.env`:
+The default configuration is deterministic and does not call paid APIs:
 
 ```dotenv
-LANGFUSE_PUBLIC_KEY=pk-lf-...
-LANGFUSE_SECRET_KEY=<secret>
-LANGFUSE_BASE_URL=https://cloud.langfuse.com
-LANGFUSE_CAPTURE_CONTENT=false
-LOG_PROMPTS=false
+TEXT_PROVIDER=fake
+EMBEDDING_PROVIDER=fake
+AGENT_RUNTIME=auto
 ```
 
-Khi đủ hai key, worker tự bật OpenInference instrumentation cho OpenAI Agents SDK và tạo một
-root `it-support-run` observation. Model/tool spans được gắn `run_id`, actor/session chỉ xuất hiện
-dưới dạng SHA-256 rút gọn. Mặc định prompt và output bị ẩn trước khi export. Đặt
-`LANGFUSE_CAPTURE_CONTENT=true` trong môi trường development nếu cần xem yêu cầu hiện tại và câu
-trả lời cuối cùng ở observation gốc trên Langfuse. Muốn xem toàn bộ model input/output, system
-instructions, context và tool data trong các observation `response`, cần tắt thêm các cờ redaction
-OpenInference/OpenAI Agents được liệt kê trong `.env.example`. Chế độ này có thể gửi dữ liệu nội
-bộ lên Langfuse Cloud. Langfuse không được dùng làm nguồn audit nghiệp vụ; PostgreSQL vẫn giữ
-trạng thái run, approval và tool receipt.
+To run the product with OpenAI generation and embeddings:
 
-Sau khi đổi `.env`, rebuild stack và kiểm tra xác thực từ đúng worker process:
+```dotenv
+TEXT_PROVIDER=openai
+EMBEDDING_PROVIDER=openai
+AGENT_RUNTIME=openai_agents
+OPENAI_API_KEY=your-key
+```
+
+Restart the stack after changing runtime configuration:
 
 ```bash
 make up
-docker compose --file infra/compose.yaml --env-file .env exec worker-agent \
-  python -c 'from langfuse import get_client; print(get_client().auth_check())'
 ```
 
-Kết quả `True` xác nhận credential/base URL. Gửi một chat request rồi tìm trace theo metadata
-`run_id` trong Langfuse. Nếu trace chưa xuất hiện, xem [troubleshooting](docs/troubleshooting.md).
+The application applies daily and monthly usage budgets from `.env`. Provider billing should still be monitored independently.
 
-### Public retrieval và memory evidence
+## Knowledge document lifecycle
 
-SciFact dùng full official test split gồm 300 query. Fusion weight được chọn trên 809 train
-queries rồi khóa trước khi chạy test: nDCG@10 `0.7318`, MAP@10 `0.6863`, Recall@10 `0.8569`
-và MRR@10 `0.7003`. Đây là scientific retrieval benchmark, không phải độ chính xác IT support.
-Xem [SciFact comparison](reports/public/scifact/comparison.md).
-
-LoCoMo session-retrieval adaptation chạy 1.982 query với `text-embedding-3-small`: nDCG@10
-`0.7860`, MAP@10 `0.7278`, Recall@10 `0.9246` và MRR@10 `0.7605`. Report ghi rõ
-`paper_comparable: false`; không trình bày số này như official LoCoMo paper benchmark. Xem
-[LoCoMo retrieval report](reports/public/memory/locomo/retrieval-openai.md).
-
-## Backup và restore drill
-
-```bash
-make backup
-make restore-test
+```mermaid
+flowchart LR
+    Upload --> Preview
+    Preview --> Process
+    Process --> Ready
+    Ready --> Publish
+    Publish --> Retrieve
+    Publish --> Revoke
 ```
 
-Backup nằm trong thư mục Git-ignored `backups/`, gồm PostgreSQL custom dump, document archive, row counts và SHA-256 manifest. Restore test chỉ dùng database `restore_test_*` và Docker volume tạm rồi cleanup; không có target restore đè database đang chạy. Xem [runbook backup](infra/backup-and-restore.md).
+Only published document versions are eligible for production retrieval. Processing is intentionally explicit so an administrator can inspect extracted text before generating chunks and embeddings. Document access rules are enforced during ingestion and checked again when evidence is selected.
 
-## Development trên host
+The administration flow is available at `/admin/documents`. For ingestion failures and tracing guidance, see [troubleshooting](docs/troubleshooting.md).
 
-Yêu cầu bổ sung: Python 3.12, uv 0.11.x; Node 22.23.2 nếu không dùng frontend Docker.
+## Observability with Langfuse
+
+Langfuse integration is optional. Configure a project in `.env`:
+
+```dotenv
+LANGFUSE_PUBLIC_KEY=pk-lf-...
+LANGFUSE_SECRET_KEY=sk-lf-...
+LANGFUSE_BASE_URL=https://cloud.langfuse.com
+LANGFUSE_CAPTURE_CONTENT=false
+```
+
+Each agent run creates a root observation with nested agent, model, and tool spans. Run IDs and pseudonymous actor or session identifiers make traces correlatable with application logs. Prompt and output content is redacted by default; the related OpenInference controls are documented in `.env.example`.
+
+Langfuse is used for diagnostics, latency, token usage, and cost analysis. PostgreSQL remains the audit source for runs, approvals, and tool receipts.
+
+## Development and quality checks
+
+Install locked host dependencies when developing outside the containers:
 
 ```bash
 make bootstrap-host
 make services-up
 make migrate
+```
 
-# Terminal 1
+Run the API and frontend in separate terminals:
+
+```bash
 make dev-backend
-
-# Terminal 2
-make dev-frontend-docker
+make dev-frontend
 ```
 
-`make dev-stop` chỉ dừng/xóa frontend development container cố định. Backend host dừng bằng `Ctrl+C`. Nếu cổng 5173 bận:
+Primary quality commands:
 
 ```bash
-docker ps --filter publish=5173
-make dev-frontend-docker FRONTEND_DEV_PORT=5174
+make check          # backend and frontend static checks and tests
+make test           # isolated backend services plus frontend checks
+make test-e2e       # browser workflows in pinned Playwright
+make eval           # deterministic evaluation suite
+make clean-verify   # clean Compose build, migration, seed, and readiness
+make docs-check     # validate relative Markdown links
 ```
 
-## Báo cáo và giới hạn release
+The test and evaluation commands use isolated Compose projects or temporary databases and do not reset the development database. The CI workflow runs the repository checks on every pushed change.
 
-- [G-01–G-09 quality report](reports/evaluation-summary.md)
-- [retrieval baseline](reports/retrieval-baseline.md)
-- [performance/cost limitations](reports/performance-cost.md)
-- [G-10 và release checklist](reports/release-checklist.md)
-- [troubleshooting](docs/troubleshooting.md)
-- [demo script](docs/demo-script.md)
-- [project handoff cho chat/agent mới](docs/project-handoff.md)
-
-Hiện tại không tuyên bố production-ready: G-05–G-09 cần live/human/full-stack measurements;
-CI remote chưa chạy; business-data seed và manual V1 demo evidence chưa có. Không có bước
-deploy server trong CI.
-
-## Cấu trúc repository
+## Repository structure
 
 ```text
-backend/app/       FastAPI, auth, Agents SDK/LangGraph, context, memory, RAG, tools/MCP, jobs
-backend/migrations Alembic migrations
-backend/tests/     unit, contract và PostgreSQL/Redis integration
-frontend/src/      React routes, API clients và feature UI
-frontend/e2e/      deterministic Playwright workflows
-data/              self-authored corpus, manifests và seed specification
-evals/             120 cases, rubrics và reproducible runner
-infra/             Compose, Nginx, images, backup/restore scripts
-reports/           reviewed baselines và release evidence
-docs/              architecture, ADR, roadmap, demo và troubleshooting
+backend/        FastAPI application, agent runtimes, retrieval, memory, and workers
+frontend/       React application and browser tests
+data/           Versioned demo knowledge corpus and metadata
+evals/          Evaluation contracts, datasets, runners, and public benchmark adapters
+infra/          Compose files, Nginx, backup scripts, and operational commands
+docs/           Architecture, ADRs, runbooks, contracts, and implementation notes
+reports/        Generated evaluation evidence and release quality reports
 ```
 
-Đọc [roadmap](docs/implementation-roadmap.md) để xem checklist và bằng chứng theo work package. Tên portfolio đề xuất: **Stateful IT Support Agent with Evaluated RAG and Approval Workflows**.
+## Documentation
 
+| Document | Purpose |
+| --- | --- |
+| [Architecture](docs/architecture.md) | Components, data flows, trust boundaries, and deployment topology |
+| [Memory and context architecture](docs/memory-context-architecture.md) | Working and durable memory contracts, lifecycle, and retrieval |
+| [Runtime ADR](docs/adr/0002-runtime-and-integration.md) | Runtime selection and integration decisions |
+| [OpenAI Agents SDK ADR](docs/adr/0003-openai-agents-orchestrator.md) | Primary orchestrator decision and fallback strategy |
+| [Demo script](docs/demo-script.md) | Guided product walkthrough and expected behavior |
+| [Command reference](infra/commands.md) | Reproducible commands, environment boundaries, and paid opt ins |
+| [Backup and restore](infra/backup-and-restore.md) | PostgreSQL and document storage recovery drill |
+| [Troubleshooting](docs/troubleshooting.md) | Common local, ingestion, worker, and tracing issues |
+| [Evaluation summary](reports/evaluation-summary.md) | Evaluation suites, results, and interpretation |
+| [Release checklist](reports/release-checklist.md) | Current quality gates and unresolved release evidence |
 
-### Mỗi lần sửa code
+## Project status and limitations
 
-Tại thư mục dự án, chạy:
+The repository is suitable for local demonstration, architecture review, and continued evaluation. It should not be treated as a production ready IT service without deployment specific security review and operational evidence.
 
-```bash
-cd ~/LapVT2/IT-Support-Agent-Platform
-make up
-```
+Current limitations include:
 
-`make up` sẽ tự:
+- live model quality, latency, and cost depend on the configured provider and require environment specific evaluation;
+- public retrieval metrics validate retrieval components, not complete IT support answer accuracy;
+- PDF ingestion requires a text layer and does not include OCR;
+- human review, load, resilience, accessibility, and production incident drills remain deployment gates;
+- the bundled service status and business data are deterministic demo scenarios.
 
-- Build lại backend và frontend.
-- Recreate các container cần thiết.
-- Khởi động toàn bộ stack.
-- Chờ các service healthy.
-
-Sau đó kiểm tra:
-
-```bash
-make status
-```
-
-Mở ứng dụng:
-
-```text
-http://127.0.0.1:5173
-```
-
-Theo dõi toàn bộ luồng chat:
-
-```bash
-make logs-agent
-```
-
-Nhấn `Ctrl+C` chỉ thoát màn hình log, không dừng ứng dụng.
-
-### Một số trường hợp đặc biệt
-
-Nếu có migration database mới:
-
-```bash
-make migrate
-make up
-```
-
-Nếu thay đổi dữ liệu demo hoặc tài liệu seed:
-
-```bash
-make seed
-make up
-```
-
-Nếu đổi embedding model/provider:
-
-```bash
-RUN_PAID_REINDEX=1 make knowledge-reindex
-make up
-```
-
-Muốn restart sạch container nhưng giữ nguyên dữ liệu:
-
-```bash
-make down
-make up
-```
-
-Khi chạy live OpenAI, cấu hình tối thiểu là:
-
-```ini
-TEXT_PROVIDER=openai
-EMBEDDING_PROVIDER=openai
-AGENT_RUNTIME=openai_agents
-LOG_PROMPTS=false
-```
-
-Chỉ bật `LOG_PROMPTS=true` tạm thời khi điều tra trên dữ liệu không nhạy cảm; giá trị này ghi nội
-dung chat và tài liệu vào log. Sau khi đổi cấu hình, chạy lại `make up`.
+The [release checklist](reports/release-checklist.md) is the source of truth for completed and outstanding quality gates.
