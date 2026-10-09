@@ -238,7 +238,7 @@ To run the product with OpenAI generation and embeddings:
 TEXT_PROVIDER=openai
 EMBEDDING_PROVIDER=openai
 AGENT_RUNTIME=openai_agents
-OPENAI_API_KEY=your-key
+OPENAI_API_KEY=<secret>
 ```
 
 Restart the stack after changing runtime configuration:
@@ -271,7 +271,7 @@ Langfuse integration is optional. Configure a project in `.env`:
 
 ```dotenv
 LANGFUSE_PUBLIC_KEY=pk-lf-...
-LANGFUSE_SECRET_KEY=sk-lf-...
+LANGFUSE_SECRET_KEY=<secret>
 LANGFUSE_BASE_URL=https://cloud.langfuse.com
 LANGFUSE_CAPTURE_CONTENT=false
 ```
