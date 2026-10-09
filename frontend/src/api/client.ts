@@ -16,6 +16,7 @@ export class ApiError extends Error {
 interface RequestMessages {
   fallback?: string;
   byStatus?: Partial<Record<number, string>>;
+  byCode?: Partial<Record<string, string>>;
 }
 
 export interface ApiRequestInit extends RequestInit {
@@ -63,6 +64,7 @@ async function responseError(
       ? payload.error.request_id
       : response.headers.get("X-Request-ID");
   const message =
+    (code ? messages?.byCode?.[code] : undefined) ??
     messages?.byStatus?.[response.status] ??
     defaultMessages[response.status] ??
     messages?.fallback ??
