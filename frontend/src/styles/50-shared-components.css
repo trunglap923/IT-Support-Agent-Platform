@@ -106,7 +106,7 @@
 
 /* Drawers and document details */
 .drawer-backdrop { position: fixed; z-index: 39; inset: 0; border: 0; background: rgb(15 23 42 / 28%); backdrop-filter: blur(1px); }
-.product-drawer { position: fixed; z-index: 40; top: 44px; right: 0; bottom: 0; width: min(410px, 100vw); overflow-y: auto; border-left: 1px solid var(--border); background: var(--surface-raised); box-shadow: -12px 0 36px rgb(15 23 42 / 10%); }
+.product-drawer { position: fixed; z-index: 40; top: var(--topbar-height); right: 0; bottom: 0; width: min(410px, 100vw); overflow-y: auto; border-left: 1px solid var(--border); background: var(--surface-raised); box-shadow: -12px 0 36px rgb(15 23 42 / 10%); }
 .drawer-header { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; padding: 18px 20px; border-bottom: 1px solid var(--border); }
 .drawer-header h2 { margin: 0; font-size: 18px; }
 .drawer-header p { margin: 4px 0 0; color: var(--text-muted); font-size: var(--font-sm); }

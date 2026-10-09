@@ -202,6 +202,15 @@ test("dashboard remains compact on desktop", async ({ page }, testInfo) => {
   await expect(page.getByRole("link", { name: "IT-2048" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
   await page.screenshot({ path: testInfo.outputPath("dashboard-desktop.png"), fullPage: true });
+
+  await page.getByRole("button", { name: "Thông báo" }).click();
+  await expect(page.getByText("Không có thông báo mới")).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("notification-popover-desktop.png"), fullPage: true });
+
+  await page.getByRole("button", { name: /Demo Engineer/ }).click();
+  await expect(page.getByRole("button", { name: "Đăng xuất" })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("account-popover-desktop.png"), fullPage: true });
+  await page.keyboard.press("Escape");
 });
 
 test("mobile navigation and dashboard do not overflow", async ({ page }, testInfo) => {
