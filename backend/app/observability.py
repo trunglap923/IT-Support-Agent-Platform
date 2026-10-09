@@ -8,7 +8,7 @@ from collections.abc import Callable
 from contextlib import AbstractContextManager, contextmanager, nullcontext
 from threading import Lock
 from types import TracebackType
-from typing import Any, Protocol, cast
+from typing import Any, Protocol
 
 from langfuse import Langfuse, propagate_attributes
 from openinference.instrumentation import TraceConfig
@@ -272,7 +272,7 @@ class _SafeObservationContext(AbstractContextManager[GenerationObservation | Non
                 )
             return False
         try:
-            return cast(bool | None, self._context.__exit__(exc_type, exc_value, traceback))
+            return self._context.__exit__(exc_type, exc_value, traceback)
         except Exception:
             logger.warning("Langfuse observation close failed; application result is unaffected")
             return None
