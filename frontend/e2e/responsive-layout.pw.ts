@@ -210,10 +210,11 @@ test("mobile navigation and dashboard do not overflow", async ({ page }, testInf
   await page.goto("/");
   await expect(page.getByRole("button", { name: "Mở điều hướng" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
+  await page.screenshot({ path: testInfo.outputPath("dashboard-mobile.png"), fullPage: true });
   await page.getByRole("button", { name: "Mở điều hướng" }).click();
   await expect(page.getByRole("navigation", { name: "Điều hướng chính" })).toBeVisible();
   await page.waitForTimeout(250);
-  await page.screenshot({ path: testInfo.outputPath("dashboard-mobile.png"), fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath("navigation-mobile.png"), fullPage: true });
 });
 
 test("chat stays readable on desktop and mobile", async ({ page }, testInfo) => {
