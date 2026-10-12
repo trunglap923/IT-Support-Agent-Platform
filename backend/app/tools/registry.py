@@ -100,7 +100,11 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
     ),
     "create_ticket": ToolSpec(
         name="create_ticket",
-        description="Draft a support ticket that requires explicit user approval before creation.",
+        description=(
+            "Prepare a ticket draft from the current request and relevant conversation context. "
+            "A linked device is optional; leave device_id empty when unavailable. The draft "
+            "requires explicit user approval before ticket creation."
+        ),
         arguments_model=CreateTicketArguments,
         route="approval",
         risk_level="medium",

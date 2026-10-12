@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.principal import Principal
 from app.rag.citations.sources import build_evidence_output
+from app.rag.retrieval.analysis import evidence_entity_groups, text_covers_entity_groups
 from app.rag.retrieval.query import HybridRetriever
 from app.tools.schemas import SearchKnowledgeResult
 
@@ -46,20 +47,27 @@ class KnowledgeToolSearch:
             principal=self._principal,
             operation_id=f"agent:{self._run_id}:knowledge:{self._call_index}",
         )
+        analysis = self._retriever.last_analysis
+        required_entity_groups = (
+            evidence_entity_groups(analysis) if analysis is not None else ()
+        )
         output = build_evidence_output(
             hits,
             minimum_lexical_coverage=self._minimum_lexical_coverage,
             minimum_vector_similarity=self._minimum_vector_similarity,
             minimum_evidence_score=self._minimum_evidence_score,
             max_sources=limit,
+            required_entity_groups=required_entity_groups,
         )
-        scores = {
-            str(hit.chunk_id): (hit.evidence_score if hit.evidence_score is not None else hit.score)
-            for hit in hits
-        }
+        hits_by_id = {str(hit.chunk_id): hit for hit in hits}
         sources: list[dict[str, object]] = []
         pending_citations: dict[str, dict[str, Any]] = {}
         for source in output.sources:
+            hit = hits_by_id[str(source.chunk_id)]
+            score = hit.evidence_score if hit.evidence_score is not None else hit.score
+            source_text = " ".join(
+                (source.title, source.section or "", *source.section_path, source.excerpt)
+            )
             citation = {
                 "source_id": source.source_id,
                 "source_url": source.source_url,
@@ -72,7 +80,12 @@ class KnowledgeToolSearch:
                 "page_number": source.page_number,
                 "section": source.section,
                 "excerpt": source.excerpt,
-                "score": scores[str(source.chunk_id)],
+                "score": score,
+                "meets_evidence_threshold": score >= self._minimum_evidence_score,
+                "expansion_kind": hit.expansion_kind,
+                "matches_query_entities": text_covers_entity_groups(
+                    source_text, required_entity_groups
+                ),
             }
             pending_citations[source.source_id] = citation
             sources.append(
@@ -83,7 +96,6 @@ class KnowledgeToolSearch:
                     "page_number": source.page_number,
                 }
             )
-        analysis = self._retriever.last_analysis
         payload = {
             "sources": sources,
             "query_analysis": (

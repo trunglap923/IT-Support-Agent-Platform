@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass
 from typing import Literal
 from uuid import UUID
 
+from app.rag.retrieval.analysis import text_covers_entity_groups
 from app.rag.retrieval.query import RetrievalHit
 
 
@@ -36,6 +38,26 @@ class EvidenceOutput:
     sources: tuple[Source, ...]
     context: tuple[str, ...]
     message: str | None
+
+
+_TOC_LEADER = re.compile(r"(?:\.{2,}|…{1,}|·{2,}|_{3,})\s*\d{1,4}\s*$")
+
+
+def _is_navigation_chunk(hit: RetrievalHit) -> bool:
+    """Exclude table-of-contents chunks from answer evidence and citations."""
+
+    content = hit.content.casefold()
+    if re.search(r"\b(?:mục\s+lục|table\s+of\s+contents)\b", content):
+        return True
+    lines = [line.strip() for line in hit.content.splitlines() if line.strip()]
+    return sum(bool(_TOC_LEADER.search(line)) for line in lines) >= 3
+
+
+def _matches_entity_groups(hit: RetrievalHit, groups: tuple[tuple[str, ...], ...]) -> bool:
+    if not groups:
+        return False
+    searchable = " ".join((hit.title, hit.section or "", *hit.section_path, hit.content))
+    return text_covers_entity_groups(searchable, groups)
 
 
 def source_id_for_chunk(chunk_id: UUID) -> str:
@@ -72,7 +94,11 @@ def _neighbor_context_hits(
     neighbors = [
         hit
         for hit in hits
-        if hit.chunk_id not in supported_ids and hit.expansion_kind == "neighbor"
+        if (
+            hit.chunk_id not in supported_ids
+            and hit.expansion_kind == "neighbor"
+            and not _is_navigation_chunk(hit)
+        )
     ]
     selected: dict[UUID, RetrievalHit] = {}
     seeds = sorted(
@@ -176,6 +202,7 @@ def build_evidence_output(
     minimum_evidence_score: float = 0.45,
     max_sources: int = 5,
     context_token_budget: int = 6_000,
+    required_entity_groups: tuple[tuple[str, ...], ...] = (),
 ) -> EvidenceOutput:
     if max_sources < 1 or context_token_budget < 1:
         raise ValueError("Evidence source and token budgets must be positive")
@@ -185,17 +212,21 @@ def build_evidence_output(
     supported = [
         hit
         for hit in hits
-        if (
-            (hit.evidence_score is not None and hit.evidence_score >= minimum_evidence_score)
+        if not _is_navigation_chunk(hit)
+        and (
+            _matches_entity_groups(hit, required_entity_groups)
             or (
-                hit.evidence_score is None
-                and (
-                    hit.lexical_coverage >= minimum_lexical_coverage
-                    or (hit.vector_similarity or 0.0) >= minimum_vector_similarity
-                    or (
-                        hit.vector_similarity is None
-                        and hit.lexical_coverage == 0.0
-                        and hit.score >= minimum_lexical_coverage
+                (hit.evidence_score is not None and hit.evidence_score >= minimum_evidence_score)
+                or (
+                    hit.evidence_score is None
+                    and (
+                        hit.lexical_coverage >= minimum_lexical_coverage
+                        or (hit.vector_similarity or 0.0) >= minimum_vector_similarity
+                        or (
+                            hit.vector_similarity is None
+                            and hit.lexical_coverage == 0.0
+                            and hit.score >= minimum_lexical_coverage
+                        )
                     )
                 )
             )

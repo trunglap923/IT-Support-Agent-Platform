@@ -102,7 +102,9 @@ def policy_for_analysis(
             else "get_my_recent_tickets"
         )
     elif analysis.intent == "ticket_create":
-        allowed.update({"create_ticket", "get_conversation_device"})
+        # A linked device is optional ticket metadata. Do not let an absent device
+        # attachment turn a clear ticket request into a blocked request.
+        allowed.add("create_ticket")
         preferred_action = "create_ticket"
 
     return AgentRequestPolicy(
@@ -136,6 +138,21 @@ async def resolve_request_policy(
 
     request = RetrievalRequest(raw_query=query)
     analysis = DeterministicQueryAnalyzer().analyze(request)
+    current_intent = analysis.intent
+    current_intent_is_explicit = (
+        analysis.confidence >= 0.85
+        and current_intent
+        in {
+            "knowledge",
+            "incident",
+            "service_status",
+            "identity",
+            "ticket_read",
+            "ticket_create",
+            "memory",
+            "social",
+        }
+    )
     selected_policy = rewrite_policy or QueryRewritePolicy()
     model_analyzer = ModelQueryAnalyzer(
         model,
@@ -193,18 +210,24 @@ async def resolve_request_policy(
                         retrieval_query = contextual_query.strip()
                         if query.casefold() not in retrieval_query.casefold():
                             retrieval_query = f"{retrieval_query}\n{query.strip()}"
-                        analysis = DeterministicQueryAnalyzer().analyze(
+                        contextual_analysis = DeterministicQueryAnalyzer().analyze(
                             RetrievalRequest(raw_query=retrieval_query)
                         )
+                        # Conversation analysis can enrich what a follow-up refers to, but
+                        # it must not erase an explicit action in the user's latest sentence
+                        # (for example, asking to create a ticket about the issue above).
+                        resolved_intent = (
+                            current_intent
+                            if current_intent_is_explicit
+                            else response.analysis.intent
+                            if response.analysis.intent in {"knowledge", "incident"}
+                            else "knowledge"
+                        )
                         analysis = replace(
-                            analysis,
-                            intent=(
-                                response.analysis.intent
-                                if response.analysis.intent in {"knowledge", "incident"}
-                                else "knowledge"
-                            ),
+                            contextual_analysis,
+                            intent=resolved_intent,
                             confidence=max(
-                                analysis.confidence,
+                                contextual_analysis.confidence,
                                 response.analysis.confidence,
                             ),
                             analyzer="deterministic+conversation",

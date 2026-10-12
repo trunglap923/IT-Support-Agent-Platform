@@ -201,8 +201,10 @@ class OpenAITextProvider:
                     "content without requesting new facts. For contextual_follow_up, provide a "
                     "self-contained retrieval_query using only the relevant prior topic plus the "
                     "current request. Never mix unrelated history. The current request always "
-                    "takes precedence. Explicit profile, live service status, and ticket requests "
-                    "remain new_request even when history is available. A transformation must "
+                    "takes precedence. Explicit profile, live service status, and ticket reads "
+                    "remain new_request even when history is available. A create-ticket request "
+                    "that refers to a prior issue may use contextual_follow_up to recover its "
+                    "details, while keeping intent=ticket_create. A transformation must "
                     "refer to an existing assistant answer, not just an earlier user message. "
                     "Preserve every deterministic exact term verbatim in semantic_query and "
                     "exact_terms. Extract entities conservatively; incorrect "
@@ -224,6 +226,12 @@ class OpenAITextProvider:
                     "summarize that content as a message for a manager or other recipient is still "
                     "transform_previous; do not reinterpret the recipient as a request for an "
                     "approved company template or new policy."
+                    " Examples: after an assistant has answered about server safety, asking to "
+                    "put that answer in bullet points or summarize it as a message for a manager "
+                    "is transform_previous; asking what access restrictions apply is a new "
+                    "factual follow-up; asking to create a ticket about the issue above keeps "
+                    "intent=ticket_create and uses contextual_follow_up only to recover the issue "
+                    "details. Classify by the requested operation, not by isolated wording."
                 ),
                 input=serialized,
                 text_format=QueryAnalysisOutput,
@@ -386,8 +394,12 @@ class OpenAITextProvider:
                     "action for ticket lists, create_ticket only for an explicit draft request, "
                     "knowledge for IT questions needing internal guidance, or direct for greetings "
                     "and conversational requests that do not benefit from retrieval. For service "
-                    "and ticket actions, fill the corresponding structured argument fields. When "
-                    "selected_action is not auto, keep that exact action."
+                    "and ticket actions, fill the corresponding structured argument fields. For "
+                    "create_ticket, use the current request plus relevant conversation history "
+                    "to prepare a concrete draft; a linked device is optional, so set its ID to "
+                    "null when no device is available. Never stop ticket drafting only because "
+                    "the conversation has no attached device. When selected_action is not auto, "
+                    "keep that exact action."
                 ),
                 input=serialized,
                 text_format=SupportExecutionPlan,

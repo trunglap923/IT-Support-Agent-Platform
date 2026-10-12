@@ -29,6 +29,7 @@ from app.providers.structured import (
     SupportToolCall,
 )
 from app.rag.citations.sources import InvalidCitationError, build_evidence_output
+from app.rag.retrieval.analysis import evidence_entity_groups
 from app.rag.retrieval.query import RetrievalHit
 from app.tools.results import ToolResult
 
@@ -511,6 +512,11 @@ class RAGGraphNodes:
             minimum_lexical_coverage=self._minimum_lexical_coverage,
             minimum_vector_similarity=self._minimum_vector_similarity,
             minimum_evidence_score=self._minimum_evidence_score,
+            required_entity_groups=(
+                evidence_entity_groups(self._request_policy.analysis)
+                if self._request_policy is not None
+                else ()
+            ),
         )
         scores = {
             str(hit.chunk_id): (hit.evidence_score if hit.evidence_score is not None else hit.score)
@@ -802,6 +808,11 @@ class RAGGraphNodes:
                 minimum_lexical_coverage=self._minimum_lexical_coverage,
                 minimum_vector_similarity=self._minimum_vector_similarity,
                 minimum_evidence_score=self._minimum_evidence_score,
+                required_entity_groups=(
+                    evidence_entity_groups(self._request_policy.analysis)
+                    if self._request_policy is not None
+                    else ()
+                ),
             )
         except InvalidCitationError as exc:
             await self._progress("answer", "warning", "Đang kiểm tra lại nguồn tham chiếu.")

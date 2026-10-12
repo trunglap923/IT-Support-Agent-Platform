@@ -292,6 +292,59 @@ def meaningful_terms(value: str, *, limit: int = 24) -> tuple[str, ...]:
     return tuple(terms)
 
 
+def evidence_entity_groups(spec: QuerySpec) -> tuple[tuple[str, ...], ...]:
+    """Return explicit query constraints as alternative surface forms per entity.
+
+    Retrieval can use these groups to recognize a short, exact-match source that scores
+    below the general semantic threshold. Every group must be present in that source;
+    this is a narrow exception for explicit entities such as VPN + Ubuntu, not a general
+    threshold reduction.
+    """
+
+    # Grounding constraints must be stated in the actual retrieval query. Model-added
+    # filters can improve candidate recall, but must not become mandatory evidence based
+    # on a guess or an unrelated turn in history.
+    normalized = " ".join(spec.raw_query.casefold().split())
+    services = _values_for_aliases(normalized, _SERVICE_ALIASES)
+    products = _values_for_aliases(normalized, _PRODUCT_ALIASES)
+    operating_systems = _values_for_aliases(normalized, _OS_ALIASES)
+    error_codes = _error_codes(spec.raw_query, exact_identifiers(spec.raw_query))
+    versions = _versions(spec.raw_query)
+
+    groups: list[tuple[str, ...]] = []
+    alias_sets = (
+        (_SERVICE_ALIASES, services),
+        (_PRODUCT_ALIASES, products),
+        (_OS_ALIASES, operating_systems),
+    )
+    for aliases, selected_values in alias_sets:
+        for canonical, values in aliases:
+            if canonical in selected_values:
+                groups.append(tuple(dict.fromkeys((canonical, *values))))
+    groups.extend((value,) for value in error_codes)
+    groups.extend((value,) for value in versions)
+    unique: list[tuple[str, ...]] = []
+    seen: set[tuple[str, ...]] = set()
+    for group in groups:
+        key = tuple(item.casefold() for item in group)
+        if key not in seen:
+            seen.add(key)
+            unique.append(group)
+    return tuple(unique)
+
+
+def text_covers_entity_groups(
+    value: str, groups: tuple[tuple[str, ...], ...]
+) -> bool:
+    """Check whether text explicitly contains every extracted query constraint."""
+
+    normalized = " ".join(value.casefold().split())
+    return bool(groups) and all(
+        any(" ".join(alias.casefold().split()) in normalized for alias in group)
+        for group in groups
+    )
+
+
 def exact_identifiers(value: str) -> tuple[str, ...]:
     """Extract stable technical identifiers without normalizing their spelling."""
 
