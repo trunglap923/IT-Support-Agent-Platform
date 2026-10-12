@@ -278,7 +278,7 @@ test("streaming answer stays readable on desktop and mobile", async ({ page }, t
   expect(consoleErrors).toEqual([]);
 });
 
-test("ticket workspace keeps the create drawer usable", async ({ page }, testInfo) => {
+test("ticket workspace keeps the create drawer usable", async ({ page }) => {
   await mockWorkspace(page);
 
   await page.setViewportSize({ width: 1440, height: 960 });
@@ -287,16 +287,16 @@ test("ticket workspace keeps the create drawer usable", async ({ page }, testInf
   await expect(page.getByRole("heading", { name: "Tạo ticket hỗ trợ" })).toBeVisible();
   await expect(page.getByText("IT-2048")).toBeVisible();
   await expectNoHorizontalOverflow(page);
-  await page.screenshot({ path: testInfo.outputPath("tickets-desktop.png"), fullPage: true });
+  await page.screenshot({ path: "../docs/assets/ui-modernization/phase-4/tickets-desktop.png", fullPage: true });
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(250);
   await expect(page.getByRole("button", { name: "Đóng panel tạo ticket" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
-  await page.screenshot({ path: testInfo.outputPath("tickets-mobile.png"), fullPage: true });
+  await page.screenshot({ path: "../docs/assets/ui-modernization/phase-4/tickets-mobile.png", fullPage: true });
 });
 
-test("ticket detail is readable on desktop and mobile", async ({ page }, testInfo) => {
+test("ticket detail is readable on desktop and mobile", async ({ page }) => {
   await mockWorkspace(page);
   await page.route(`**/api/v1/tickets/${tickets[0].id}`, (route) => json(route, tickets[0]));
   await page.setViewportSize({ width: 1440, height: 960 });
@@ -304,17 +304,17 @@ test("ticket detail is readable on desktop and mobile", async ({ page }, testInf
   await expect(page.getByRole("heading", { name: tickets[0].title })).toBeVisible();
   await expect(page.getByText("Người yêu cầu")).toBeVisible();
   await expectNoHorizontalOverflow(page);
-  await page.screenshot({ path: testInfo.outputPath("ticket-detail-desktop.png"), fullPage: true });
+  await page.screenshot({ path: "../docs/assets/ui-modernization/phase-4/ticket-detail-desktop.png", fullPage: true });
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(250);
   await expectNoHorizontalOverflow(page);
   await expect(page.locator(".app-sidebar")).not.toHaveClass(/open/);
   await expect(page.locator(".app-sidebar")).toHaveCSS("transform", /matrix\(1, 0, 0, 1, -/);
-  await page.screenshot({ path: testInfo.outputPath("ticket-detail-mobile.png"), fullPage: true });
+  await page.screenshot({ path: "../docs/assets/ui-modernization/phase-4/ticket-detail-mobile.png", fullPage: true });
 });
 
-test("operations tables remain usable on desktop and mobile", async ({ page }, testInfo) => {
+test("operations tables remain usable on desktop and mobile", async ({ page }) => {
   await mockWorkspace(page, itUser);
   await page.route("**/api/v1/tickets/queue**", (route) => json(route, cursorPage(tickets)));
   await page.route("**/api/v1/service-status", (route) => json(route, [
@@ -339,12 +339,12 @@ test("operations tables remain usable on desktop and mobile", async ({ page }, t
   await expect(page.getByRole("heading", { name: "Hàng đợi IT" })).toBeVisible();
   await expect(page.getByText("IT-2048 · open · high")).toBeVisible();
   await expectNoHorizontalOverflow(page);
-  await page.screenshot({ path: testInfo.outputPath("operations-desktop.png"), fullPage: true });
+  await page.screenshot({ path: "../docs/assets/ui-modernization/phase-4/operations-desktop.png", fullPage: true });
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(250);
   await expectNoHorizontalOverflow(page);
-  await page.screenshot({ path: testInfo.outputPath("operations-mobile.png"), fullPage: true });
+  await page.screenshot({ path: "../docs/assets/ui-modernization/phase-4/operations-mobile.png", fullPage: true });
 });
 
 test("document library remains usable on desktop and mobile", async ({ page }, testInfo) => {

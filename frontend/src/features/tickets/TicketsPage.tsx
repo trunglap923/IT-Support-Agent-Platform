@@ -176,11 +176,11 @@ export function TicketsPage() {
       {error ? <div className="alert-banner error" role="alert">{error}</div> : null}
 
       <section className="ticket-summary" aria-label="Tổng quan ticket">
-        <button className={statusFilter === "all" ? "active" : ""} onClick={() => setStatusFilter("all")} type="button"><span className="summary-icon"><ListFilter /></span><span>Tất cả</span><strong>{tickets.length}</strong></button>
-        <button className={statusFilter === "open" ? "active" : ""} onClick={() => setStatusFilter("open")} type="button"><span className="summary-icon"><TicketCheck /></span><span>Mới tạo</span><strong>{tickets.filter((ticket) => ticket.status === "open").length}</strong></button>
-        <button className={statusFilter === "in_progress" ? "active" : ""} onClick={() => setStatusFilter("in_progress")} type="button"><span className="summary-icon amber"><Activity /></span><span>Đang xử lý</span><strong>{tickets.filter((ticket) => ticket.status === "in_progress").length}</strong></button>
-        <button className="warning" onClick={() => setDraftOpen(true)} type="button"><span className="summary-icon amber"><Clock3 /></span><span>Chờ xác nhận</span><strong>{approvals.length}</strong></button>
-        <button className={statusFilter === "resolved" ? "active" : ""} onClick={() => setStatusFilter("resolved")} type="button"><span className="summary-icon green"><CheckCircle2 /></span><span>Đã giải quyết</span><strong>{tickets.filter((ticket) => ticket.status === "resolved").length}</strong></button>
+        <button aria-pressed={statusFilter === "all"} className={statusFilter === "all" ? "active" : ""} onClick={() => setStatusFilter("all")} type="button"><span className="summary-icon"><ListFilter /></span><span>Tất cả</span><strong>{tickets.length}</strong></button>
+        <button aria-pressed={statusFilter === "open"} className={statusFilter === "open" ? "active" : ""} onClick={() => setStatusFilter("open")} type="button"><span className="summary-icon"><TicketCheck /></span><span>Mới tạo</span><strong>{tickets.filter((ticket) => ticket.status === "open").length}</strong></button>
+        <button aria-pressed={statusFilter === "in_progress"} className={statusFilter === "in_progress" ? "active" : ""} onClick={() => setStatusFilter("in_progress")} type="button"><span className="summary-icon amber"><Activity /></span><span>Đang xử lý</span><strong>{tickets.filter((ticket) => ticket.status === "in_progress").length}</strong></button>
+        <button aria-label={`Chờ xác nhận: ${approvals.length}. Mở danh sách phê duyệt`} className="warning" onClick={() => setDraftOpen(true)} type="button"><span className="summary-icon amber"><Clock3 /></span><span>Chờ xác nhận</span><strong>{approvals.length}</strong></button>
+        <button aria-pressed={statusFilter === "resolved"} className={statusFilter === "resolved" ? "active" : ""} onClick={() => setStatusFilter("resolved")} type="button"><span className="summary-icon green"><CheckCircle2 /></span><span>Đã giải quyết</span><strong>{tickets.filter((ticket) => ticket.status === "resolved").length}</strong></button>
       </section>
 
       {draftOpen ? <aside className="ticket-side-panel" aria-label="Tạo ticket và phê duyệt">
@@ -213,7 +213,7 @@ export function TicketsPage() {
       </aside> : null}
 
       <section className="panel ticket-library">
-        <header className="panel-header"><div><h2>Ticket cá nhân</h2><p>{tickets.length} ticket trong phạm vi của bạn</p></div></header>
+        <header className="panel-header"><div><h2>Ticket cá nhân</h2><p>{filteredTickets.length} kết quả · {tickets.length} ticket trong phạm vi của bạn</p></div></header>
         <div className="filter-bar">
           <label className="search-field"><Search aria-hidden="true" size={16} /><span className="sr-only">Tìm ticket</span><input onChange={(event) => setQuery(event.target.value)} placeholder="Tìm theo mã, tiêu đề…" type="search" value={query} /></label>
           <label><span className="sr-only">Lọc trạng thái</span><select aria-label="Lọc trạng thái" onChange={(event) => setStatusFilter(event.target.value)} value={statusFilter}><option value="all">Mọi trạng thái</option><option value="open">Open</option><option value="in_progress">In progress</option><option value="resolved">Resolved</option></select></label>

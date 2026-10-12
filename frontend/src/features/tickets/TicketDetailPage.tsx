@@ -49,9 +49,9 @@ export function TicketDetailPage() {
         actions={<><StatusBadge value={ticket.severity} /><StatusBadge value={ticket.status} /></>}
       />
       <div className="ticket-detail-layout">
-        <section className="panel ticket-work">
+        <section className="panel ticket-work" aria-label="Lịch sử xử lý ticket">
           <header className="panel-header"><div><h2>Nội dung yêu cầu</h2><p>Thông tin đã được gửi cho đội hỗ trợ.</p></div></header>
-          <article>
+          <article className="ticket-activity-item">
             <div className="activity-avatar" aria-hidden="true">U</div>
             <div>
               <strong>{ticket.requester_name ?? "Người yêu cầu"}</strong>
@@ -60,7 +60,7 @@ export function TicketDetailPage() {
             </div>
           </article>
           {ticket.resolution_note ? (
-            <article>
+            <article className="ticket-activity-item support-activity">
               <div className="activity-avatar support" aria-hidden="true">IT</div>
               <div>
                 <strong>IT Support</strong>
@@ -69,7 +69,7 @@ export function TicketDetailPage() {
               </div>
             </article>
           ) : (
-            <div className="work-placeholder">Chưa có ghi chú xử lý mới.</div>
+            <div className="work-placeholder"><span aria-hidden="true" className="activity-avatar support">IT</span><div><strong>Chưa có cập nhật từ IT</strong><span>Ghi chú xử lý sẽ hiển thị tại đây khi ticket được cập nhật.</span></div></div>
           )}
         </section>
         <aside className="panel ticket-context">

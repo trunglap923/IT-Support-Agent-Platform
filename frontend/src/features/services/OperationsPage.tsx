@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { Activity, AlertTriangle, Container, GitBranch, Search, ShieldCheck, TicketCheck, UserRound } from "lucide-react";
 
 import {
@@ -167,7 +168,7 @@ export function OperationsPage() {
       </section>
 
       <section className="panel operations-queue">
-        <header className="panel-header"><div><h2>Ticket trong phạm vi</h2><p>{tickets.length} ticket được phép xử lý</p></div></header>
+        <header className="panel-header"><div><h2>Ticket trong phạm vi</h2><p>{filteredTickets.length} kết quả · {tickets.length} ticket được phép xử lý</p></div></header>
         <div className="filter-bar">
           <label className="search-field"><Search aria-hidden="true" size={16} /><span className="sr-only">Tìm ticket trong hàng đợi</span><input onChange={(event) => setQuery(event.target.value)} placeholder="Tìm theo mã, tiêu đề, người yêu cầu…" type="search" value={query} /></label>
           <label><span className="sr-only">Lọc trạng thái</span><select aria-label="Lọc trạng thái hàng đợi" onChange={(event) => setStatusFilter(event.target.value)} value={statusFilter}><option value="all">Mọi trạng thái</option><option value="open">Open</option><option value="in_progress">In progress</option><option value="resolved">Resolved</option></select></label>
@@ -185,7 +186,7 @@ export function OperationsPage() {
                 <tr key={ticket.id}>
                   <td>
                     <small>{ticket.display_key} · {ticket.status} · {ticket.severity}</small>
-                    <strong>{ticket.title}</strong>
+                    <Link className="operations-ticket-link" to={`/tickets/${ticket.id}`}><strong>{ticket.title}</strong></Link>
                     <small>{ticket.description}</small>
                   </td>
                   <td><StatusBadge value={ticket.issue_type} label={formatIssueType(ticket.issue_type)} /></td>

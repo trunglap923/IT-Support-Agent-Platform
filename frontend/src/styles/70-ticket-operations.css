@@ -1,0 +1,545 @@
+/* Ticket and IT operations workspaces */
+.tickets-page,
+.operations-page,
+.ticket-detail-page,
+.tickets-page > *,
+.operations-page > *,
+.ticket-detail-page > * {
+  min-width: 0;
+}
+
+.tickets-page,
+.operations-page,
+.ticket-detail-page {
+  gap: 16px;
+}
+
+.tickets-page .page-header,
+.operations-page .page-header,
+.ticket-detail-page .page-header {
+  margin-bottom: 0;
+}
+
+.ticket-summary {
+  gap: 10px;
+}
+
+.ticket-summary button {
+  position: relative;
+  min-height: 76px;
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.ticket-summary button:hover {
+  border-color: var(--border-interactive);
+  background: var(--surface-hover);
+}
+
+.ticket-summary button:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.ticket-summary button.active {
+  border-color: var(--accent-border);
+  background: var(--surface-selected);
+  box-shadow: inset 0 -2px var(--accent);
+}
+
+.ticket-summary button strong {
+  font-size: 20px;
+  line-height: 1.15;
+}
+
+.ticket-library,
+.operations-services,
+.operations-queue,
+.ticket-work,
+.ticket-context {
+  border-color: var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+}
+
+.ticket-library .panel-header,
+.operations-queue .panel-header,
+.ticket-work .panel-header,
+.ticket-context .panel-header {
+  min-height: 64px;
+  padding: 12px 16px;
+}
+
+.ticket-library .panel-header p,
+.operations-queue .panel-header p,
+.ticket-work .panel-header p,
+.ticket-context .panel-header p {
+  margin: 3px 0 0;
+  color: var(--text-subtle);
+  font-size: var(--font-xs);
+}
+
+.ticket-library .filter-bar,
+.operations-queue .filter-bar {
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--surface-subtle);
+}
+
+.ticket-library .filter-bar select,
+.operations-queue .filter-bar select {
+  min-height: var(--control-sm);
+  border-radius: var(--radius-sm);
+}
+
+.tickets-table,
+.operations-ticket-table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.tickets-table th,
+.operations-ticket-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface-subtle);
+}
+
+.tickets-table tbody tr,
+.operations-ticket-table tbody tr {
+  transition: background var(--transition-fast);
+}
+
+.tickets-table tbody tr:hover,
+.operations-ticket-table tbody tr:hover {
+  background: var(--surface-hover);
+}
+
+.tickets-table td,
+.operations-ticket-table td {
+  vertical-align: middle;
+}
+
+.tickets-table td:first-child strong {
+  display: inline-flex;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-xs);
+  padding: 3px 6px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  font-size: var(--font-xs);
+  white-space: nowrap;
+}
+
+.tickets-table .ticket-title-link {
+  display: grid;
+  gap: 3px;
+  max-width: 480px;
+  text-decoration: none;
+}
+
+.tickets-table .ticket-title-link strong {
+  color: var(--text);
+  font-weight: 650;
+}
+
+.tickets-table .ticket-title-link small,
+.operations-ticket-table td:first-child > small:last-child {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--text-subtle);
+  font-size: var(--font-xs);
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.tickets-table .ticket-title-link:hover strong,
+.operations-ticket-link:hover strong {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.ticket-detail-page .breadcrumb {
+  min-height: 24px;
+}
+
+.ticket-detail-page .page-header h1 {
+  max-width: 840px;
+  overflow-wrap: anywhere;
+}
+
+.ticket-detail-page .page-header-actions {
+  align-items: center;
+}
+
+.ticket-detail-layout {
+  grid-template-columns: minmax(0, 1fr) minmax(270px, 320px);
+  gap: 16px;
+}
+
+.ticket-work {
+  overflow: hidden;
+}
+
+.ticket-activity-item {
+  position: relative;
+  grid-template-columns: 36px minmax(0, 1fr) !important;
+  gap: 12px !important;
+  padding: 18px 20px !important;
+}
+
+.ticket-activity-item:not(:last-child)::after {
+  position: absolute;
+  top: 54px;
+  bottom: -1px;
+  left: 37px;
+  width: 1px;
+  background: var(--border);
+  content: "";
+}
+
+.ticket-activity-item > div:last-child {
+  min-width: 0;
+}
+
+.ticket-activity-item strong {
+  color: var(--text-strong);
+  font-size: var(--font-sm);
+}
+
+.ticket-activity-item p {
+  overflow-wrap: anywhere;
+  line-height: 1.65;
+}
+
+.ticket-activity-item .activity-avatar,
+.work-placeholder .activity-avatar {
+  z-index: 1;
+  width: 34px;
+  height: 34px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+}
+
+.work-placeholder {
+  display: flex;
+  justify-content: flex-start;
+  gap: 12px;
+  align-items: center;
+  padding: 16px 20px 20px 28px;
+  text-align: left;
+}
+
+.work-placeholder > div {
+  display: grid;
+  gap: 2px;
+}
+
+.work-placeholder strong {
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.work-placeholder span:last-child {
+  color: var(--text-subtle);
+  font-size: var(--font-xs);
+}
+
+.ticket-context {
+  position: sticky;
+  top: calc(var(--topbar-height) + 16px);
+}
+
+.ticket-context dl > div {
+  min-height: 46px;
+  padding-inline: 14px;
+}
+
+.ticket-context dd {
+  display: inline-flex;
+  justify-content: flex-end;
+  gap: 5px;
+  align-items: center;
+  overflow-wrap: anywhere;
+}
+
+.ticket-context dd svg {
+  flex: 0 0 auto;
+  color: var(--text-subtle);
+}
+
+.operations-services .panel-header {
+  min-height: 66px;
+  padding: 12px 16px;
+}
+
+.operations-services .panel-header p {
+  margin: 3px 0 0;
+  color: var(--text-subtle);
+  font-size: var(--font-xs);
+}
+
+.operations-services .permission-note {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 9px;
+  background: var(--surface-subtle);
+  text-align: left;
+}
+
+.service-cards {
+  gap: 10px;
+  padding: 12px;
+}
+
+.service-cards article {
+  align-content: start;
+  gap: 10px 12px;
+  border-color: var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 13px;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.service-cards article:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-subtle);
+}
+
+.service-card-heading small {
+  display: -webkit-box;
+  overflow: hidden;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.service-status-control select {
+  min-height: var(--control-sm);
+  border-radius: var(--radius-xs);
+  padding: 5px 7px;
+  font-size: var(--font-xs);
+}
+
+.service-cards article > input {
+  min-height: var(--control-sm);
+  border-radius: var(--radius-xs);
+}
+
+.service-cards article > button.compact-button {
+  min-height: var(--control-sm);
+  border-color: var(--border-strong);
+  border-radius: var(--radius-xs);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.service-cards article > button.compact-button:hover:not(:disabled) {
+  border-color: var(--accent-border);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.operations-queue .panel-header {
+  min-height: 64px;
+  padding: 12px 16px;
+}
+
+.operations-ticket-table {
+  min-width: 920px;
+}
+
+.operations-ticket-table td:first-child {
+  min-width: 280px;
+  max-width: 380px;
+}
+
+.operations-ticket-table td:first-child > small:first-child {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--text-subtle);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .01em;
+}
+
+.operations-ticket-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.operations-ticket-link strong {
+  display: block;
+  margin: 0 0 3px;
+  color: var(--text-strong);
+  font-size: var(--font-sm);
+  line-height: 1.4;
+}
+
+.queue-actions {
+  min-width: 300px;
+}
+
+.resolve-controls input {
+  min-width: 220px;
+}
+
+.ticket-side-panel {
+  width: 390px;
+  border-left-color: var(--border);
+  box-shadow: var(--shadow-md);
+}
+
+.ticket-side-panel .panel-header {
+  padding: 13px 16px;
+}
+
+.drawer-close {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+}
+
+.drawer-close:hover {
+  border-color: var(--border);
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+.ticket-draft-panel form input,
+.ticket-draft-panel form textarea,
+.ticket-draft-panel form select {
+  border-radius: var(--radius-sm);
+}
+
+.ticket-draft-panel form textarea {
+  min-height: 104px;
+  resize: vertical;
+}
+
+@media (max-width: 900px) {
+  .ticket-detail-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .operations-page > .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .ticket-context {
+    position: static;
+  }
+
+  .ticket-side-panel {
+    width: min(390px, 100vw);
+  }
+}
+
+@media (max-width: 640px) {
+  .tickets-page,
+  .operations-page,
+  .ticket-detail-page {
+    gap: 12px;
+  }
+
+  .ticket-summary {
+    gap: 8px;
+  }
+
+  .ticket-summary button {
+    min-height: 68px;
+  }
+
+  .operations-page > .metric-grid .metric-card {
+    grid-template-columns: 36px minmax(0, 1fr);
+    gap: 8px;
+    min-height: 80px;
+    padding: 10px;
+  }
+
+  .operations-page > .metric-grid .metric-card-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .operations-page > .metric-grid .metric-card-copy > span {
+    font-size: var(--font-xs);
+    line-height: 1.3;
+  }
+
+  .operations-page > .metric-grid .metric-card-copy > strong {
+    font-size: 20px;
+  }
+
+  .ticket-library .panel-header,
+  .operations-queue .panel-header,
+  .ticket-work .panel-header,
+  .ticket-context .panel-header {
+    min-height: 58px;
+    padding: 11px 13px;
+  }
+
+  .ticket-detail-page .page-header {
+    align-items: flex-start;
+  }
+
+  .ticket-detail-page .page-header-actions {
+    justify-content: flex-start;
+  }
+
+  .ticket-activity-item {
+    padding: 15px 13px !important;
+  }
+
+  .ticket-activity-item:not(:last-child)::after {
+    left: 30px;
+  }
+
+  .work-placeholder {
+    padding: 13px 13px 17px 20px;
+  }
+
+  .ticket-context dl > div {
+    gap: 10px;
+    padding-inline: 13px;
+  }
+
+  .ticket-context dd {
+    max-width: 62%;
+  }
+
+  .operations-services .panel-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .operations-services .permission-note {
+    max-width: none;
+  }
+
+  .service-cards {
+    padding: 10px;
+  }
+
+  .service-cards article {
+    padding: 11px;
+  }
+
+  .operations-ticket-table {
+    min-width: 880px;
+  }
+
+  .resolve-controls input {
+    min-width: 0;
+    width: 100%;
+  }
+}
