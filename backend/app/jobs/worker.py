@@ -466,12 +466,18 @@ async def execute_support_run(
                 query,
                 model=provider,
                 operation_id=f"agent:{run_id}:query-analysis",
+                history=support_context.history,
+            )
+            context_builder.set_transform_previous(
+                request_policy.request_mode == "transform_previous"
             )
             log_event(
                 logger,
                 "worker.query_analysis.resolved",
                 run_id=str(run_id),
                 intent=request_policy.analysis.intent,
+                request_mode=request_policy.request_mode,
+                request_mode_confidence=round(request_policy.request_mode_confidence, 4),
                 confidence=round(request_policy.analysis.confidence, 4),
                 analyzer=request_policy.analysis.analyzer,
                 model_calls=request_policy.analysis_model_calls,
@@ -495,7 +501,7 @@ async def execute_support_run(
                 retriever=retriever,
                 run_id=str(run_id),
                 citation_store=citation_store,
-                current_query=query,
+                current_query=request_policy.retrieval_query,
                 minimum_evidence_score=retrieval_minimum_evidence_score,
             )
 

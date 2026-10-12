@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.principal import Principal
 from app.rag.citations.sources import build_evidence_output
 from app.rag.retrieval.query import HybridRetriever
+from app.tools.schemas import SearchKnowledgeResult
 
 
 class KnowledgeToolSearch:
@@ -57,6 +58,7 @@ class KnowledgeToolSearch:
             for hit in hits
         }
         sources: list[dict[str, object]] = []
+        pending_citations: dict[str, dict[str, Any]] = {}
         for source in output.sources:
             citation = {
                 "source_id": source.source_id,
@@ -72,7 +74,7 @@ class KnowledgeToolSearch:
                 "excerpt": source.excerpt,
                 "score": scores[str(source.chunk_id)],
             }
-            self._citation_store[source.source_id] = citation
+            pending_citations[source.source_id] = citation
             sources.append(
                 {
                     "source_id": source.source_id,
@@ -82,7 +84,7 @@ class KnowledgeToolSearch:
                 }
             )
         analysis = self._retriever.last_analysis
-        return {
+        payload = {
             "sources": sources,
             "query_analysis": (
                 {
@@ -99,3 +101,8 @@ class KnowledgeToolSearch:
                 else None
             ),
         }
+        # Validate the complete public tool payload before exposing its evidence to
+        # later agent turns. ToolExecutor applies this same schema as a second check.
+        validated_payload = SearchKnowledgeResult.model_validate(payload).model_dump(mode="json")
+        self._citation_store.update(pending_citations)
+        return validated_payload

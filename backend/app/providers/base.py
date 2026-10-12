@@ -42,10 +42,11 @@ class StructuredResponseProvider(TextGenerationProvider, Protocol):
         query: str,
         *,
         deterministic: object,
+        history: Sequence[tuple[str, str]] = (),
         max_output_tokens: int = 180,
         operation_id: str | None = None,
     ) -> QueryAnalysisResponse:
-        """Analyze a low-confidence current query without using conversation history."""
+        """Analyze query intent and, when supplied, its relation to recent conversation."""
 
     async def choose_support_tool(
         self,
@@ -78,5 +79,6 @@ class StructuredResponseProvider(TextGenerationProvider, Protocol):
         operation_id: str | None = None,
         on_text_delta: TextDeltaCallback | None = None,
         retry_instruction: str | None = None,
+        allow_conversation_transform: bool = False,
     ) -> StructuredModelResponse:
-        """Generate a validated support reply from server-controlled evidence."""
+        """Generate a reply from evidence or an explicitly authorized prior-answer transform."""

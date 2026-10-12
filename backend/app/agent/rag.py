@@ -498,7 +498,11 @@ class RAGGraphNodes:
         operation_id = f"rag:{state.get('run_id', 'preview')}:retrieve"
         self._hits = await self._retriever.search(
             self._session,
-            query=state.get("normalized_query", state["query"]),
+            query=(
+                self._request_policy.retrieval_query
+                if self._request_policy is not None
+                else state.get("normalized_query", state["query"])
+            ),
             principal=self._principal,
             operation_id=operation_id,
         )
@@ -576,6 +580,13 @@ class RAGGraphNodes:
         output_token_limits = (800, 1_200)
         retry_instruction: str | None = None
         retry_suffix = "incomplete-retry"
+        model_calls_used = 0
+        total_input_tokens = 0
+        total_output_tokens = 0
+        allow_conversation_transform = (
+            self._request_policy is not None
+            and self._request_policy.request_mode == "transform_previous"
+        )
         with self._observer.generation(
             run_id=run_id,
             actor_id=state.get("actor_id", str(self._principal.user_id)),
@@ -628,6 +639,7 @@ class RAGGraphNodes:
                                     update={"excerpt": item.excerpt[:excerpt_limit]}
                                 )
                             evidence.append(item)
+                    model_calls_used += 1
                     response = await self._provider.generate_support_reply(
                         state["query"],
                         evidence=evidence,
@@ -638,7 +650,40 @@ class RAGGraphNodes:
                         ),
                         on_text_delta=self._on_text_delta,
                         retry_instruction=retry_instruction,
+                        allow_conversation_transform=allow_conversation_transform,
                     )
+                    total_input_tokens += response.input_tokens
+                    total_output_tokens += response.output_tokens
+                    if (
+                        attempt == 0
+                        and evidence
+                        and not allow_conversation_transform
+                        and response.reply.outcome in {"needs_information", "no_answer"}
+                    ):
+                        self._log(
+                            "agent.generation.retry",
+                            state,
+                            attempt=attempt + 1,
+                            reason="refusal_despite_retrieved_evidence",
+                            previous_outcome=response.reply.outcome,
+                            evidence_count=len(evidence),
+                            retrying=True,
+                        )
+                        retry_suffix = "evidence-synthesis-retry"
+                        retry_instruction = (
+                            "Your previous draft asked for more information or returned no_answer, "
+                            "but this run supplied approved evidence. Re-read the current request, "
+                            "relevant conversation history, and each evidence excerpt. If the "
+                            "evidence supports a useful general answer or any part of the request, "
+                            "answer that part now and cite the source IDs used. Use the language "
+                            "of the user's current request; choose a concise format without asking "
+                            "about language, length, or presentation. Ask one factual "
+                            "clarification only when a missing detail materially changes safe or "
+                            "correct guidance and the evidence cannot support a general answer. "
+                            "Return no_answer only "
+                            "when none of the supplied evidence directly supports the request."
+                        )
+                        continue
                     break
                 except IncompleteStructuredResponseError as error:
                     self._log(
@@ -688,8 +733,9 @@ class RAGGraphNodes:
                             "citation_ids": [],
                             "outcome": "no_answer",
                             "provider_request_id": "",
-                            "input_tokens": 0,
-                            "output_tokens": 0,
+                            "input_tokens": total_input_tokens,
+                            "output_tokens": total_output_tokens,
+                            "_model_calls_used": max(1, model_calls_used),
                         }
                     retry_suffix = "contract-retry"
                     retry_instruction = (
@@ -705,9 +751,9 @@ class RAGGraphNodes:
                         "citation_count": len(response.reply.citations),
                     },
                     usage_details={
-                        "input": response.input_tokens,
-                        "output": response.output_tokens,
-                        "total": response.input_tokens + response.output_tokens,
+                        "input": total_input_tokens,
+                        "output": total_output_tokens,
+                        "total": total_input_tokens + total_output_tokens,
                     },
                 )
         self._log(
@@ -716,8 +762,8 @@ class RAGGraphNodes:
             provider_request_id=response.provider_request_id,
             outcome=response.reply.outcome,
             citation_ids=response.reply.citations,
-            input_tokens=response.input_tokens,
-            output_tokens=response.output_tokens,
+            input_tokens=total_input_tokens,
+            output_tokens=total_output_tokens,
             duration_ms=round((time.monotonic() - attempt_started_at) * 1_000, 2),
             **content_log_fields(
                 "answer",
@@ -730,8 +776,9 @@ class RAGGraphNodes:
             "citation_ids": response.reply.citations,
             "outcome": response.reply.outcome,
             "provider_request_id": response.provider_request_id,
-            "input_tokens": response.input_tokens,
-            "output_tokens": response.output_tokens,
+            "input_tokens": total_input_tokens,
+            "output_tokens": total_output_tokens,
+            "_model_calls_used": model_calls_used,
         }
 
     async def validate_answer(self, state: SupportAgentState) -> dict[str, Any]:

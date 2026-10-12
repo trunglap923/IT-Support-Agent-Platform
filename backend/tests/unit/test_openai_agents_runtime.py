@@ -17,6 +17,7 @@ from app.agent.openai_agents_runtime import (
     SupportSDKContext,
     build_agents_input,
     guard_support_output,
+    validate_output_citations,
 )
 from app.agent.request_policy import policy_for_request, resolve_request_policy
 from app.auth.principal import Principal
@@ -89,6 +90,60 @@ def test_agents_input_drops_unrelated_old_history_without_losing_latest_request(
     messages = [cast(dict[str, Any], item) for item in items]
 
     assert messages == [{"role": "user", "content": support.query}]
+
+
+def test_formatting_follow_up_keeps_the_previous_answer_in_context() -> None:
+    support = _support_context(
+        history=(
+            ContextMessage(role="user", content="Để giữ server an toàn cần làm gì?"),
+            ContextMessage(role="assistant", content="Duy trì nhiều bản sao lưu dự phòng."),
+        ),
+        query="Liệt kê thành gạch đầu dòng đi",
+    )
+
+    items = build_agents_input(support, support.query)
+    contents = [cast(dict[str, Any], item)["content"] for item in items]
+
+    assert "Duy trì nhiều bản sao lưu dự phòng." in contents
+    assert contents[-1] == support.query
+
+
+def test_formatting_follow_up_drops_stale_citations_without_failing() -> None:
+    output = SupportAgentOutput(
+        outcome="answered",
+        answer="- Duy trì nhiều bản sao lưu dự phòng.",
+        citations=["source-from-previous-run"],
+    )
+
+    validated = validate_output_citations(
+        output,
+        query="Liệt kê thành gạch đầu dòng đi",
+        policy=policy_for_request("Liệt kê thành gạch đầu dòng đi"),
+        citation_store={},
+    )
+
+    assert validated.answer == output.answer
+    assert validated.citations == []
+
+
+def test_non_follow_up_still_rejects_citations_outside_current_evidence() -> None:
+    output = SupportAgentOutput(
+        outcome="answered",
+        answer="Câu trả lời.",
+        citations=["unknown-source"],
+    )
+
+    try:
+        validate_output_citations(
+            output,
+            query="Cách cấu hình VPN?",
+            policy=policy_for_request("Cách cấu hình VPN?"),
+            citation_store={},
+        )
+    except RuntimeError as error:
+        assert str(error) == "Agent returned citations outside retrieved evidence"
+    else:
+        raise AssertionError("Unknown citations must remain rejected for factual requests")
 
 
 def test_context_refresh_retains_current_tool_call_and_output() -> None:

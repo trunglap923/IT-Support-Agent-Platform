@@ -80,10 +80,11 @@ class FakeTextProvider:
         query: str,
         *,
         deterministic: object,
+        history: Sequence[tuple[str, str]] = (),
         max_output_tokens: int = 180,
         operation_id: str | None = None,
     ) -> QueryAnalysisResponse:
-        del max_output_tokens, operation_id
+        del history, max_output_tokens, operation_id
         filters = getattr(deterministic, "filters", None)
         analysis = QueryAnalysisOutput(
             intent=getattr(deterministic, "intent", "unknown"),
@@ -369,10 +370,22 @@ class FakeTextProvider:
         operation_id: str | None = None,
         on_text_delta: TextDeltaCallback | None = None,
         retry_instruction: str | None = None,
+        allow_conversation_transform: bool = False,
     ) -> StructuredModelResponse:
-        del history, max_output_tokens, operation_id, retry_instruction
+        del max_output_tokens, operation_id, retry_instruction
         vietnamese = self._uses_vietnamese(query)
-        if not evidence:
+        previous_answer = next(
+            (content.strip() for role, content in reversed(history) if role == "assistant"),
+            "",
+        )
+        if allow_conversation_transform and previous_answer:
+            reply = SupportReply(
+                outcome="answered",
+                answer=previous_answer,
+                citations=[],
+                answer_basis="conversation_transform",
+            )
+        elif not evidence:
             reply = SupportReply(
                 outcome="no_answer",
                 answer=(

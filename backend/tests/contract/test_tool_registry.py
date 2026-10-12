@@ -112,3 +112,52 @@ def test_executor_rejects_untrusted_and_repeated_arguments() -> None:
         assert approval.error is not None and approval.error.code == "approval_required"
 
     asyncio.run(scenario())
+
+
+def test_knowledge_search_accepts_query_analysis_from_local_adapter() -> None:
+    async def local_search(query: str, limit: int) -> dict[str, object]:
+        del query, limit
+        return {
+            "sources": [],
+            "query_analysis": {
+                "intent": "knowledge",
+                "confidence": 0.75,
+                "service": [],
+                "product": [],
+                "operating_system": [],
+                "error_codes": [],
+                "versions": [],
+                "version_scope": "current",
+            },
+        }
+
+    async def scenario() -> None:
+        executor = ToolExecutor(
+            context=ToolExecutionContext(
+                actor_id=uuid4(),
+                run_id=uuid4(),
+                database_url="postgresql+asyncpg://unused:unused@127.0.0.1/unused",
+            ),
+            local_search=local_search,
+        )
+
+        result = await executor.execute(
+            call_id="call-knowledge-analysis",
+            name="search_knowledge_base",
+            arguments={"query": "server safety", "limit": 5},
+        )
+
+        assert result.status == "success"
+        assert result.data is not None
+        assert result.data["query_analysis"] == {
+            "intent": "knowledge",
+            "confidence": 0.75,
+            "service": [],
+            "product": [],
+            "operating_system": [],
+            "error_codes": [],
+            "versions": [],
+            "version_scope": "current",
+        }
+
+    asyncio.run(scenario())

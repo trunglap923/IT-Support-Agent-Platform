@@ -1,6 +1,6 @@
 # IT Support Agent Platform
 
-**Stack:** Python 3.12 · Node.js 22 · React · FastAPI · PostgreSQL with pgvector · Redis · Docker Compose<br>
+**Stack:** Python 3.12 · Node.js 22 · React · FastAPI · PostgreSQL with pgvector · Redis · Docker Compose
 **Quality:** [GitHub Actions CI](https://github.com/trunglap923/IT-Support-Agent-Platform/actions/workflows/ci.yml) · Ruff · mypy · pytest · Vitest · Playwright
 
 A stateful AI support workspace that combines grounded IT guidance, governed actions, scoped memory, and document lifecycle management in one operational product.
@@ -22,9 +22,13 @@ The repository contains the complete web application, API, workers, database mig
 
 ## Product preview
 
-| Desktop workspace | Mobile workspace |
-| --- | --- |
-| ![Desktop chat workspace showing the conversation, sources, device context, and ticket actions](docs/assets/ui-modernization/phase-6/chat-desktop.png) | ![Mobile chat workspace with responsive navigation and a fixed composer](docs/assets/ui-modernization/phase-6/chat-mobile.png) |
+### Desktop workspace
+
+![Desktop chat workspace showing the conversation, sources, device context, and ticket actions](docs/assets/ui-modernization/phase-6/chat-desktop.png)
+
+### Mobile workspace
+
+![Mobile chat workspace with responsive navigation and a fixed composer](docs/assets/ui-modernization/phase-6/chat-mobile.png)
 
 The main workspace keeps the conversation in focus while exposing the sources, device context, ticket history, approvals, and suggested actions needed by a support operator. On tablet, supporting context moves into a keyboard accessible drawer; on mobile, the message list scrolls independently above a persistent composer.
 
@@ -122,17 +126,17 @@ The local Compose stack runs seven services: frontend, API, agent worker, backgr
 
 ## Technical highlights
 
-| Area | Implementation |
-| --- | --- |
-| Frontend | React, TypeScript, Vite, Nginx, responsive product UI |
-| API and persistence | FastAPI, async SQLAlchemy, Alembic, PostgreSQL 17, pgvector |
-| Asynchronous work | Redis, Celery workers, scheduled reconciliation, SSE updates |
-| Agent runtime | OpenAI Agents SDK, structured outputs, LangGraph fallback |
-| Retrieval | OpenAI embeddings, BM25, exact matching, weighted reciprocal rank fusion, optional cross encoder experiment |
-| Memory | Working, semantic, episodic, and procedural memory with scoped hybrid retrieval |
-| Safety and governance | RBAC, ACL filtering, approval checkpoints, idempotency, citation allowlists |
-| Observability | Structured logs, request and run IDs, usage ledger, OpenInference, optional Langfuse export |
-| Quality | Ruff, mypy, pytest, Vitest, Playwright, public benchmarks, deterministic evals |
+| Area                  | Implementation                                                                                              |
+| --------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Frontend              | React, TypeScript, Vite, Nginx, responsive product UI                                                       |
+| API and persistence   | FastAPI, async SQLAlchemy, Alembic, PostgreSQL 17, pgvector                                                 |
+| Asynchronous work     | Redis, Celery workers, scheduled reconciliation, SSE updates                                                |
+| Agent runtime         | OpenAI Agents SDK, structured outputs, LangGraph fallback                                                   |
+| Retrieval             | OpenAI embeddings, BM25, exact matching, weighted reciprocal rank fusion, optional cross encoder experiment |
+| Memory                | Working, semantic, episodic, and procedural memory with scoped hybrid retrieval                             |
+| Safety and governance | RBAC, ACL filtering, approval checkpoints, idempotency, citation allowlists                                 |
+| Observability         | Structured logs, request and run IDs, usage ledger, OpenInference, optional Langfuse export                 |
+| Quality               | Ruff, mypy, pytest, Vitest, Playwright, public benchmarks, deterministic evals                              |
 
 ## Evaluation
 
@@ -142,17 +146,17 @@ The repository separates deterministic contract tests, public retrieval benchmar
 
 The retrieval pipeline was tuned on the SciFact train split and then evaluated on the complete official test split.
 
-| Dataset | Evaluation setup | nDCG@10 | MAP@10 | Recall@5 | Recall@10 | MRR@10 |
-| --- | --- | ---: | ---: | ---: | ---: | ---: |
-| SciFact | 300 test queries, 5,183 documents, OpenAI `text-embedding-3-small`, BM25 and weighted RRF | 0.7318 | 0.6863 | 0.7897 | 0.8569 | 0.7003 |
+| Dataset | Evaluation setup                                                                           | nDCG@10 | MAP@10 | Recall@5 | Recall@10 | MRR@10 |
+| ------- | ------------------------------------------------------------------------------------------ | ------: | -----: | -------: | --------: | -----: |
+| SciFact | 300 test queries, 5,183 documents, OpenAI`text-embedding-3-small`, BM25 and weighted RRF |  0.7318 | 0.6863 |   0.7897 |    0.8569 | 0.7003 |
 
 The fusion weights were selected using 809 train queries before the held out test run. SciFact measures scientific claim retrieval and does not represent end to end IT support accuracy. Full configuration, ablations, and baseline comparisons are in the [SciFact comparison report](reports/public/scifact/comparison.md).
 
 ### Public memory retrieval adaptation
 
-| Dataset | Evaluation setup | nDCG@10 | MAP@10 | Recall@5 | Recall@10 | MRR@10 |
-| --- | --- | ---: | ---: | ---: | ---: | ---: |
-| LoCoMo | 1,982 session retrieval queries, 272 indexed records, hybrid retrieval with `text-embedding-3-small` | 0.7860 | 0.7278 | 0.8456 | 0.9246 | 0.7605 |
+| Dataset | Evaluation setup                                                                                      | nDCG@10 | MAP@10 | Recall@5 | Recall@10 | MRR@10 |
+| ------- | ----------------------------------------------------------------------------------------------------- | ------: | -----: | -------: | --------: | -----: |
+| LoCoMo  | 1,982 session retrieval queries, 272 indexed records, hybrid retrieval with`text-embedding-3-small` |  0.7860 | 0.7278 |   0.8456 |    0.9246 | 0.7605 |
 
 This is a session retrieval adaptation derived from LoCoMo evidence labels and is explicitly marked `paper_comparable: false`. Methodology and per query results are available in the [LoCoMo report](reports/public/memory/locomo/retrieval-openai.md).
 
@@ -212,13 +216,13 @@ make down       # stop containers and preserve named volumes
 
 All seeded accounts use `DEMO_SEED_PASSWORD` from `.env`.
 
-| Email | Role | Department |
-| --- | --- | --- |
-| employee.engineering@example.com | Employee | Engineering |
-| employee.operations@example.com | Employee | Operations |
-| it.engineering@example.com | IT operator | Engineering |
-| it.operations@example.com | IT operator | Operations |
-| admin@example.com | Administrator | Operations |
+| Email                            | Role          | Department  |
+| -------------------------------- | ------------- | ----------- |
+| employee.engineering@example.com | Employee      | Engineering |
+| employee.operations@example.com  | Employee      | Operations  |
+| it.engineering@example.com       | IT operator   | Engineering |
+| it.operations@example.com        | IT operator   | Operations  |
+| admin@example.com                | Administrator | Operations  |
 
 The seed is idempotent and includes users, devices, service states, tickets, approvals, and a small published knowledge corpus. Run `make seed-dry-run` to preview changes without writing them.
 
@@ -324,19 +328,19 @@ reports/        Generated evaluation evidence and release quality reports
 
 ## Documentation
 
-| Document | Purpose |
-| --- | --- |
-| [Architecture](docs/architecture.md) | Components, data flows, trust boundaries, and deployment topology |
-| [Memory and context architecture](docs/memory-context-architecture.md) | Working and durable memory contracts, lifecycle, and retrieval |
-| [Runtime ADR](docs/adr/0002-runtime-and-integration.md) | Runtime selection and integration decisions |
-| [OpenAI Agents SDK ADR](docs/adr/0003-openai-agents-orchestrator.md) | Primary orchestrator decision and fallback strategy |
-| [Demo script](docs/demo-script.md) | Guided product walkthrough and expected behavior |
-| [Command reference](infra/commands.md) | Reproducible commands, environment boundaries, and paid opt ins |
-| [Backup and restore](infra/backup-and-restore.md) | PostgreSQL and document storage recovery drill |
-| [Troubleshooting](docs/troubleshooting.md) | Common local, ingestion, worker, and tracing issues |
-| [UI modernization acceptance](docs/ui-modernization-phase-6.md) | Responsive, accessibility, performance, and browser evidence |
-| [Evaluation summary](reports/evaluation-summary.md) | Evaluation suites, results, and interpretation |
-| [Release checklist](reports/release-checklist.md) | Current quality gates and unresolved release evidence |
+| Document                                                              | Purpose                                                           |
+| --------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| [Architecture](docs/architecture.md)                                   | Components, data flows, trust boundaries, and deployment topology |
+| [Memory and context architecture](docs/memory-context-architecture.md) | Working and durable memory contracts, lifecycle, and retrieval    |
+| [Runtime ADR](docs/adr/0002-runtime-and-integration.md)                | Runtime selection and integration decisions                       |
+| [OpenAI Agents SDK ADR](docs/adr/0003-openai-agents-orchestrator.md)   | Primary orchestrator decision and fallback strategy               |
+| [Demo script](docs/demo-script.md)                                     | Guided product walkthrough and expected behavior                  |
+| [Command reference](infra/commands.md)                                 | Reproducible commands, environment boundaries, and paid opt ins   |
+| [Backup and restore](infra/backup-and-restore.md)                      | PostgreSQL and document storage recovery drill                    |
+| [Troubleshooting](docs/troubleshooting.md)                             | Common local, ingestion, worker, and tracing issues               |
+| [UI modernization acceptance](docs/ui-modernization-phase-6.md)        | Responsive, accessibility, performance, and browser evidence      |
+| [Evaluation summary](reports/evaluation-summary.md)                    | Evaluation suites, results, and interpretation                    |
+| [Release checklist](reports/release-checklist.md)                      | Current quality gates and unresolved release evidence             |
 
 ## Project status and limitations
 

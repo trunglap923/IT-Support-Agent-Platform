@@ -28,6 +28,9 @@ async def authorized_history_context(
 
     source_pairs: set[tuple[UUID, UUID]] = set()
     for message in messages:
+        if message.role == "assistant" and message.outcome == "no_answer":
+            # A past refusal is not evidence and can incorrectly bias a later successful search.
+            continue
         for citation in message.citations:
             try:
                 source_pairs.add(
@@ -73,6 +76,8 @@ async def authorized_history_context(
 
     context: list[ContextMessage] = []
     for message in messages:
+        if message.role == "assistant" and message.outcome == "no_answer":
+            continue
         content = message.content.strip()
         if not content:
             continue

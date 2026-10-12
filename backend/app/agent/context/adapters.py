@@ -13,10 +13,6 @@ from app.agent.context.schemas import SupportContext
 from app.agent.working_memory.contracts import WorkingMemorySnapshot
 
 _TOKEN = re.compile(r"[\w.-]+", re.UNICODE)
-_FOLLOW_UP = re.compile(
-    r"\b(?:nó|đó|vậy|vẫn|tiếp|trên|this|that|it|still|again|those|the above)\b",
-    re.IGNORECASE,
-)
 
 
 def _id(prefix: str, value: str) -> str:
@@ -43,7 +39,12 @@ def scope_for_support(support: SupportContext) -> ContextScope:
     )
 
 
-def support_candidates(support: SupportContext, query: str) -> tuple[ContextCandidate, ...]:
+def support_candidates(
+    support: SupportContext,
+    query: str,
+    *,
+    transform_previous: bool = False,
+) -> tuple[ContextCandidate, ...]:
     scope = scope_for_support(support)
     candidates: list[ContextCandidate] = [
         ContextCandidate(
@@ -66,14 +67,51 @@ def support_candidates(support: SupportContext, query: str) -> tuple[ContextCand
         )
     ]
     history = list(support.history)
+    if transform_previous:
+        # Formatting requests operate on the last assistant answer. Do not let older
+        # topics or memory entries compete with the content being transformed.
+        latest_assistant = next(
+            (
+                (index, message)
+                for index, message in reversed(list(enumerate(history)))
+                if message.role == "assistant" and message.content.strip()
+            ),
+            None,
+        )
+        if latest_assistant is not None:
+            index, message = latest_assistant
+            content = message.content.strip()
+            candidates.append(
+                ContextCandidate(
+                    candidate_id=_id("history", f"{index}:{message.role}:{content}"),
+                    kind="conversation_history",
+                    content=content,
+                    source_ref=f"conversation:{support.conversation_id}:message:{index}",
+                    scope=scope,
+                    relevance=1,
+                    importance=1,
+                    source_reliability=1,
+                    confidence=1,
+                    temporal_validity=1,
+                    task_utility=1,
+                    recency=1,
+                    token_cost=estimate_tokens(content),
+                    sensitivity="confidential",
+                    required=True,
+                    message_role="assistant",
+                )
+            )
+        return tuple(candidates)
+
     total = max(1, len(history))
-    follows_prior_turn = bool(_FOLLOW_UP.search(query))
+    recent_history_start = max(0, total - 4)
     for index, message in enumerate(history):
         content = message.content.strip()
         if not content:
             continue
         relevance = _relevance(query, content)
-        if not follows_prior_turn and relevance < 0.5:
+        recent_turn = index >= recent_history_start
+        if not recent_turn and relevance < 0.5:
             relevance = 0.0
         candidates.append(
             ContextCandidate(
@@ -87,10 +125,7 @@ def support_candidates(support: SupportContext, query: str) -> tuple[ContextCand
                 source_reliability=0.75 if message.role == "user" else 0.55,
                 confidence=0.75,
                 temporal_validity=1,
-                task_utility=max(
-                    relevance,
-                    0.35 if follows_prior_turn and index >= total - 2 else 0,
-                ),
+                task_utility=max(relevance, 0.35 if recent_turn else 0),
                 recency=(index + 1) / total,
                 token_cost=estimate_tokens(content),
                 sensitivity="confidential",

@@ -38,6 +38,17 @@ def _detected_services(value: str) -> set[str]:
     return {item for item in ("vpn", "gitlab", "registry", "docker") if item in normalized}
 
 
+def episode_context_content(*, summary: str, verified: bool) -> str:
+    """Do not expose an unverified assistant outcome as reusable episode knowledge."""
+
+    if verified:
+        return f"Prior verified support episode: {summary}"
+    request, separator, _outcome = summary.partition(". Outcome:")
+    if separator:
+        summary = request
+    return f"Prior related request (outcome unverified): {summary}"
+
+
 class EpisodeMemoryService:
     def __init__(self, embedding_provider: EmbeddingProvider | None = None) -> None:
         self._embedding_provider = embedding_provider
@@ -208,9 +219,7 @@ class EpisodeMemoryService:
             ContextCandidate(
                 candidate_id=f"episode:{row.id}",
                 kind="episodic_memory",
-                content=(
-                    f"Prior support episode ({row.outcome}, verified={row.verified}): {row.summary}"
-                ),
+                content=episode_context_content(summary=row.summary, verified=row.verified),
                 source_ref=f"incident-episode:{row.id}",
                 scope=scope,
                 relevance=score.relevance,

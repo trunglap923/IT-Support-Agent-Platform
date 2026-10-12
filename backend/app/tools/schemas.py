@@ -8,6 +8,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.mcp_server.schemas import EmptyArguments, ServiceStatusArguments
+from app.rag.retrieval.models import QueryIntent, VersionScope
 
 
 class SearchKnowledgeArguments(BaseModel):
@@ -46,10 +47,24 @@ class KnowledgeSourceResult(BaseModel):
     page_number: int | None = None
 
 
+class SearchKnowledgeQueryAnalysis(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    intent: QueryIntent
+    confidence: float = Field(ge=0.0, le=1.0)
+    service: list[str]
+    product: list[str]
+    operating_system: list[str]
+    error_codes: list[str]
+    versions: list[str]
+    version_scope: VersionScope
+
+
 class SearchKnowledgeResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     sources: list[KnowledgeSourceResult] = Field(max_length=8)
+    query_analysis: SearchKnowledgeQueryAnalysis | None = None
 
 
 __all__ = [

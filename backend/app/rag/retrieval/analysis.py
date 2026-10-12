@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -458,6 +459,7 @@ class QueryAnalysisModel(Protocol):
         query: str,
         *,
         deterministic: object,
+        history: Sequence[tuple[str, str]] = (),
         max_output_tokens: int,
         operation_id: str,
     ) -> QueryAnalysisResponse: ...
@@ -514,8 +516,17 @@ class ModelQueryAnalyzer:
     def output_tokens(self) -> int:
         return self._last_response.output_tokens if self._last_response is not None else 0
 
+    @property
+    def last_response(self) -> QueryAnalysisResponse | None:
+        return self._last_response
+
     async def analyze(
-        self, request: RetrievalRequest, deterministic: QuerySpec, *, operation_id: str
+        self,
+        request: RetrievalRequest,
+        deterministic: QuerySpec,
+        *,
+        operation_id: str,
+        history: Sequence[tuple[str, str]] = (),
     ) -> QuerySpec:
         if self._calls_used >= self._max_calls:
             return deterministic
@@ -523,6 +534,7 @@ class ModelQueryAnalyzer:
         response = await self._model.analyze_query(
             request.raw_query,
             deterministic=deterministic,
+            history=history,
             max_output_tokens=self._max_output_tokens,
             operation_id=operation_id,
         )

@@ -46,7 +46,7 @@ def source_url_for_chunk(chunk_id: UUID) -> str:
     return f"/api/v1/sources/{source_id_for_chunk(chunk_id)}/download"
 
 
-def _excerpt(content: str, *, limit: int = 500) -> str:
+def _excerpt(content: str, *, limit: int = 2_000) -> str:
     compact = " ".join(content.split())
     if len(compact) <= limit:
         return compact
@@ -58,12 +58,73 @@ def _estimated_tokens(value: str) -> int:
     return max(1, math.ceil(len(value.encode("utf-8")) / 3))
 
 
+def _neighbor_context_hits(
+    hits: list[RetrievalHit], supported: list[RetrievalHit], *, per_seed: int = 2
+) -> list[RetrievalHit]:
+    """Keep close expanded chunks that complete a supported chunk's context.
+
+    Expanded chunks are scored independently, so the evidence threshold can discard a
+    continuation even when the preceding chunk directly answers the query. Only chunks
+    already marked as neighbors by the ACL-scoped retriever are eligible here.
+    """
+
+    supported_ids = {hit.chunk_id for hit in supported}
+    neighbors = [
+        hit
+        for hit in hits
+        if hit.chunk_id not in supported_ids and hit.expansion_kind == "neighbor"
+    ]
+    selected: dict[UUID, RetrievalHit] = {}
+    seeds = sorted(
+        supported,
+        key=lambda hit: -(
+            hit.evidence_score
+            if hit.evidence_score is not None
+            else hit.rerank_score
+            if hit.rerank_score is not None
+            else hit.score
+        ),
+    )
+    for seed in seeds:
+        related = [
+            hit
+            for hit in neighbors
+            if hit.version_id == seed.version_id
+            and 0 < abs(hit.ordinal - seed.ordinal) <= 2
+            and hit.chunk_id not in selected
+        ]
+        before = sorted(
+            (hit for hit in related if hit.ordinal < seed.ordinal),
+            key=lambda hit: seed.ordinal - hit.ordinal,
+        )
+        after = sorted(
+            (hit for hit in related if hit.ordinal > seed.ordinal),
+            key=lambda hit: hit.ordinal - seed.ordinal,
+        )
+        chosen = [*before[:1], *after[:1]]
+        if len(chosen) < per_seed:
+            remaining = sorted(
+                (hit for hit in related if hit not in chosen),
+                key=lambda hit: abs(hit.ordinal - seed.ordinal),
+            )
+            chosen.extend(remaining[: per_seed - len(chosen)])
+        for hit in chosen[:per_seed]:
+            selected[hit.chunk_id] = hit
+    return list(selected.values())
+
+
 def _select_hits(
-    hits: list[RetrievalHit], *, max_sources: int, context_token_budget: int
+    hits: list[RetrievalHit],
+    *,
+    max_sources: int,
+    context_token_budget: int,
+    supported_ids: set[UUID] | None = None,
 ) -> list[tuple[RetrievalHit, str]]:
+    selected_support_ids = supported_ids or set()
     ranked = sorted(
         enumerate(hits),
         key=lambda item: (
+            0 if item[1].chunk_id in selected_support_ids else 1,
             -(
                 item[1].evidence_score
                 if item[1].evidence_score is not None
@@ -94,7 +155,7 @@ def _select_hits(
             available_bytes = max(0, (context_token_budget - used_tokens - metadata_cost) * 3)
             if available_bytes < 24:
                 continue
-            excerpt = _excerpt(hit.content, limit=min(500, available_bytes // 3))
+            excerpt = _excerpt(hit.content, limit=min(2_000, available_bytes // 3))
             cost = _estimated_tokens(metadata + " " + excerpt)
         if used_tokens + cost > context_token_budget:
             continue
@@ -148,8 +209,12 @@ def build_evidence_output(
             message="Không tìm thấy tài liệu hiện hành đủ căn cứ để trả lời.",
         )
 
+    context_hits = _neighbor_context_hits(hits, supported)
     selected_hits = _select_hits(
-        supported, max_sources=max_sources, context_token_budget=context_token_budget
+        [*supported, *context_hits],
+        max_sources=max_sources,
+        context_token_budget=context_token_budget,
+        supported_ids={hit.chunk_id for hit in supported},
     )
     if not selected_hits:
         return EvidenceOutput(

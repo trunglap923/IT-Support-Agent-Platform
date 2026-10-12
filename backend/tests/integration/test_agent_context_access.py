@@ -89,7 +89,14 @@ def test_agent_history_labels_superseded_sources_and_drops_revoked_acl(
                         }
                     ],
                 )
-                session.add(message)
+                refusal = Message(
+                    conversation_id=conversation.id,
+                    role="assistant",
+                    content="Không tìm thấy hướng dẫn nội bộ.",
+                    outcome="no_answer",
+                    citations=[],
+                )
+                session.add_all([message, refusal])
                 await session.flush()
                 principal = Principal(
                     user_id=user.id,
@@ -103,8 +110,9 @@ def test_agent_history_labels_superseded_sources_and_drops_revoked_acl(
                 history = await authorized_history_context(
                     session,
                     principal=principal,
-                    messages=[message],
+                    messages=[message, refusal],
                 )
+                assert len(history) == 1
                 assert history[0].content.startswith(HISTORICAL_SOURCE_LABEL)
 
                 document.visibility = DocumentVisibility.IT_ONLY
@@ -112,7 +120,7 @@ def test_agent_history_labels_superseded_sources_and_drops_revoked_acl(
                 revoked = await authorized_history_context(
                     session,
                     principal=principal,
-                    messages=[message],
+                    messages=[message, refusal],
                 )
                 assert revoked == []
         finally:

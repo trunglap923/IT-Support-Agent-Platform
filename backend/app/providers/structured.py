@@ -146,6 +146,11 @@ class QueryAnalysisOutput(BaseModel):
         "memory",
         "unknown",
     ]
+    request_mode: Literal["new_request", "contextual_follow_up", "transform_previous"] = (
+        "new_request"
+    )
+    request_mode_confidence: float = Field(default=0, ge=0, le=1)
+    retrieval_query: str | None = Field(default=None, max_length=1_000)
     semantic_query: str = Field(min_length=1, max_length=1_000)
     exact_terms: list[str] = Field(default_factory=list, max_length=20)
     services: list[str] = Field(default_factory=list, max_length=5)
@@ -156,8 +161,17 @@ class QueryAnalysisOutput(BaseModel):
     version_scope: Literal["current", "specific", "historical"] = "current"
     confidence: float = Field(ge=0, le=1)
 
+    @model_validator(mode="after")
+    def contextual_follow_up_has_grounded_query(self) -> QueryAnalysisOutput:
+        if self.request_mode == "contextual_follow_up" and not (
+            self.retrieval_query or ""
+        ).strip():
+            raise ValueError("A contextual follow-up requires a contextual retrieval query")
+        return self
+
     @field_validator(
         "semantic_query",
+        "retrieval_query",
         "exact_terms",
         "services",
         "products",
@@ -180,6 +194,7 @@ class SupportReply(BaseModel):
     outcome: Literal["answered", "no_answer", "needs_information"]
     answer: str = Field(min_length=1, max_length=4_000)
     citations: list[str] = Field(default_factory=list, max_length=5)
+    answer_basis: Literal["evidence", "conversation_transform"] = "evidence"
 
     @field_validator("answer")
     @classmethod
@@ -198,12 +213,20 @@ class SupportReply(BaseModel):
 
     @model_validator(mode="after")
     def enforce_outcome(self) -> SupportReply:
-        if self.outcome == "answered" and not self.citations:
+        if self.outcome == "answered" and self.answer_basis == "evidence" and not self.citations:
             raise ValueError("An answered reply requires at least one citation")
+        if (
+            self.outcome == "answered"
+            and self.answer_basis == "conversation_transform"
+            and self.citations
+        ):
+            raise ValueError("A conversation transformation cannot claim fresh citations")
         if self.outcome == "no_answer" and self.citations:
             raise ValueError("A no-answer reply cannot contain citations")
         if self.outcome == "needs_information" and self.citations:
             raise ValueError("A needs-information reply cannot contain citations")
+        if self.outcome != "answered" and self.answer_basis != "evidence":
+            raise ValueError("Only answered replies can be conversation transformations")
         if self.outcome == "needs_information" and "?" not in self.answer:
             raise ValueError("A needs-information reply must ask a question")
         return self
@@ -241,7 +264,20 @@ class QueryAnalysisResponse:
     output_tokens: int
 
 
-def validate_reply_sources(reply: SupportReply, evidence: list[EvidenceInput]) -> SupportReply:
+def validate_reply_sources(
+    reply: SupportReply,
+    evidence: list[EvidenceInput],
+    *,
+    allow_conversation_transform: bool = False,
+) -> SupportReply:
+    if reply.answer_basis == "conversation_transform":
+        if not allow_conversation_transform:
+            raise ProviderContractError("Conversation-only output is not allowed for this request")
+        if reply.citations:
+            raise ProviderContractError(
+                "Conversation transformations cannot cite current-run evidence"
+            )
+        return reply
     allowed = {item.source_id for item in evidence}
     unknown = set(reply.citations) - allowed
     if unknown:

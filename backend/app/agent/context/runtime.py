@@ -35,7 +35,7 @@ from app.memory.episodes import EpisodeMemoryService
 from app.memory.hybrid import HybridMemoryQuery, HybridMemoryRetriever
 from app.memory.retrieval import MemoryContextService
 from app.procedures.execution import ProcedureExecutionService
-from app.procedures.retrieval import ProcedureRetriever
+from app.procedures.retrieval import ProcedureMatch, ProcedureRetriever
 from app.providers.embeddings import EmbeddingProvider
 
 logger = logging.getLogger(__name__)
@@ -59,6 +59,7 @@ class RuntimeContextBuilder:
         self._database = database
         self._run_id = run_id
         self._support = support
+        self._transform_previous = False
         # Semantic memory is loaded from the assertion view on every model call.
         # Drop the legacy compatibility projection to avoid duplicate facts.
         self._base = tuple(
@@ -83,6 +84,19 @@ class RuntimeContextBuilder:
             input_token_limit=max(1, int(available * 0.85)),
         )
 
+    def set_transform_previous(self, enabled: bool) -> None:
+        """Use only the latest assistant answer as source for a transform turn."""
+        self._transform_previous = enabled
+        self._base = tuple(
+            item
+            for item in support_candidates(
+                self._support,
+                self._support.query,
+                transform_previous=enabled,
+            )
+            if item.kind != "semantic_memory"
+        )
+
     @property
     def input_token_limit(self) -> int:
         return self._budget.input_token_limit
@@ -101,48 +115,55 @@ class RuntimeContextBuilder:
             await session.execute(
                 delete(ContextBuildRecord).where(ContextBuildRecord.expires_at <= now)
             )
-            snapshot = await WorkingMemoryService().load(
-                session,
-                run_id=self._run_id,
-                owner_id=self._support.principal.user_id,
-            )
-            extra = evidence_candidates(
-                evidence,
-                scope=self._scope,
-                query=self._support.query,
-            )
-            if self._memory_query is None:
-                self._memory_query = await self._memory_retriever.prepare_query(
-                    self._support.query,
-                    operation_id=f"memory-retrieval:{self._run_id}:query",
-                )
-            semantic = await MemoryContextService().context_candidates(
-                session,
-                owner_id=self._support.principal.user_id,
-                device_id=self._support.device.id if self._support.device else None,
-                query=self._support.query,
-                scope=self._scope,
-                hybrid_query=self._memory_query,
-            )
-            episodes = await EpisodeMemoryService().context_candidates(
-                session,
-                owner_id=self._support.principal.user_id,
-                device_id=self._support.device.id if self._support.device else None,
-                query=self._support.query,
-                scope=self._scope,
-                hybrid_query=self._memory_query,
-            )
-            procedure_matches = (
-                await ProcedureRetriever().retrieve(
+            if self._transform_previous:
+                snapshot = None
+                extra: tuple[ContextCandidate, ...] = ()
+                semantic: tuple[ContextCandidate, ...] = ()
+                episodes: tuple[ContextCandidate, ...] = ()
+                procedure_matches: tuple[ProcedureMatch, ...] = ()
+            else:
+                snapshot = await WorkingMemoryService().load(
                     session,
-                    principal=self._support.principal,
+                    run_id=self._run_id,
+                    owner_id=self._support.principal.user_id,
+                )
+                extra = evidence_candidates(
+                    evidence,
+                    scope=self._scope,
+                    query=self._support.query,
+                )
+                if self._memory_query is None:
+                    self._memory_query = await self._memory_retriever.prepare_query(
+                        self._support.query,
+                        operation_id=f"memory-retrieval:{self._run_id}:query",
+                    )
+                semantic = await MemoryContextService().context_candidates(
+                    session,
+                    owner_id=self._support.principal.user_id,
+                    device_id=self._support.device.id if self._support.device else None,
                     query=self._support.query,
                     scope=self._scope,
                     hybrid_query=self._memory_query,
                 )
-                if purpose in {"plan", "tool_selection"}
-                else ()
-            )
+                episodes = await EpisodeMemoryService().context_candidates(
+                    session,
+                    owner_id=self._support.principal.user_id,
+                    device_id=self._support.device.id if self._support.device else None,
+                    query=self._support.query,
+                    scope=self._scope,
+                    hybrid_query=self._memory_query,
+                )
+                procedure_matches = (
+                    await ProcedureRetriever().retrieve(
+                        session,
+                        principal=self._support.principal,
+                        query=self._support.query,
+                        scope=self._scope,
+                        hybrid_query=self._memory_query,
+                    )
+                    if purpose in {"plan", "tool_selection"}
+                    else ()
+                )
             if (
                 snapshot is not None
                 and procedure_matches

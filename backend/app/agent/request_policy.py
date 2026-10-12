@@ -1,11 +1,13 @@
-"""Map structured current-query intent to the smallest safe agent tool set."""
+"""Resolve request intent and map it to the smallest safe agent tool set."""
 
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from collections.abc import Sequence
+from dataclasses import dataclass, replace
 from typing import Literal
 
+from app.agent.context.builder import ContextMessage
 from app.diagnostics import log_event
 from app.rag.retrieval.analysis import (
     DeterministicQueryAnalyzer,
@@ -38,14 +40,18 @@ PreferredAction = Literal[
     "get_my_recent_tickets",
     "create_ticket",
 ]
+RequestMode = Literal["new_request", "contextual_follow_up", "transform_previous"]
 
 
 @dataclass(frozen=True, slots=True)
 class AgentRequestPolicy:
     analysis: QuerySpec
+    retrieval_query: str
+    request_mode: RequestMode
     requires_knowledge: bool
     allowed_tools: frozenset[str]
     preferred_action: PreferredAction
+    request_mode_confidence: float = 0
     analysis_model_calls: int = 0
     analysis_input_tokens: int = 0
     analysis_output_tokens: int = 0
@@ -60,6 +66,9 @@ def policy_for_analysis(
     analysis_model_calls: int = 0,
     analysis_input_tokens: int = 0,
     analysis_output_tokens: int = 0,
+    retrieval_query: str | None = None,
+    request_mode: RequestMode = "new_request",
+    request_mode_confidence: float = 0,
 ) -> AgentRequestPolicy:
     """Convert query intent to permissions without interpreting natural language here."""
     allowed: set[str] = set()
@@ -98,9 +107,12 @@ def policy_for_analysis(
 
     return AgentRequestPolicy(
         analysis=analysis,
+        retrieval_query=retrieval_query or analysis.raw_query,
+        request_mode=request_mode,
         requires_knowledge=requires_knowledge,
         allowed_tools=frozenset(allowed) & _ALL_TOOLS,
         preferred_action=preferred_action,
+        request_mode_confidence=request_mode_confidence,
         analysis_model_calls=analysis_model_calls,
         analysis_input_tokens=analysis_input_tokens,
         analysis_output_tokens=analysis_output_tokens,
@@ -118,8 +130,9 @@ async def resolve_request_policy(
     model: QueryAnalysisModel,
     operation_id: str,
     rewrite_policy: QueryRewritePolicy | None = None,
+    history: Sequence[ContextMessage] = (),
 ) -> AgentRequestPolicy:
-    """Resolve low-confidence intent once before either agent runtime chooses an action."""
+    """Resolve intent and conversation relation before either runtime chooses an action."""
 
     request = RetrievalRequest(raw_query=query)
     analysis = DeterministicQueryAnalyzer().analyze(request)
@@ -128,15 +141,76 @@ async def resolve_request_policy(
         model,
         max_calls=selected_policy.max_model_calls,
     )
-    if selected_policy.use_model(analysis):
+    request_mode: RequestMode = "new_request"
+    request_mode_confidence = 0.0
+    retrieval_query = query.strip()
+    history_items = tuple(
+        (message.role, message.content)
+        for message in history
+        if message.role in {"user", "assistant"} and message.content.strip()
+    )
+    # A deterministic intent describes the current sentence, but cannot tell whether it
+    # refers to an earlier answer. Ask the bounded analyzer to classify that relationship
+    # whenever conversation context exists; otherwise use it only for low-confidence intent.
+    needs_conversation_analysis = bool(history_items)
+    if selected_policy.use_model(analysis) or needs_conversation_analysis:
         try:
             modeled_analysis = await model_analyzer.analyze(
                 request,
                 analysis,
                 operation_id=operation_id,
+                history=history_items,
             )
-            if selected_policy.accept_model(modeled_analysis):
-                analysis = modeled_analysis
+            response = model_analyzer.last_response
+            if response is not None:
+                request_mode_confidence = response.analysis.request_mode_confidence
+                mode_is_confident = (
+                    request_mode_confidence >= selected_policy.model_confidence_threshold
+                )
+                intent_is_confident = (
+                    response.analysis.confidence >= selected_policy.model_confidence_threshold
+                )
+            else:
+                mode_is_confident = False
+                intent_is_confident = False
+            if response is not None and (mode_is_confident or intent_is_confident):
+                requested_mode = (
+                    response.analysis.request_mode if mode_is_confident else "new_request"
+                )
+                if not history_items or (
+                    requested_mode == "transform_previous"
+                    and not any(role == "assistant" for role, _ in history_items)
+                ):
+                    requested_mode = "new_request"
+                request_mode = requested_mode
+                if request_mode == "transform_previous":
+                    # A transformation reuses authorized conversation context and does not
+                    # create a new knowledge claim that requires a fresh retrieval call.
+                    analysis = replace(analysis, intent="social")
+                elif request_mode == "contextual_follow_up":
+                    contextual_query = response.analysis.retrieval_query
+                    if contextual_query:
+                        retrieval_query = contextual_query.strip()
+                        if query.casefold() not in retrieval_query.casefold():
+                            retrieval_query = f"{retrieval_query}\n{query.strip()}"
+                        analysis = DeterministicQueryAnalyzer().analyze(
+                            RetrievalRequest(raw_query=retrieval_query)
+                        )
+                        analysis = replace(
+                            analysis,
+                            intent=(
+                                response.analysis.intent
+                                if response.analysis.intent in {"knowledge", "incident"}
+                                else "knowledge"
+                            ),
+                            confidence=max(
+                                analysis.confidence,
+                                response.analysis.confidence,
+                            ),
+                            analyzer="deterministic+conversation",
+                        )
+                elif selected_policy.use_model(analysis) and intent_is_confident:
+                    analysis = modeled_analysis
         except Exception as error:
             log_event(
                 logger,
@@ -149,4 +223,7 @@ async def resolve_request_policy(
         analysis_model_calls=model_analyzer.calls_used,
         analysis_input_tokens=model_analyzer.input_tokens,
         analysis_output_tokens=model_analyzer.output_tokens,
+        retrieval_query=retrieval_query,
+        request_mode=request_mode,
+        request_mode_confidence=request_mode_confidence,
     )
