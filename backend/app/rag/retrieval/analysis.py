@@ -333,15 +333,12 @@ def evidence_entity_groups(spec: QuerySpec) -> tuple[tuple[str, ...], ...]:
     return tuple(unique)
 
 
-def text_covers_entity_groups(
-    value: str, groups: tuple[tuple[str, ...], ...]
-) -> bool:
+def text_covers_entity_groups(value: str, groups: tuple[tuple[str, ...], ...]) -> bool:
     """Check whether text explicitly contains every extracted query constraint."""
 
     normalized = " ".join(value.casefold().split())
     return bool(groups) and all(
-        any(" ".join(alias.casefold().split()) in normalized for alias in group)
-        for group in groups
+        any(" ".join(alias.casefold().split()) in normalized for alias in group) for group in groups
     )
 
 

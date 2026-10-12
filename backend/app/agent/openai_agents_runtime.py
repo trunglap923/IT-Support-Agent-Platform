@@ -63,10 +63,7 @@ class SupportAgentOutput(BaseModel):
 
 
 def _citation_text(source: dict[str, Any]) -> str:
-    return " ".join(
-        str(source.get(key) or "")
-        for key in ("title", "section", "excerpt")
-    )
+    return " ".join(str(source.get(key) or "") for key in ("title", "section", "excerpt"))
 
 
 def _has_adequate_evidence(
@@ -75,9 +72,7 @@ def _has_adequate_evidence(
     required_entity_groups: tuple[tuple[str, ...], ...],
 ) -> bool:
     primary_sources = [
-        source
-        for source in citation_store.values()
-        if source.get("expansion_kind") is None
+        source for source in citation_store.values() if source.get("expansion_kind") is None
     ]
     if required_entity_groups:
         return any(
@@ -94,13 +89,9 @@ def _output_has_grounded_citations(
     required_entity_groups: tuple[tuple[str, ...], ...],
 ) -> bool:
     cited_sources = [
-        citation_store[source_id]
-        for source_id in output.citations
-        if source_id in citation_store
+        citation_store[source_id] for source_id in output.citations if source_id in citation_store
     ]
-    primary_sources = [
-        source for source in cited_sources if source.get("expansion_kind") is None
-    ]
+    primary_sources = [source for source in cited_sources if source.get("expansion_kind") is None]
     if not primary_sources:
         return False
     if required_entity_groups:
@@ -324,9 +315,7 @@ def _tools() -> list[Any]:
     @function_tool(
         description_override="Read the active device attached to this conversation.",
         use_docstring_info=False,
-        is_enabled=lambda ctx, _agent: ctx.context.request_policy.allows(
-            "get_conversation_device"
-        ),
+        is_enabled=lambda ctx, _agent: ctx.context.request_policy.allows("get_conversation_device"),
     )
     async def get_conversation_device(ctx: RunContextWrapper[SupportSDKContext]) -> str:
         context = ctx.context
@@ -686,9 +675,7 @@ class OpenAIAgentsRuntime:
         )
         return [cast(TResponseInputItem, {"role": "user", "content": payload})]
 
-    async def _synthesize_from_evidence(
-        self, query: str
-    ) -> tuple[SupportAgentOutput, Any, str]:
+    async def _synthesize_from_evidence(self, query: str) -> tuple[SupportAgentOutput, Any, str]:
         retry_agent = Agent[SupportSDKContext](
             name="IT Support Evidence Synthesis",
             instructions=(
@@ -860,13 +847,10 @@ class OpenAIAgentsRuntime:
             self._context.citation_store,
             required_entity_groups=required_entity_groups,
         )
-        output_is_grounded = (
-            output.outcome == "answered"
-            and _output_has_grounded_citations(
-                output,
-                citation_store=self._context.citation_store,
-                required_entity_groups=required_entity_groups,
-            )
+        output_is_grounded = output.outcome == "answered" and _output_has_grounded_citations(
+            output,
+            citation_store=self._context.citation_store,
+            required_entity_groups=required_entity_groups,
         )
         should_retry_from_evidence = (
             self._request_policy.requires_knowledge

@@ -48,9 +48,7 @@ class KnowledgeToolSearch:
             operation_id=f"agent:{self._run_id}:knowledge:{self._call_index}",
         )
         analysis = self._retriever.last_analysis
-        required_entity_groups = (
-            evidence_entity_groups(analysis) if analysis is not None else ()
-        )
+        required_entity_groups = evidence_entity_groups(analysis) if analysis is not None else ()
         output = build_evidence_output(
             hits,
             minimum_lexical_coverage=self._minimum_lexical_coverage,

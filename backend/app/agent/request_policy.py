@@ -139,20 +139,16 @@ async def resolve_request_policy(
     request = RetrievalRequest(raw_query=query)
     analysis = DeterministicQueryAnalyzer().analyze(request)
     current_intent = analysis.intent
-    current_intent_is_explicit = (
-        analysis.confidence >= 0.85
-        and current_intent
-        in {
-            "knowledge",
-            "incident",
-            "service_status",
-            "identity",
-            "ticket_read",
-            "ticket_create",
-            "memory",
-            "social",
-        }
-    )
+    current_intent_is_explicit = analysis.confidence >= 0.85 and current_intent in {
+        "knowledge",
+        "incident",
+        "service_status",
+        "identity",
+        "ticket_read",
+        "ticket_create",
+        "memory",
+        "social",
+    }
     selected_policy = rewrite_policy or QueryRewritePolicy()
     model_analyzer = ModelQueryAnalyzer(
         model,

@@ -109,10 +109,7 @@ async def _route_plan(state: SupportAgentState) -> str:
     tool_call = state.get("tool_call", {})
     # Ticket drafts can be created without a device attached to the conversation.
     # The device inspection node is informational and must not gate that action.
-    if (
-        "device" in state.get("planned_steps", [])
-        and tool_call.get("name") != "create_ticket"
-    ):
+    if "device" in state.get("planned_steps", []) and tool_call.get("name") != "create_ticket":
         return "device"
     return state.get("action_route", "rag")
 

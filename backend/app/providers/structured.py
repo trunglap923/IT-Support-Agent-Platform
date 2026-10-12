@@ -163,9 +163,7 @@ class QueryAnalysisOutput(BaseModel):
 
     @model_validator(mode="after")
     def contextual_follow_up_has_grounded_query(self) -> QueryAnalysisOutput:
-        if self.request_mode == "contextual_follow_up" and not (
-            self.retrieval_query or ""
-        ).strip():
+        if self.request_mode == "contextual_follow_up" and not (self.retrieval_query or "").strip():
             raise ValueError("A contextual follow-up requires a contextual retrieval query")
         return self
 

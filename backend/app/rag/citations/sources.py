@@ -103,12 +103,14 @@ def _neighbor_context_hits(
     selected: dict[UUID, RetrievalHit] = {}
     seeds = sorted(
         supported,
-        key=lambda hit: -(
-            hit.evidence_score
-            if hit.evidence_score is not None
-            else hit.rerank_score
-            if hit.rerank_score is not None
-            else hit.score
+        key=lambda hit: (
+            -(
+                hit.evidence_score
+                if hit.evidence_score is not None
+                else hit.rerank_score
+                if hit.rerank_score is not None
+                else hit.score
+            )
         ),
     )
     for seed in seeds:
