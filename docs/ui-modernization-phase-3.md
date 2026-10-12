@@ -12,7 +12,8 @@ conversation, message, citation, approval, run, and feedback API contracts.
 - Preserved the existing date grouping, time labels, previews, pagination, and
   selected conversation behavior.
 - On small screens, the conversation list opens as a workspace drawer with a
-  backdrop, close button, Escape handling, and focus restoration.
+  backdrop, close button, keyboard focus containment, Escape handling, and
+  focus restoration.
 
 ### Chat and answer presentation
 
@@ -37,6 +38,9 @@ conversation, message, citation, approval, run, and feedback API contracts.
 
 - Preserved reference sources, related devices, recent tickets, pending actions,
   and contextual quick actions in a compact right rail.
+- Quick actions follow the latest explicit support topic and use the
+  conversation title only for short follow-up questions, so an older topic does
+  not override the current request.
 - Collapsed the context rail into a native disclosure on tablet and mobile, with
   the initial state following the viewport width.
 - Replaced the old mobile conversation strip with an on-demand overlay drawer.
@@ -59,8 +63,8 @@ Screenshots use deterministic Playwright fixtures at 1680 × 940 desktop and
 
 - ESLint passed.
 - TypeScript typecheck passed.
-- Vitest passed: 20 files and 59 tests.
-- Production build passed. Vite reports the main JavaScript chunk at about 991
+- Vitest passed: 20 files and 61 tests.
+- Production build passed. Vite reports the main JavaScript chunk at about 994
   KB, above its 500 KB advisory threshold.
 - Playwright Chromium passed: 11 responsive and chat workspace scenarios.
 - The covered pages had no horizontal overflow or browser console errors.

@@ -53,6 +53,7 @@ import {
   conversationActivityAt,
   formatChatTime,
   formatConversationDate,
+  getSupportQuickActions,
   groupConversationDate,
 } from "./chatPresentation";
 
@@ -95,6 +96,11 @@ export function ChatPage() {
   const pendingMessageRequest = useRef<ClientRequestIdentity | null>(null);
   const terminalRunIds = useRef(new Set<string>());
 
+  const closeConversationList = useCallback(() => {
+    setConversationListOpen(false);
+    requestAnimationFrame(() => conversationToggleRef.current?.focus());
+  }, []);
+
   const visibleConversations = useMemo(() => conversations
     .filter((conversation) => `${conversation.title} ${conversation.preview ?? ""}`
       .toLocaleLowerCase()
@@ -109,14 +115,7 @@ export function ChatPage() {
     }
     return [...groups.entries()];
   }, [visibleConversations]);
-  const topicContext = `${active?.title ?? ""} ${messages.map((message) => message.content).join(" ")}`.toLocaleLowerCase();
-  const quickActions = topicContext.includes("vpn")
-    ? ["Kiểm tra trạng thái dịch vụ VPN", "Hướng dẫn khắc phục lỗi VPN", "Tạo ticket hỗ trợ"]
-    : topicContext.includes("docker") || topicContext.includes("registry")
-      ? ["Hướng dẫn kiểm tra Docker/registry", "Kiểm tra lỗi Docker gần nhất", "Tạo ticket hỗ trợ"]
-      : topicContext.includes("gitlab")
-        ? ["Hướng dẫn xử lý truy cập GitLab", "Kiểm tra quyền truy cập GitLab", "Tạo ticket hỗ trợ"]
-        : ["Tóm tắt hướng xử lý", "Hỏi thêm về sự cố này", "Tạo ticket hỗ trợ"];
+  const quickActions = getSupportQuickActions(active?.title, messages);
   const relatedDevice = devices.find((device) => device.id === active?.device_id) ?? devices[0];
   const contextSources = useMemo(() => {
     const unique = new Map<string, NonNullable<ChatMessage["citations"]>[number]>();
@@ -192,14 +191,29 @@ export function ChatPage() {
   useEffect(() => {
     if (!conversationListOpen) return;
     conversationListRef.current?.querySelector<HTMLButtonElement>(".conversation-close-button")?.focus();
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      setConversationListOpen(false);
-      conversationToggleRef.current?.focus();
+    const handleDrawerKeyboard = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        closeConversationList();
+        return;
+      }
+      if (event.key !== "Tab" || !conversationListRef.current) return;
+      const focusable = [...conversationListRef.current.querySelectorAll<HTMLElement>(
+        "button:not(:disabled), input:not(:disabled), [tabindex]:not([tabindex='-1'])",
+      )].filter((element) => element.getClientRects().length > 0);
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (!first || !last) return;
+      if (event.shiftKey && (document.activeElement === first || !conversationListRef.current.contains(document.activeElement))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
-    document.addEventListener("keydown", closeOnEscape);
-    return () => document.removeEventListener("keydown", closeOnEscape);
-  }, [conversationListOpen]);
+    document.addEventListener("keydown", handleDrawerKeyboard);
+    return () => document.removeEventListener("keydown", handleDrawerKeyboard);
+  }, [closeConversationList, conversationListOpen]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -232,6 +246,7 @@ export function ChatPage() {
       setCompletedProgress(null);
       setStreamingAnswer("");
       setConversationListOpen(false);
+      if (conversationListOpen) requestAnimationFrame(() => composerRef.current?.focus());
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Không thể tạo hội thoại.");
     }
@@ -419,9 +434,11 @@ export function ChatPage() {
     <div className="chat-layout">
       <aside
         aria-label="Hội thoại"
+        aria-modal={conversationListOpen ? true : undefined}
         className={conversationListOpen ? "conversation-list open" : "conversation-list"}
         id="conversation-list"
         ref={conversationListRef}
+        role={conversationListOpen ? "dialog" : undefined}
       >
         <div className="conversation-list-heading">
           <span>
@@ -431,7 +448,7 @@ export function ChatPage() {
           <button
             aria-label="Đóng danh sách hội thoại"
             className="conversation-close-button"
-            onClick={() => setConversationListOpen(false)}
+            onClick={closeConversationList}
             type="button"
           >
             <X aria-hidden="true" size={17} />
@@ -454,6 +471,7 @@ export function ChatPage() {
                     setCompletedProgress(null);
                     setStreamingAnswer("");
                     setConversationListOpen(false);
+                    if (conversationListOpen) requestAnimationFrame(() => composerRef.current?.focus());
                     void refreshConversation(conversation.id);
                   }}
                   type="button"
@@ -484,7 +502,7 @@ export function ChatPage() {
         <button
           aria-label="Đóng danh sách hội thoại"
           className="conversation-backdrop"
-          onClick={() => setConversationListOpen(false)}
+          onClick={closeConversationList}
           type="button"
         />
       ) : null}

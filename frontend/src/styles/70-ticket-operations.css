@@ -395,6 +395,10 @@
   box-shadow: var(--shadow-md);
 }
 
+.ticket-drawer-backdrop {
+  display: none;
+}
+
 .ticket-side-panel .panel-header {
   padding: 13px 16px;
 }
@@ -440,7 +444,18 @@
   }
 
   .ticket-side-panel {
+    z-index: 40;
     width: min(390px, 100vw);
+  }
+
+  .ticket-drawer-backdrop {
+    position: fixed;
+    z-index: 39;
+    inset: var(--topbar-height) 0 0;
+    display: block;
+    border: 0;
+    background: rgb(15 23 42 / 28%);
+    backdrop-filter: blur(1px);
   }
 }
 

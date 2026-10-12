@@ -289,11 +289,20 @@ test("ticket workspace keeps the create drawer usable", async ({ page }) => {
   await expectNoHorizontalOverflow(page);
   await page.screenshot({ path: "../docs/assets/ui-modernization/phase-4/tickets-desktop.png", fullPage: true });
 
+  await page.getByRole("button", { name: "Đóng panel tạo ticket" }).click();
   await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
   await page.waitForTimeout(250);
-  await expect(page.getByRole("button", { name: "Đóng panel tạo ticket" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Tạo ticket hỗ trợ" })).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
   await page.screenshot({ path: "../docs/assets/ui-modernization/phase-4/tickets-mobile.png", fullPage: true });
+
+  await page.getByRole("button", { name: "Tạo ticket", exact: true }).click();
+  await expect(page.getByLabel("Tiêu đề")).toBeFocused();
+  await expect(page.getByRole("button", { name: "Đóng bảng tạo ticket" })).toBeVisible();
+  await page.screenshot({ path: "../docs/assets/ui-modernization/phase-4/ticket-drawer-mobile.png", fullPage: true });
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("button", { name: "Tạo ticket", exact: true })).toBeFocused();
 });
 
 test("ticket detail is readable on desktop and mobile", async ({ page }) => {

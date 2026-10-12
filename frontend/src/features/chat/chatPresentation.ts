@@ -1,5 +1,46 @@
 export type ConversationGroup = "Hôm nay" | "Hôm qua" | "7 ngày qua" | "Cũ hơn";
 
+type TopicMessage = {
+  role: string;
+  content: string;
+};
+
+const genericQuickActions = ["Tóm tắt hướng xử lý", "Hỏi thêm về sự cố này", "Tạo ticket hỗ trợ"];
+
+function supportTopic(value: string): "vpn" | "docker" | "gitlab" | null {
+  const normalized = value.toLocaleLowerCase();
+  if (normalized.includes("vpn")) return "vpn";
+  if (normalized.includes("docker") || normalized.includes("registry")) return "docker";
+  if (normalized.includes("gitlab")) return "gitlab";
+  return null;
+}
+
+export function getSupportQuickActions(
+  conversationTitle: string | undefined,
+  messages: TopicMessage[],
+): string[] {
+  let latestUserMessage: TopicMessage | undefined;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index].role === "user") {
+      latestUserMessage = messages[index];
+      break;
+    }
+  }
+
+  const topic = supportTopic(latestUserMessage?.content ?? "")
+    ?? supportTopic(conversationTitle ?? "");
+  if (topic === "vpn") {
+    return ["Kiểm tra trạng thái dịch vụ VPN", "Hướng dẫn khắc phục lỗi VPN", "Tạo ticket hỗ trợ"];
+  }
+  if (topic === "docker") {
+    return ["Hướng dẫn kiểm tra Docker/registry", "Kiểm tra lỗi Docker gần nhất", "Tạo ticket hỗ trợ"];
+  }
+  if (topic === "gitlab") {
+    return ["Hướng dẫn xử lý truy cập GitLab", "Kiểm tra quyền truy cập GitLab", "Tạo ticket hỗ trợ"];
+  }
+  return genericQuickActions;
+}
+
 export function conversationActivityAt(conversation: {
   preview_at: string | null;
   updated_at: string;

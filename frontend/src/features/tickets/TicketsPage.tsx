@@ -42,9 +42,12 @@ export function TicketsPage() {
   const [ticketCursor, setTicketCursor] = useState<string | null>(null);
   const [approvalCursor, setApprovalCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState<"tickets" | "approvals" | null>(null);
-  const [draftOpen, setDraftOpen] = useState(true);
+  const [draftOpen, setDraftOpen] = useState(() =>
+    typeof window.matchMedia !== "function" || window.matchMedia("(min-width: 901px)").matches,
+  );
   const titleInput = useRef<HTMLInputElement>(null);
-  const draftPanel = useRef<HTMLElement>(null);
+  const draftTrigger = useRef<HTMLButtonElement>(null);
+  const draftDialog = useRef<HTMLElement>(null);
   const pendingDraftRequest = useRef<ClientRequestIdentity | null>(null);
 
   useEffect(() => {
@@ -71,6 +74,38 @@ export function TicketsPage() {
       .finally(() => setLoading(false));
     return () => controller.abort();
   }, [issueTypeFilter, severityFilter, statusFilter]);
+
+  useEffect(() => {
+    if (!draftOpen) return;
+    const handleDrawerKeyboard = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setDraftOpen(false);
+        requestAnimationFrame(() => draftTrigger.current?.focus());
+        return;
+      }
+      if (
+        event.key !== "Tab"
+        || typeof window.matchMedia !== "function"
+        || !window.matchMedia("(max-width: 900px)").matches
+        || !draftDialog.current
+      ) return;
+      const focusable = [...draftDialog.current.querySelectorAll<HTMLElement>(
+        "button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex='-1'])",
+      )].filter((element) => element.getClientRects().length > 0);
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (!first || !last) return;
+      if (event.shiftKey && (document.activeElement === first || !draftDialog.current.contains(document.activeElement))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", handleDrawerKeyboard);
+    return () => document.removeEventListener("keydown", handleDrawerKeyboard);
+  }, [draftOpen]);
 
   async function loadMore(kind: "tickets" | "approvals") {
     const cursor = kind === "tickets" ? ticketCursor : approvalCursor;
@@ -161,6 +196,16 @@ export function TicketsPage() {
       && (severityFilter === "all" || ticket.severity === severityFilter);
   }), [query, severityFilter, statusFilter, tickets]);
 
+  function openDraftPanel() {
+    setDraftOpen(true);
+    requestAnimationFrame(() => titleInput.current?.focus());
+  }
+
+  function closeDraftPanel() {
+    setDraftOpen(false);
+    requestAnimationFrame(() => draftTrigger.current?.focus());
+  }
+
   if (loading) return <LoadingState label="Đang tải ticket…" />;
 
   return (
@@ -169,7 +214,7 @@ export function TicketsPage() {
         eyebrow="IT SUPPORT"
         title="Ticket của tôi"
         description="Theo dõi yêu cầu và xác nhận rõ nội dung trước khi tạo ticket."
-        actions={<button className="primary-button" onClick={() => { setDraftOpen(true); window.setTimeout(() => titleInput.current?.focus(), 0); }} type="button"><Plus aria-hidden="true" size={16} /> Tạo ticket</button>}
+        actions={<button className="primary-button" onClick={openDraftPanel} ref={draftTrigger} type="button"><Plus aria-hidden="true" size={16} /> Tạo ticket</button>}
       />
 
       {notice ? <p className="notice-banner" role="status">{notice}</p> : null}
@@ -179,13 +224,14 @@ export function TicketsPage() {
         <button aria-pressed={statusFilter === "all"} className={statusFilter === "all" ? "active" : ""} onClick={() => setStatusFilter("all")} type="button"><span className="summary-icon"><ListFilter /></span><span>Tất cả</span><strong>{tickets.length}</strong></button>
         <button aria-pressed={statusFilter === "open"} className={statusFilter === "open" ? "active" : ""} onClick={() => setStatusFilter("open")} type="button"><span className="summary-icon"><TicketCheck /></span><span>Mới tạo</span><strong>{tickets.filter((ticket) => ticket.status === "open").length}</strong></button>
         <button aria-pressed={statusFilter === "in_progress"} className={statusFilter === "in_progress" ? "active" : ""} onClick={() => setStatusFilter("in_progress")} type="button"><span className="summary-icon amber"><Activity /></span><span>Đang xử lý</span><strong>{tickets.filter((ticket) => ticket.status === "in_progress").length}</strong></button>
-        <button aria-label={`Chờ xác nhận: ${approvals.length}. Mở danh sách phê duyệt`} className="warning" onClick={() => setDraftOpen(true)} type="button"><span className="summary-icon amber"><Clock3 /></span><span>Chờ xác nhận</span><strong>{approvals.length}</strong></button>
+        <button aria-label={`Chờ xác nhận: ${approvals.length}. Mở danh sách phê duyệt`} className="warning" onClick={openDraftPanel} type="button"><span className="summary-icon amber"><Clock3 /></span><span>Chờ xác nhận</span><strong>{approvals.length}</strong></button>
         <button aria-pressed={statusFilter === "resolved"} className={statusFilter === "resolved" ? "active" : ""} onClick={() => setStatusFilter("resolved")} type="button"><span className="summary-icon green"><CheckCircle2 /></span><span>Đã giải quyết</span><strong>{tickets.filter((ticket) => ticket.status === "resolved").length}</strong></button>
       </section>
 
-      {draftOpen ? <aside className="ticket-side-panel" aria-label="Tạo ticket và phê duyệt">
-      <section className="ticket-draft-panel" ref={draftPanel}>
-        <header className="panel-header"><div><h2>Tạo ticket hỗ trợ</h2><p>Gửi yêu cầu hỗ trợ tới đội ngũ IT.</p></div><button aria-label="Đóng panel tạo ticket" className="drawer-close" onClick={() => setDraftOpen(false)} type="button"><X aria-hidden="true" size={20} /></button></header>
+      {draftOpen ? <button aria-label="Đóng bảng tạo ticket" className="ticket-drawer-backdrop" onClick={closeDraftPanel} type="button" /> : null}
+      {draftOpen ? <aside aria-labelledby="ticket-draft-title" className="ticket-side-panel" ref={draftDialog} role="dialog">
+      <section className="ticket-draft-panel">
+        <header className="panel-header"><div><h2 id="ticket-draft-title">Tạo ticket hỗ trợ</h2><p>Gửi yêu cầu hỗ trợ tới đội ngũ IT.</p></div><button aria-label="Đóng panel tạo ticket" className="drawer-close" onClick={closeDraftPanel} type="button"><X aria-hidden="true" size={20} /></button></header>
         <form onSubmit={submitDraft}>
           <label>Tiêu đề<input minLength={5} ref={titleInput} required value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} /></label>
           <label>Mô tả<textarea minLength={10} required rows={4} value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></label>
