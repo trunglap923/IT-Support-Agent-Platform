@@ -8,6 +8,7 @@ import {
   Laptop,
   Lightbulb,
   MessageCircle,
+  MessagesSquare,
   Plus,
   PlusCircle,
   Search,
@@ -17,6 +18,7 @@ import {
   ThumbsDown,
   ThumbsUp,
   TicketPlus,
+  X,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -81,9 +83,15 @@ export function ChatPage() {
   const [messageCursor, setMessageCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState<"conversations" | "messages" | null>(null);
   const [conversationQuery, setConversationQuery] = useState("");
+  const [conversationListOpen, setConversationListOpen] = useState(false);
+  const [contextOpen, setContextOpen] = useState(() =>
+    typeof window.matchMedia !== "function" || window.matchMedia("(min-width: 1101px)").matches,
+  );
   const [devices, setDevices] = useState<MemoryDevice[]>([]);
   const [recentTickets, setRecentTickets] = useState<Ticket[]>([]);
   const composerRef = useRef<HTMLTextAreaElement>(null);
+  const conversationToggleRef = useRef<HTMLButtonElement>(null);
+  const conversationListRef = useRef<HTMLElement>(null);
   const pendingMessageRequest = useRef<ClientRequestIdentity | null>(null);
   const terminalRunIds = useRef(new Set<string>());
 
@@ -174,6 +182,26 @@ export function ChatPage() {
   }, []);
 
   useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+    const media = window.matchMedia("(min-width: 1101px)");
+    const syncContextVisibility = (event: MediaQueryListEvent) => setContextOpen(event.matches);
+    media.addEventListener("change", syncContextVisibility);
+    return () => media.removeEventListener("change", syncContextVisibility);
+  }, []);
+
+  useEffect(() => {
+    if (!conversationListOpen) return;
+    conversationListRef.current?.querySelector<HTMLButtonElement>(".conversation-close-button")?.focus();
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setConversationListOpen(false);
+      conversationToggleRef.current?.focus();
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [conversationListOpen]);
+
+  useEffect(() => {
     const controller = new AbortController();
     void Promise.all([
       listMemoryDevices(controller.signal),
@@ -203,6 +231,7 @@ export function ChatPage() {
       setRunId(null);
       setCompletedProgress(null);
       setStreamingAnswer("");
+      setConversationListOpen(false);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Không thể tạo hội thoại.");
     }
@@ -388,7 +417,26 @@ export function ChatPage() {
 
   return (
     <div className="chat-layout">
-      <aside className="conversation-list">
+      <aside
+        aria-label="Hội thoại"
+        className={conversationListOpen ? "conversation-list open" : "conversation-list"}
+        id="conversation-list"
+        ref={conversationListRef}
+      >
+        <div className="conversation-list-heading">
+          <span>
+            <strong>Hội thoại</strong>
+            <small>{visibleConversations.length} cuộc trò chuyện</small>
+          </span>
+          <button
+            aria-label="Đóng danh sách hội thoại"
+            className="conversation-close-button"
+            onClick={() => setConversationListOpen(false)}
+            type="button"
+          >
+            <X aria-hidden="true" size={17} />
+          </button>
+        </div>
         <button className="new-chat-button" onClick={startConversation} type="button">
           <Plus aria-hidden="true" size={16} /> Cuộc trò chuyện mới
         </button>
@@ -405,6 +453,7 @@ export function ChatPage() {
                     setActive(conversation);
                     setCompletedProgress(null);
                     setStreamingAnswer("");
+                    setConversationListOpen(false);
                     void refreshConversation(conversation.id);
                   }}
                   type="button"
@@ -416,6 +465,9 @@ export function ChatPage() {
               ))}
             </section>
           ))}
+          {conversationGroups.length === 0 ? (
+            <p className="conversation-empty">Không tìm thấy cuộc trò chuyện phù hợp.</p>
+          ) : null}
           {conversationCursor ? (
             <button
               className="load-more-button"
@@ -428,11 +480,30 @@ export function ChatPage() {
           ) : null}
         </div>
       </aside>
+      {conversationListOpen ? (
+        <button
+          aria-label="Đóng danh sách hội thoại"
+          className="conversation-backdrop"
+          onClick={() => setConversationListOpen(false)}
+          type="button"
+        />
+      ) : null}
       <section className="chat-panel">
-        <header>
+        <header className="chat-panel-header">
+          <button
+            aria-controls="conversation-list"
+            aria-expanded={conversationListOpen}
+            aria-label="Mở danh sách hội thoại"
+            className="conversation-toggle-button"
+            onClick={() => setConversationListOpen(true)}
+            ref={conversationToggleRef}
+            type="button"
+          >
+            <MessagesSquare aria-hidden="true" size={18} />
+          </button>
           <span className="assistant-mark" aria-hidden="true"><Sparkles size={20} /></span>
-          <div><h1>Trợ lý AI</h1><p>Hỏi đáp hỗ trợ IT dựa trên tài liệu nội bộ và ngữ cảnh vận hành</p></div>
-          <span className="assistant-scope">IT support <ChevronDown aria-hidden="true" size={13} /></span>
+          <div className="assistant-heading"><h1>Trợ lý AI</h1><p>Hỗ trợ dựa trên tài liệu nội bộ và ngữ cảnh vận hành</p></div>
+          <span className="assistant-scope"><i /> IT support <ChevronDown aria-hidden="true" size={13} /></span>
         </header>
         <div aria-label="Nội dung cuộc trò chuyện" className="message-list" aria-live="polite" tabIndex={0}>
           {messageCursor ? (
@@ -447,52 +518,77 @@ export function ChatPage() {
           ) : null}
           {messages.length === 0 ? (
             <div className="chat-empty">
-              <strong>Bạn đang gặp vấn đề gì?</strong>
-              <p>Hãy mô tả lỗi, thiết bị và thao tác bạn đã thử.</p>
+              <span className="chat-empty-mark" aria-hidden="true"><Sparkles size={22} /></span>
+              <h2>Bạn cần hỗ trợ vấn đề gì?</h2>
+              <p>Mô tả lỗi, thiết bị và thao tác đã thử để nhận hướng dẫn chính xác hơn.</p>
+              <div className="chat-empty-actions">
+                {quickActions.slice(0, 2).map((action) => (
+                  <button key={action} onClick={() => applyQuickAction(action)} type="button">
+                    {action}
+                  </button>
+                ))}
+              </div>
             </div>
           ) : null}
           {messages.map((message) => (
             <article className={`chat-message ${message.role}`} key={message.id}>
-              <span className="message-meta">{message.role === "user" ? user?.display_name ?? "Bạn" : "Trợ lý AI"}<time dateTime={message.created_at}>{formatChatTime(message.created_at)}</time></span>
-              <SafeMarkdown content={message.content} />
-              {message.citations?.length ? (
-                <CitationList citations={message.citations} />
-              ) : null}
-              {message.role === "assistant" && completedProgress?.runId === message.run_id ? (
-                <CompletedRunProgress summary={completedProgress} />
-              ) : null}
-              {message.role === "assistant" ? (
-                <div className="message-actions" aria-label="Thao tác với câu trả lời">
-                  <button onClick={() => void handleCopyAnswer(message)} type="button">
-                    {copiedMessage === message.id ? <Check aria-hidden="true" size={13} /> : <Copy aria-hidden="true" size={13} />}
-                    {copiedMessage === message.id ? "Đã sao chép" : "Sao chép"}
-                  </button>
-                  <button onClick={() => prepareTicketRequest(message)} type="button"><TicketPlus aria-hidden="true" size={13} /> Tạo ticket</button>
-                  <span>Câu trả lời hữu ích?</span>
-                  <button
-                    aria-pressed={message.feedback?.rating === "helpful"}
-                    disabled={feedbackPending === message.id}
-                    onClick={() => void handleFeedback(message.id, "helpful")}
-                    type="button"
-                  >
-                    <ThumbsUp aria-hidden="true" size={13} /> Hữu ích
-                  </button>
-                  <button
-                    aria-pressed={message.feedback?.rating === "unhelpful"}
-                    disabled={feedbackPending === message.id}
-                    onClick={() => void handleFeedback(message.id, "unhelpful")}
-                    type="button"
-                  >
-                    <ThumbsDown aria-hidden="true" size={13} /> Chưa tốt
-                  </button>
-                </div>
-              ) : null}
+              <span className="message-avatar" aria-hidden="true">
+                {message.role === "assistant" ? <Sparkles size={16} /> : user?.display_name?.slice(0, 1).toUpperCase() ?? "B"}
+              </span>
+              <div className="message-bubble">
+                <header className="message-meta">
+                  <strong>{message.role === "user" ? user?.display_name ?? "Bạn" : "Trợ lý AI"}</strong>
+                  <time dateTime={message.created_at}>{formatChatTime(message.created_at)}</time>
+                </header>
+                <SafeMarkdown content={message.content} />
+                {message.citations?.length ? (
+                  <CitationList citations={message.citations} />
+                ) : null}
+                {message.role === "assistant" && completedProgress?.runId === message.run_id ? (
+                  <CompletedRunProgress summary={completedProgress} />
+                ) : null}
+                {message.role === "assistant" ? (
+                  <div className="message-actions" aria-label="Thao tác với câu trả lời">
+                    <div className="message-primary-actions">
+                      <button onClick={() => void handleCopyAnswer(message)} type="button">
+                        {copiedMessage === message.id ? <Check aria-hidden="true" size={14} /> : <Copy aria-hidden="true" size={14} />}
+                        {copiedMessage === message.id ? "Đã sao chép" : "Sao chép"}
+                      </button>
+                      <button onClick={() => prepareTicketRequest(message)} type="button"><TicketPlus aria-hidden="true" size={14} /> Tạo ticket</button>
+                    </div>
+                    <div className="message-feedback-actions">
+                      <span>Hữu ích?</span>
+                      <button
+                        aria-label="Câu trả lời hữu ích"
+                        aria-pressed={message.feedback?.rating === "helpful"}
+                        disabled={feedbackPending === message.id}
+                        onClick={() => void handleFeedback(message.id, "helpful")}
+                        type="button"
+                      >
+                        <ThumbsUp aria-hidden="true" size={14} /><span>Hữu ích</span>
+                      </button>
+                      <button
+                        aria-label="Câu trả lời chưa tốt"
+                        aria-pressed={message.feedback?.rating === "unhelpful"}
+                        disabled={feedbackPending === message.id}
+                        onClick={() => void handleFeedback(message.id, "unhelpful")}
+                        type="button"
+                      >
+                        <ThumbsDown aria-hidden="true" size={14} /><span>Chưa tốt</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
             </article>
           ))}
           {streamingAnswer ? (
             <article className="chat-message assistant streaming" aria-label="Câu trả lời đang được tạo">
-              <span>IT Assistant · Đang trả lời</span>
-              <SafeMarkdown content={streamingAnswer} />
+              <span className="message-avatar" aria-hidden="true"><Sparkles size={16} /></span>
+              <div className="message-bubble">
+                <header className="message-meta"><strong>Trợ lý AI</strong><span>Đang trả lời…</span></header>
+                <SafeMarkdown content={streamingAnswer} />
+              </div>
             </article>
           ) : null}
           {runId ? (
@@ -520,24 +616,41 @@ export function ChatPage() {
           <p className="chat-error" role="alert">{error}</p>
         ) : null}
         <form className="chat-composer" onSubmit={handleSubmit}>
-          <label className="sr-only" htmlFor="chat-input">Tin nhắn</label>
-          <textarea
-            disabled={sending || Boolean(runId)}
-            id="chat-input"
-            maxLength={4000}
-            onChange={(event) => setDraft(event.target.value)}
-            placeholder="Ví dụ: Tôi không kết nối được VPN trên Ubuntu…"
-            ref={composerRef}
-            rows={3}
-            value={draft}
-          />
-          <button disabled={!draft.trim() || sending || Boolean(runId)} type="submit">
-            <Send aria-hidden="true" size={17} />
-            <span className="sr-only">{sending ? "Đang gửi…" : "Gửi"}</span>
-          </button>
+          <div className="composer-surface">
+            <label className="sr-only" htmlFor="chat-input">Tin nhắn</label>
+            <textarea
+              disabled={sending || Boolean(runId)}
+              id="chat-input"
+              maxLength={4000}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+                  event.preventDefault();
+                  event.currentTarget.form?.requestSubmit();
+                }
+              }}
+              placeholder="Mô tả vấn đề, thông báo lỗi hoặc câu hỏi của bạn…"
+              ref={composerRef}
+              rows={2}
+              value={draft}
+            />
+            <footer className="composer-footer">
+              <span><kbd>Ctrl</kbd> + <kbd>Enter</kbd> để gửi · {draft.length}/4000</span>
+              <button disabled={!draft.trim() || sending || Boolean(runId)} type="submit">
+                <Send aria-hidden="true" size={17} />
+                <span>{sending ? "Đang gửi…" : "Gửi"}</span>
+              </button>
+            </footer>
+          </div>
+          <p>Trợ lý AI có thể mắc sai sót. Hãy kiểm tra lại thông tin quan trọng.</p>
         </form>
       </section>
-      <details aria-label="Ngữ cảnh hỗ trợ và ticket" className="chat-context-rail" open tabIndex={0}>
+      <details
+        aria-label="Ngữ cảnh hỗ trợ và ticket"
+        className="chat-context-rail"
+        onToggle={(event) => setContextOpen(event.currentTarget.open)}
+        open={contextOpen}
+      >
         <summary className="chat-context-summary">Ngữ cảnh hỗ trợ <ChevronDown aria-hidden="true" size={16} /></summary>
         <section className="context-card">
           <header><div><FileText aria-hidden="true" size={16} /><h2>Nguồn tham chiếu</h2></div><span>{contextSources.length}</span></header>

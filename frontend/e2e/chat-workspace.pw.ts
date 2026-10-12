@@ -136,7 +136,7 @@ test("chat shows grouped history, message actions, device and ticket context", a
   await expect(page.getByLabel("Tin nhắn")).toHaveValue(/Tạo ticket hỗ trợ/);
 
   await page.getByLabel("Tin nhắn").fill("Tôi tên là gì?");
-  await page.getByRole("button", { name: "Gửi" }).click();
+  await page.getByLabel("Tin nhắn").press("Control+Enter");
   await expect(page.getByRole("heading", { name: "Đang xử lý yêu cầu của bạn…" })).toBeVisible();
   await expect(page.getByText("Đọc thông tin tài khoản", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Xem chi tiết" }).click();
@@ -148,5 +148,19 @@ test("chat shows grouped history, message actions, device and ticket context", a
   await page.reload();
   await expect(page.locator(".menu-button")).toBeVisible();
   await expect(page.locator(".app-sidebar")).not.toHaveClass(/open/);
+  await expect(page.locator(".conversation-list")).toBeHidden();
   await page.screenshot({ path: "/tmp/chat-workspace-mobile.png", fullPage: true });
+
+  await page.getByRole("button", { name: "Mở danh sách hội thoại" }).click();
+  await expect(page.locator(".conversation-list")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Đóng danh sách hội thoại" }).first()).toBeFocused();
+  await page.screenshot({ path: "/tmp/chat-conversations-mobile.png", fullPage: true });
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("button", { name: "Mở danh sách hội thoại" })).toBeFocused();
+
+  const context = page.getByText("Ngữ cảnh hỗ trợ", { exact: true });
+  await expect(context).toBeVisible();
+  await context.click();
+  await expect(page.getByText("DEMO-LT-001")).toBeVisible();
+  await page.screenshot({ path: "/tmp/chat-context-mobile.png", fullPage: true });
 });

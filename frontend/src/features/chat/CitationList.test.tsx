@@ -35,6 +35,8 @@ describe("CitationList", () => {
 
     const { container } = render(<CitationList citations={citations} />);
 
+    expect(screen.getByRole("region", { name: "Nguồn tham chiếu" })).toBeInTheDocument();
+    expect(screen.getByText("1 tài liệu")).toBeInTheDocument();
     expect(screen.getAllByText("Thiết lập VPN demo")).toHaveLength(1);
     expect(screen.getAllByText("Ubuntu Cài client và đăng nhập SSO.")).toHaveLength(1);
     expect(screen.getByRole("link", { name: "Nguồn 1" })).toHaveAttribute(
