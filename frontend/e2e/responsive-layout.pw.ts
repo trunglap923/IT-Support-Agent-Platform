@@ -239,6 +239,18 @@ test("chat stays readable on desktop and mobile", async ({ page }, testInfo) => 
   await expectNoHorizontalOverflow(page);
   await page.screenshot({ path: testInfo.outputPath("chat-desktop.png"), fullPage: true });
 
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await page.waitForTimeout(250);
+  const contextToggle = page.getByRole("button", { name: "Mở ngữ cảnh hỗ trợ" });
+  await expect(contextToggle).toBeVisible();
+  await expect(page.locator(".chat-context-rail")).toBeHidden();
+  await contextToggle.click();
+  await expect(page.getByRole("dialog", { name: "Ngữ cảnh hỗ trợ và ticket" })).toBeVisible();
+  await expect(page.locator(".chat-context-summary")).toBeFocused();
+  await page.screenshot({ path: testInfo.outputPath("chat-context-tablet.png"), fullPage: true });
+  await page.keyboard.press("Escape");
+  await expect(contextToggle).toBeFocused();
+
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(250);
   await expect(page.locator(".chat-layout")).toHaveCSS("grid-template-columns", /\d+px/);
@@ -250,6 +262,20 @@ test("chat stays readable on desktop and mobile", async ({ page }, testInfo) => 
     scrollWidth: element.scrollWidth,
   }));
   expect(messageListWidth.scrollWidth).toBeLessThanOrEqual(messageListWidth.clientWidth + 1);
+  const chatViewport = await page.locator(".chat-layout").evaluate((element) => ({
+    bottom: element.getBoundingClientRect().bottom,
+    clientHeight: document.documentElement.clientHeight,
+    pageScrollHeight: document.documentElement.scrollHeight,
+  }));
+  expect(chatViewport.bottom).toBeLessThanOrEqual(chatViewport.clientHeight + 1);
+  expect(chatViewport.pageScrollHeight).toBeLessThanOrEqual(chatViewport.clientHeight + 1);
+  const composer = await page.locator(".chat-composer").boundingBox();
+  expect(composer).not.toBeNull();
+  expect((composer?.y ?? 0) + (composer?.height ?? 0)).toBeLessThanOrEqual(844);
+  const unnamedButtons = await page.locator("button:visible").evaluateAll((buttons) => buttons
+    .filter((button) => !button.getAttribute("aria-label") && !button.textContent?.trim())
+    .length);
+  expect(unnamedButtons).toBe(0);
   await page.screenshot({ path: testInfo.outputPath("chat-mobile.png"), fullPage: true });
   expect(consoleErrors).toEqual([]);
 });
@@ -390,9 +416,27 @@ test("document library remains usable on desktop and mobile", async ({ page }, t
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(250);
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("button", { name: "VPN administration guide vpn-admin-guide" })).toBeFocused();
   await expectNoHorizontalOverflow(page);
   await expect(page.getByText("Vuốt ngang để quản lý phiên bản")).toBeVisible();
+  await page.getByRole("button", { name: "Mở chi tiết VPN administration guide" }).click();
+  await expect(page.getByRole("dialog", { name: "VPN administration guide" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Đóng chi tiết tài liệu" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("button", { name: "Mở chi tiết VPN administration guide" })).toBeFocused();
   await page.screenshot({ path: testInfo.outputPath("documents-mobile.png"), fullPage: true });
+});
+
+test("reduced motion disables interface transitions", async ({ page }) => {
+  await mockWorkspace(page);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  const transitionDuration = await page.locator(".app-sidebar").evaluate(
+    (element) => getComputedStyle(element).transitionDuration,
+  );
+  expect(Number.parseFloat(transitionDuration)).toBeLessThanOrEqual(0.00001);
 });
 
 test("memory workspace remains clear on desktop and mobile", async ({ page }, testInfo) => {

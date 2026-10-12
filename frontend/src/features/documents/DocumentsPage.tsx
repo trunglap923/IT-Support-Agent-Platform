@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { CheckCircle2, Eye, FilePenLine, FileText, MoreHorizontal, Plus, Search, TriangleAlert, X } from "lucide-react";
 
 import {
@@ -16,6 +16,7 @@ import {
 import { useAuth } from "../auth/useAuth";
 import { AccessDenied, ConfirmDialog, EmptyState, LoadingState, MetricCard, PageHeader, StatusBadge } from "../../components/ProductUI";
 import { formatDateTime } from "../../utils/format";
+import { useMediaQuery } from "../../hooks/useMediaQuery";
 
 function isoNow(): string {
   return new Date().toISOString().slice(0, 16);
@@ -42,7 +43,19 @@ export function DocumentsPage() {
   const [documentToRevoke, setDocumentToRevoke] = useState<ManagedDocument | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<ManagedDocument | null>(null);
-  const uploadPanel = useRef<HTMLElement>(null);
+  const compactDrawer = useMediaQuery("(max-width: 900px)");
+  const drawer = useRef<HTMLElement>(null);
+  const drawerTrigger = useRef<HTMLElement | null>(null);
+  const newDocumentTrigger = useRef<HTMLButtonElement>(null);
+  const activeDrawer = uploadOpen ? "upload" : selectedDocument ? "detail" : preview ? "preview" : null;
+
+  const closeDrawer = useCallback(() => {
+    setUploadOpen(false);
+    setSelectedDocument(null);
+    setPreview(null);
+    const returnTarget = drawerTrigger.current?.isConnected ? drawerTrigger.current : newDocumentTrigger.current;
+    requestAnimationFrame(() => returnTarget?.focus());
+  }, []);
 
   async function refresh(signal?: AbortSignal) {
     const page = await listDocumentsPage(null, signal);
@@ -69,6 +82,44 @@ export function DocumentsPage() {
       .finally(() => setLoading(false));
     return () => controller.abort();
   }, [user?.role]);
+
+  useEffect(() => {
+    if (!activeDrawer) return;
+    const previousOverflow = document.body.style.overflow;
+    if (compactDrawer) document.body.style.overflow = "hidden";
+    const focusFrame = requestAnimationFrame(() => {
+      drawer.current?.querySelector<HTMLElement>(
+        "button:not(:disabled), input:not(:disabled), select:not(:disabled), summary, [tabindex]:not([tabindex='-1'])",
+      )?.focus();
+    });
+    const handleDrawerKeyboard = (event: KeyboardEvent) => {
+      if (document.querySelector("dialog[open]")) return;
+      if (event.key === "Escape") {
+        closeDrawer();
+        return;
+      }
+      if (event.key !== "Tab" || !compactDrawer || !drawer.current) return;
+      const focusable = [...drawer.current.querySelectorAll<HTMLElement>(
+        "a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), summary, [tabindex]:not([tabindex='-1'])",
+      )].filter((element) => element.getClientRects().length > 0);
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (!first || !last) return;
+      if (event.shiftKey && (document.activeElement === first || !drawer.current.contains(document.activeElement))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", handleDrawerKeyboard);
+    return () => {
+      cancelAnimationFrame(focusFrame);
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleDrawerKeyboard);
+    };
+  }, [activeDrawer, closeDrawer, compactDrawer]);
 
   const filteredDocuments = useMemo(() => documents.filter((document) => {
     const matchesQuery = `${document.document_key} ${document.title}`
@@ -146,7 +197,7 @@ export function DocumentsPage() {
         eyebrow="KNOWLEDGE GOVERNANCE"
         title="Kho tri thức"
         description="Chỉ version đã xử lý và publish mới được dùng làm nguồn trả lời."
-        actions={<button className="primary-button" onClick={() => { setSelectedDocument(null); setPreview(null); setUploadOpen(true); }} type="button"><Plus aria-hidden="true" size={16} /> Tài liệu mới</button>}
+        actions={<button className="primary-button" onClick={(event) => { drawerTrigger.current = event.currentTarget; setSelectedDocument(null); setPreview(null); setUploadOpen(true); }} ref={newDocumentTrigger} type="button"><Plus aria-hidden="true" size={16} /> Tài liệu mới</button>}
       />
       {notice ? <p className="notice-banner" role="status">{notice}</p> : null}
       {error ? <div className="alert-banner error" role="alert">{error}</div> : null}
@@ -158,8 +209,10 @@ export function DocumentsPage() {
         <MetricCard icon={TriangleAlert} label="Cần rà soát" value={documents.filter((document) => ["failed", "revoked"].includes(getDocumentStatus(document))).length} tone="red" detail="Cần hành động" />
       </section>
 
-      {uploadOpen ? <section className="document-upload-panel document-drawer" ref={uploadPanel}>
-        <header className="panel-header"><div><h2>Tạo tài liệu mới</h2><p>PDF bắt đầu ở trạng thái draft để kiểm tra trước khi publish.</p></div><button aria-label="Đóng panel tài liệu mới" className="drawer-close" onClick={() => setUploadOpen(false)} type="button"><X aria-hidden="true" size={20} /></button></header>
+      {compactDrawer && activeDrawer ? <button aria-label="Đóng panel tài liệu" className="document-drawer-backdrop" onClick={closeDrawer} type="button" /> : null}
+
+      {uploadOpen ? <section aria-labelledby="document-upload-title" aria-modal={compactDrawer ? true : undefined} className="document-upload-panel document-drawer" ref={drawer} role="dialog">
+        <header className="panel-header"><div><h2 id="document-upload-title">Tạo tài liệu mới</h2><p>PDF bắt đầu ở trạng thái draft để kiểm tra trước khi publish.</p></div><button aria-label="Đóng panel tài liệu mới" className="drawer-close" onClick={closeDrawer} type="button"><X aria-hidden="true" size={20} /></button></header>
         <form onSubmit={(event) => void submitNewDocument(event)}>
           <label>PDF<input accept="application/pdf" name="file" required type="file" /><small className="field-hint">Tối đa 10 MB và 100 trang. PDF phải có lớp văn bản; chưa hỗ trợ OCR tài liệu scan.</small></label>
           <label>Document key<input name="document_key" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" required /></label>
@@ -188,7 +241,7 @@ export function DocumentsPage() {
               <thead><tr><th>Tài liệu</th><th>Trạng thái</th><th>Phiên bản</th><th>Phạm vi</th><th>Cập nhật gần nhất</th><th><span className="sr-only">Chi tiết</span></th></tr></thead>
               <tbody>{filteredDocuments.map((document) => (
                 <tr key={document.id}>
-                  <td><button className="document-title-button" onClick={() => { setUploadOpen(false); setPreview(null); setSelectedDocument(document); }} type="button"><span className="document-file-icon"><FileText aria-hidden="true" size={16} /></span><span><strong>{document.title}</strong><small>{document.document_key}</small></span></button></td>
+                  <td><button className="document-title-button" onClick={(event) => { drawerTrigger.current = event.currentTarget; setUploadOpen(false); setPreview(null); setSelectedDocument(document); }} type="button"><span className="document-file-icon"><FileText aria-hidden="true" size={16} /></span><span><strong>{document.title}</strong><small>{document.document_key}</small></span></button></td>
                   <td><StatusBadge value={getDocumentStatus(document)} /></td>
                   <td>{document.versions[0]?.version_label ?? "—"}</td>
                   <td>
@@ -207,7 +260,7 @@ export function DocumentsPage() {
                   </td>
                   <td>{document.versions[0]?.created_at ? formatDateTime(document.versions[0].created_at) : "—"}</td>
                   <td>
-                    <button aria-label={`Mở chi tiết ${document.title}`} className="icon-button" onClick={() => { setUploadOpen(false); setPreview(null); setSelectedDocument(document); }} type="button"><MoreHorizontal aria-hidden="true" size={17} /></button>
+                    <button aria-label={`Mở chi tiết ${document.title}`} className="icon-button" onClick={(event) => { drawerTrigger.current = event.currentTarget; setUploadOpen(false); setPreview(null); setSelectedDocument(document); }} type="button"><MoreHorizontal aria-hidden="true" size={17} /></button>
                   </td>
                 </tr>
               ))}</tbody>
@@ -218,8 +271,8 @@ export function DocumentsPage() {
       </section>
 
       {selectedDocument ? (
-        <aside className="document-detail document-drawer" aria-label={`Chi tiết ${selectedDocument.title}`}>
-          <header className="drawer-header"><div><span className="drawer-document-icon"><FileText aria-hidden="true" /></span><h2>{selectedDocument.title}</h2><p>{selectedDocument.document_key}</p></div><button aria-label="Đóng chi tiết tài liệu" className="icon-button" onClick={() => setSelectedDocument(null)} type="button"><X aria-hidden="true" size={19} /></button></header>
+        <aside aria-labelledby="document-detail-title" aria-modal={compactDrawer ? true : undefined} className="document-detail document-drawer" ref={drawer} role="dialog">
+          <header className="drawer-header"><div><span className="drawer-document-icon"><FileText aria-hidden="true" /></span><h2 id="document-detail-title">{selectedDocument.title}</h2><p>{selectedDocument.document_key}</p></div><button aria-label="Đóng chi tiết tài liệu" className="icon-button" onClick={closeDrawer} type="button"><X aria-hidden="true" size={19} /></button></header>
           <div className="document-detail-summary"><StatusBadge value={getDocumentStatus(selectedDocument)} /><span>{selectedDocument.versions.length} phiên bản</span><span>{selectedDocument.visibility}</span></div>
           <dl className="detail-list">
             <div><dt>Phạm vi</dt><dd>{selectedDocument.visibility}</dd></div>
@@ -234,8 +287,8 @@ export function DocumentsPage() {
       ) : null}
 
       {preview ? (
-        <aside className="document-preview document-drawer" aria-label="Preview tài liệu">
-          <div><div><p className="eyebrow">DOCUMENT PREVIEW</p><h2>Preview</h2></div><button aria-label="Đóng preview" className="icon-button" onClick={() => setPreview(null)} type="button"><X aria-hidden="true" size={19} /></button></div>
+        <aside aria-labelledby="document-preview-title" aria-modal={compactDrawer ? true : undefined} className="document-preview document-drawer" ref={drawer} role="dialog">
+          <div><div><p className="eyebrow">DOCUMENT PREVIEW</p><h2 id="document-preview-title">Preview</h2></div><button aria-label="Đóng preview" className="icon-button" onClick={closeDrawer} type="button"><X aria-hidden="true" size={19} /></button></div>
           <p>{preview.pages.length} trang · {preview.byte_size} bytes · {preview.parser_version}</p>
           <div className="preview-pages">{preview.pages.map((page) => <article key={page.page_number}><strong>Trang {page.page_number}</strong><p>{page.text}</p></article>)}</div>
         </aside>

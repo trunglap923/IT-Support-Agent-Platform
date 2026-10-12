@@ -550,6 +550,10 @@
   max-width: none;
 }
 
+.page-shell:focus {
+  outline: none;
+}
+
 @media (max-width: 900px) {
   .app-frame {
     display: block;
@@ -635,6 +639,13 @@
   .account-menu-button {
     gap: var(--space-1);
     padding-right: var(--space-1);
+  }
+
+  .shell-icon-button,
+  .account-menu-button,
+  .sidebar-close-button {
+    min-width: 44px;
+    min-height: 44px;
   }
 
   .topbar-popover {

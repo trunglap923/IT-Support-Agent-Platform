@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ComponentType } from "react";
+import { useCallback, useEffect, useRef, useState, type ComponentType } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import {
   Bell,
@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "../features/auth/useAuth";
+import { useMediaQuery } from "../hooks/useMediaQuery";
 
 interface NavigationItem {
   to: string;
@@ -99,8 +100,11 @@ export function AppShell() {
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const compactNavigation = useMediaQuery("(max-width: 900px)");
   const navigationRef = useRef<HTMLElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const mainRef = useRef<HTMLElement>(null);
+  const previousPathname = useRef(location.pathname);
   const notificationMenuRef = useRef<HTMLDivElement>(null);
   const notificationButtonRef = useRef<HTMLButtonElement>(null);
   const accountMenuRef = useRef<HTMLDivElement>(null);
@@ -111,23 +115,50 @@ export function AppShell() {
   const userInitial = user?.display_name?.slice(0, 1).toUpperCase() ?? "U";
   const roleLabel = roleLabels[user?.role ?? ""] ?? user?.role ?? "Người dùng";
 
+  const closeNavigation = useCallback((restoreFocus = true) => {
+    setNavigationOpen(false);
+    if (restoreFocus) menuButtonRef.current?.focus();
+  }, []);
+
   useEffect(() => {
     if (!navigationOpen) return;
     const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    if (compactNavigation) document.body.style.overflow = "hidden";
     navigationRef.current?.querySelector<HTMLElement>("[data-nav-link]")?.focus();
-    const closeOnEscape = (event: KeyboardEvent) => {
+    const handleNavigationKeyboard = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        setNavigationOpen(false);
-        menuButtonRef.current?.focus();
+        closeNavigation();
+        return;
+      }
+      if (event.key !== "Tab" || !compactNavigation || !navigationRef.current) return;
+      const focusable = [...navigationRef.current.querySelectorAll<HTMLElement>(
+        "a[href], button:not(:disabled), [tabindex]:not([tabindex='-1'])",
+      )].filter((element) => element.getClientRects().length > 0);
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (!first || !last) return;
+      if (event.shiftKey && (document.activeElement === first || !navigationRef.current.contains(document.activeElement))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
       }
     };
-    document.addEventListener("keydown", closeOnEscape);
+    document.addEventListener("keydown", handleNavigationKeyboard);
     return () => {
       document.body.style.overflow = previousOverflow;
-      document.removeEventListener("keydown", closeOnEscape);
+      document.removeEventListener("keydown", handleNavigationKeyboard);
     };
-  }, [navigationOpen]);
+  }, [closeNavigation, compactNavigation, navigationOpen]);
+
+  useEffect(() => {
+    document.title = `${currentPage.title} · IT Support Agent`;
+    if (previousPathname.current === location.pathname) return;
+    previousPathname.current = location.pathname;
+    setNavigationOpen(false);
+    requestAnimationFrame(() => mainRef.current?.focus());
+  }, [currentPage.title, location.pathname]);
 
   useEffect(() => {
     if (!notificationOpen && !accountMenuOpen) return;
@@ -170,11 +201,15 @@ export function AppShell() {
     <div className="app-frame">
       <aside
         aria-label="Điều hướng ứng dụng"
+        aria-hidden={compactNavigation && !navigationOpen ? true : undefined}
+        aria-modal={compactNavigation && navigationOpen ? true : undefined}
         className={navigationOpen ? "app-sidebar open" : "app-sidebar"}
+        inert={compactNavigation && !navigationOpen ? true : undefined}
         onClick={(event) => {
-          if ((event.target as HTMLElement).closest("a")) setNavigationOpen(false);
+          if ((event.target as HTMLElement).closest("a")) closeNavigation(false);
         }}
         ref={navigationRef}
+        role={compactNavigation && navigationOpen ? "dialog" : undefined}
       >
         <div className="sidebar-brand-row">
           <NavLink className="brand" to="/">
@@ -187,7 +222,7 @@ export function AppShell() {
           <button
             aria-label="Đóng điều hướng"
             className="sidebar-close-button"
-            onClick={() => setNavigationOpen(false)}
+            onClick={() => closeNavigation()}
             type="button"
           >
             <X aria-hidden="true" size={18} />
@@ -214,7 +249,7 @@ export function AppShell() {
         <button
           aria-label="Đóng điều hướng"
           className="sidebar-backdrop"
-          onClick={() => setNavigationOpen(false)}
+          onClick={() => closeNavigation()}
           type="button"
         />
       ) : null}
@@ -277,6 +312,7 @@ export function AppShell() {
             <button
               aria-controls="account-popover"
               aria-expanded={accountMenuOpen}
+              aria-label={`Mở menu tài khoản của ${user?.display_name ?? "người dùng"}`}
               className="account-menu-button"
               onClick={() => {
                 setAccountMenuOpen((current) => !current);
@@ -321,7 +357,7 @@ export function AppShell() {
         </div>
       </header>
 
-      <main className="page-shell">
+      <main aria-label="Nội dung chính" className="page-shell" ref={mainRef} tabIndex={-1}>
         <Outlet />
       </main>
     </div>

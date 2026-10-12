@@ -9,6 +9,7 @@ import {
   Lightbulb,
   MessageCircle,
   MessagesSquare,
+  PanelRightOpen,
   Plus,
   PlusCircle,
   Search,
@@ -43,6 +44,7 @@ import { LoadingState, StatusBadge } from "../../components/ProductUI";
 import { listMemoryDevices, type MemoryDevice } from "../../api/memory";
 import { listMyTickets, type Ticket } from "../../api/tickets";
 import { formatIssueType, formatRelativeTime, formatStatus } from "../../utils/format";
+import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { ApprovalCard } from "../tickets/ApprovalCard";
 import { formatTicketDraftForChat } from "../tickets/approvalEdit";
 import { CitationList } from "./CitationList";
@@ -85,20 +87,27 @@ export function ChatPage() {
   const [loadingMore, setLoadingMore] = useState<"conversations" | "messages" | null>(null);
   const [conversationQuery, setConversationQuery] = useState("");
   const [conversationListOpen, setConversationListOpen] = useState(false);
-  const [contextOpen, setContextOpen] = useState(() =>
-    typeof window.matchMedia !== "function" || window.matchMedia("(min-width: 1101px)").matches,
-  );
+  const compactContext = useMediaQuery("(max-width: 1100px)");
+  const [compactContextOpen, setContextOpen] = useState(false);
+  const contextOpen = !compactContext || compactContextOpen;
   const [devices, setDevices] = useState<MemoryDevice[]>([]);
   const [recentTickets, setRecentTickets] = useState<Ticket[]>([]);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const conversationToggleRef = useRef<HTMLButtonElement>(null);
   const conversationListRef = useRef<HTMLElement>(null);
+  const contextToggleRef = useRef<HTMLButtonElement>(null);
+  const contextRailRef = useRef<HTMLDetailsElement>(null);
   const pendingMessageRequest = useRef<ClientRequestIdentity | null>(null);
   const terminalRunIds = useRef(new Set<string>());
 
   const closeConversationList = useCallback(() => {
     setConversationListOpen(false);
     requestAnimationFrame(() => conversationToggleRef.current?.focus());
+  }, []);
+
+  const closeContext = useCallback(() => {
+    setContextOpen(false);
+    requestAnimationFrame(() => contextToggleRef.current?.focus());
   }, []);
 
   const visibleConversations = useMemo(() => conversations
@@ -181,14 +190,6 @@ export function ChatPage() {
   }, []);
 
   useEffect(() => {
-    if (typeof window.matchMedia !== "function") return;
-    const media = window.matchMedia("(min-width: 1101px)");
-    const syncContextVisibility = (event: MediaQueryListEvent) => setContextOpen(event.matches);
-    media.addEventListener("change", syncContextVisibility);
-    return () => media.removeEventListener("change", syncContextVisibility);
-  }, []);
-
-  useEffect(() => {
     if (!conversationListOpen) return;
     conversationListRef.current?.querySelector<HTMLButtonElement>(".conversation-close-button")?.focus();
     const handleDrawerKeyboard = (event: KeyboardEvent) => {
@@ -214,6 +215,38 @@ export function ChatPage() {
     document.addEventListener("keydown", handleDrawerKeyboard);
     return () => document.removeEventListener("keydown", handleDrawerKeyboard);
   }, [closeConversationList, conversationListOpen]);
+
+  useEffect(() => {
+    if (!compactContext || !contextOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    contextRailRef.current?.querySelector<HTMLElement>("summary")?.focus();
+    const handleContextKeyboard = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        closeContext();
+        return;
+      }
+      if (event.key !== "Tab" || !contextRailRef.current) return;
+      const focusable = [...contextRailRef.current.querySelectorAll<HTMLElement>(
+        "summary, a[href], button:not(:disabled), [tabindex]:not([tabindex='-1'])",
+      )].filter((element) => element.getClientRects().length > 0);
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (!first || !last) return;
+      if (event.shiftKey && (document.activeElement === first || !contextRailRef.current.contains(document.activeElement))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", handleContextKeyboard);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleContextKeyboard);
+    };
+  }, [closeContext, compactContext, contextOpen]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -522,6 +555,17 @@ export function ChatPage() {
           <span className="assistant-mark" aria-hidden="true"><Sparkles size={20} /></span>
           <div className="assistant-heading"><h1>Trợ lý AI</h1><p>Hỗ trợ dựa trên tài liệu nội bộ và ngữ cảnh vận hành</p></div>
           <span className="assistant-scope"><i /> IT support <ChevronDown aria-hidden="true" size={13} /></span>
+          <button
+            aria-controls="chat-context-rail"
+            aria-expanded={contextOpen}
+            aria-label="Mở ngữ cảnh hỗ trợ"
+            className="context-toggle-button"
+            onClick={() => setContextOpen(true)}
+            ref={contextToggleRef}
+            type="button"
+          >
+            <PanelRightOpen aria-hidden="true" size={18} />
+          </button>
         </header>
         <div aria-label="Nội dung cuộc trò chuyện" className="message-list" aria-live="polite" tabIndex={0}>
           {messageCursor ? (
@@ -663,13 +707,29 @@ export function ChatPage() {
           <p>Trợ lý AI có thể mắc sai sót. Hãy kiểm tra lại thông tin quan trọng.</p>
         </form>
       </section>
+      {compactContext && contextOpen ? (
+        <button
+          aria-label="Đóng ngữ cảnh hỗ trợ"
+          className="context-backdrop"
+          onClick={closeContext}
+          type="button"
+        />
+      ) : null}
       <details
         aria-label="Ngữ cảnh hỗ trợ và ticket"
+        aria-modal={compactContext && contextOpen ? true : undefined}
         className="chat-context-rail"
-        onToggle={(event) => setContextOpen(event.currentTarget.open)}
+        id="chat-context-rail"
+        onToggle={(event) => {
+          if (!compactContext) return;
+          setContextOpen(event.currentTarget.open);
+          if (!event.currentTarget.open) requestAnimationFrame(() => contextToggleRef.current?.focus());
+        }}
         open={contextOpen}
+        ref={contextRailRef}
+        role={compactContext && contextOpen ? "dialog" : undefined}
       >
-        <summary className="chat-context-summary">Ngữ cảnh hỗ trợ <ChevronDown aria-hidden="true" size={16} /></summary>
+        <summary className="chat-context-summary">Ngữ cảnh hỗ trợ <span>Đóng</span><ChevronDown aria-hidden="true" size={16} /></summary>
         <section className="context-card">
           <header><div><FileText aria-hidden="true" size={16} /><h2>Nguồn tham chiếu</h2></div><span>{contextSources.length}</span></header>
           {contextSources.length ? <ul>{contextSources.map((source) => <li key={source.source_id}><span className="context-item-icon" aria-hidden="true"><FileText size={15} /></span><div><strong>{source.title}</strong><small>{source.page_number ? `Trang ${source.page_number}` : "Kho tri thức"}</small></div></li>)}</ul> : <p className="context-empty">Nguồn của câu trả lời gần nhất sẽ xuất hiện tại đây.</p>}

@@ -158,9 +158,13 @@ test("chat shows grouped history, message actions, device and ticket context", a
   await page.keyboard.press("Escape");
   await expect(page.getByRole("button", { name: "Mở danh sách hội thoại" })).toBeFocused();
 
-  const context = page.getByText("Ngữ cảnh hỗ trợ", { exact: true });
-  await expect(context).toBeVisible();
-  await context.click();
+  const contextToggle = page.getByRole("button", { name: "Mở ngữ cảnh hỗ trợ" });
+  await expect(contextToggle).toBeVisible();
+  await contextToggle.click();
+  await expect(page.getByRole("dialog", { name: "Ngữ cảnh hỗ trợ và ticket" })).toBeVisible();
+  await expect(page.locator(".chat-context-summary")).toBeFocused();
   await expect(page.getByText("DEMO-LT-001")).toBeVisible();
   await page.screenshot({ path: "/tmp/chat-context-mobile.png", fullPage: true });
+  await page.keyboard.press("Escape");
+  await expect(contextToggle).toBeFocused();
 });

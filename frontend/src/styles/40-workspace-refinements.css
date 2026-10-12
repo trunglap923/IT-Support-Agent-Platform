@@ -93,6 +93,7 @@
 .document-summary .metric-icon.amber { color: var(--warning) !important; background: var(--warning-bg); }
 .document-summary .metric-icon.red { color: var(--danger) !important; background: var(--danger-bg); }
 .document-drawer { position: fixed; z-index: 18; top: var(--topbar-height); right: 0; bottom: 0; width: 400px; overflow-y: auto; border: 0; border-left: 1px solid var(--border); border-radius: 0; background: var(--surface); box-shadow: -8px 0 24px rgb(15 23 42 / 5%); }
+.document-drawer-backdrop { display: none; }
 .document-upload-panel.document-drawer { padding-bottom: 18px; }
 .document-upload-panel.document-drawer .panel-header { min-height: 78px; }
 .document-upload-panel.document-drawer form { grid-template-columns: 1fr; }
@@ -116,6 +117,8 @@
   .documents-page.drawer-visible { padding-right: 0; }
   .ticket-side-panel { width: min(390px, 100vw); }
   .document-drawer { width: min(420px, 100vw); }
+  .document-drawer { z-index: 48; }
+  .document-drawer-backdrop { position: fixed; z-index: 44; inset: var(--topbar-height) 0 0; display: block; border: 0; background: rgb(15 23 42 / 38%); backdrop-filter: blur(1px); }
   .ticket-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .document-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .memory-columns { grid-template-columns: 1fr; }
@@ -148,6 +151,13 @@
   .memory-metrics { grid-template-columns: repeat(3, 1fr); }
   .memory-metrics .metric { border-bottom: 0; }
   .ticket-summary { grid-template-columns: 1fr; }
+  .documents-page .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .document-drawer .icon-button,
+  .document-drawer .drawer-close,
+  .document-drawer button,
+  .document-drawer summary {
+    min-height: 44px;
+  }
   .document-summary { grid-template-columns: 1fr; }
   .service-cards, .operations-metrics { grid-template-columns: 1fr; }
   .service-cards article { grid-template-columns: minmax(0, 1fr); align-items: start; }
@@ -156,4 +166,8 @@
   .dashboard-page .metrics-strip { grid-template-columns: 1fr; }
   .dashboard-page .metric { min-width: 0; }
   .dashboard-page .breakdown-row { grid-template-columns: 92px minmax(0, 1fr) 24px; gap: 8px; }
+}
+
+@media (max-width: 360px) {
+  .documents-page .metric-grid { grid-template-columns: 1fr; }
 }
