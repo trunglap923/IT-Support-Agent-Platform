@@ -7,11 +7,13 @@ import { getOrCreateClientRequest, type ClientRequestIdentity } from "../../api/
 import {
   createTicketDraft,
   decideApproval,
+  getMyTicketSummary,
   listMyTicketsPage,
   listPendingApprovalsPage,
   type Approval,
   type Ticket,
   type TicketDraftArguments,
+  type TicketSummary,
 } from "../../api/tickets";
 import { useAuth } from "../auth/useAuth";
 import { EmptyState, LoadingState, PageHeader, StatusBadge } from "../../components/ProductUI";
@@ -30,6 +32,9 @@ export function TicketsPage() {
   const { csrfToken } = useAuth();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [approvals, setApprovals] = useState<Approval[]>([]);
+  const [summary, setSummary] = useState<TicketSummary>({
+    total: 0, open: 0, in_progress: 0, resolved: 0, high_unresolved: 0,
+  });
   const [draft, setDraft] = useState<TicketDraftArguments>(initialDraft);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -59,12 +64,14 @@ export function TicketsPage() {
         ...(issueTypeFilter !== "all" ? { issue_type: issueTypeFilter } : {}),
       }),
       listPendingApprovalsPage(null, controller.signal),
+      getMyTicketSummary(controller.signal),
     ])
-      .then(([ticketPage, approvalPage]) => {
+      .then(([ticketPage, approvalPage, ticketSummary]) => {
         setTickets(ticketPage.items);
         setTicketCursor(ticketPage.next_cursor);
         setApprovals(approvalPage.items);
         setApprovalCursor(approvalPage.next_cursor);
+        setSummary(ticketSummary);
       })
       .catch((caught: unknown) => {
         if (!(caught instanceof DOMException && caught.name === "AbortError")) {
@@ -221,11 +228,11 @@ export function TicketsPage() {
       {error ? <div className="alert-banner error" role="alert">{error}</div> : null}
 
       <section className="ticket-summary" aria-label="Tổng quan ticket">
-        <button aria-pressed={statusFilter === "all"} className={statusFilter === "all" ? "active" : ""} onClick={() => setStatusFilter("all")} type="button"><span className="summary-icon"><ListFilter /></span><span>Tất cả</span><strong>{tickets.length}</strong></button>
-        <button aria-pressed={statusFilter === "open"} className={statusFilter === "open" ? "active" : ""} onClick={() => setStatusFilter("open")} type="button"><span className="summary-icon"><TicketCheck /></span><span>Mới tạo</span><strong>{tickets.filter((ticket) => ticket.status === "open").length}</strong></button>
-        <button aria-pressed={statusFilter === "in_progress"} className={statusFilter === "in_progress" ? "active" : ""} onClick={() => setStatusFilter("in_progress")} type="button"><span className="summary-icon amber"><Activity /></span><span>Đang xử lý</span><strong>{tickets.filter((ticket) => ticket.status === "in_progress").length}</strong></button>
+        <button aria-pressed={statusFilter === "all"} className={statusFilter === "all" ? "active" : ""} onClick={() => setStatusFilter("all")} type="button"><span className="summary-icon"><ListFilter /></span><span>Tất cả</span><strong>{summary.total}</strong></button>
+        <button aria-pressed={statusFilter === "open"} className={statusFilter === "open" ? "active" : ""} onClick={() => setStatusFilter("open")} type="button"><span className="summary-icon"><TicketCheck /></span><span>Mới tạo</span><strong>{summary.open}</strong></button>
+        <button aria-pressed={statusFilter === "in_progress"} className={statusFilter === "in_progress" ? "active" : ""} onClick={() => setStatusFilter("in_progress")} type="button"><span className="summary-icon amber"><Activity /></span><span>Đang xử lý</span><strong>{summary.in_progress}</strong></button>
         <button aria-label={`Chờ xác nhận: ${approvals.length}. Mở danh sách phê duyệt`} className="warning" onClick={openDraftPanel} type="button"><span className="summary-icon amber"><Clock3 /></span><span>Chờ xác nhận</span><strong>{approvals.length}</strong></button>
-        <button aria-pressed={statusFilter === "resolved"} className={statusFilter === "resolved" ? "active" : ""} onClick={() => setStatusFilter("resolved")} type="button"><span className="summary-icon green"><CheckCircle2 /></span><span>Đã giải quyết</span><strong>{tickets.filter((ticket) => ticket.status === "resolved").length}</strong></button>
+        <button aria-pressed={statusFilter === "resolved"} className={statusFilter === "resolved" ? "active" : ""} onClick={() => setStatusFilter("resolved")} type="button"><span className="summary-icon green"><CheckCircle2 /></span><span>Đã giải quyết</span><strong>{summary.resolved}</strong></button>
       </section>
 
       {draftOpen ? <button aria-label="Đóng bảng tạo ticket" className="ticket-drawer-backdrop" onClick={closeDraftPanel} type="button" /> : null}
@@ -259,7 +266,7 @@ export function TicketsPage() {
       </aside> : null}
 
       <section className="panel ticket-library">
-        <header className="panel-header"><div><h2>Ticket cá nhân</h2><p>{filteredTickets.length} kết quả · {tickets.length} ticket trong phạm vi của bạn</p></div></header>
+        <header className="panel-header"><div><h2>Ticket cá nhân</h2><p>{filteredTickets.length} kết quả đang hiển thị · {summary.total} ticket trong phạm vi của bạn</p></div></header>
         <div className="filter-bar">
           <label className="search-field"><Search aria-hidden="true" size={16} /><span className="sr-only">Tìm ticket</span><input onChange={(event) => setQuery(event.target.value)} placeholder="Tìm theo mã, tiêu đề…" type="search" value={query} /></label>
           <label><span className="sr-only">Lọc trạng thái</span><select aria-label="Lọc trạng thái" onChange={(event) => setStatusFilter(event.target.value)} value={statusFilter}><option value="all">Mọi trạng thái</option><option value="open">Open</option><option value="in_progress">In progress</option><option value="resolved">Resolved</option></select></label>

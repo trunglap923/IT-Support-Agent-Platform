@@ -94,7 +94,7 @@ test("admin uploads, previews, processes, publishes and revokes a document", asy
   await expect(page.getByRole("button", { name: "Revoke" })).toBeVisible();
   await page.getByRole("button", { name: "Revoke" }).click();
   await page.getByRole("button", { name: "Revoke tài liệu" }).click();
-  await expect(page.getByRole("complementary", { name: "Chi tiết VPN admin guide" })
+  await expect(page.getByRole("dialog", { name: "VPN admin guide" })
     .getByText("Đã thu hồi", { exact: true })).toBeVisible();
 });
 

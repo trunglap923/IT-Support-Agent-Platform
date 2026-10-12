@@ -96,6 +96,7 @@ def test_it_queue_transitions_service_status_and_role_scope(
         )
         assert login.status_code == 200
         assert employee_client.get("/api/v1/tickets/queue").status_code == 403
+        assert employee_client.get("/api/v1/tickets/queue/summary").status_code == 403
         assert employee_client.get("/api/v1/service-status").status_code == 403
 
     with TestClient(create_app(settings=settings), base_url=ORIGIN) as it_client:
@@ -113,6 +114,13 @@ def test_it_queue_transitions_service_status_and_role_scope(
         assert it_client.get(f"/api/v1/tickets/{ticket['id']}").status_code == 200
         assert it_client.get("/api/v1/tickets/queue?issue_type=gitlab").json()["items"] == []
         assert len(it_client.get("/api/v1/tickets/queue?severity=normal").json()["items"]) == 1
+        assert it_client.get("/api/v1/tickets/queue/summary").json() == {
+            "total": 1,
+            "open": 1,
+            "in_progress": 0,
+            "resolved": 0,
+            "high_unresolved": 0,
+        }
 
         started = it_client.post(
             f"/api/v1/tickets/{ticket['id']}/transition",
@@ -143,6 +151,7 @@ def test_it_queue_transitions_service_status_and_role_scope(
         )
         assert reopened.json()["status"] == "open"
         assert reopened.json()["resolution_note"] is None
+        assert it_client.get("/api/v1/tickets/queue/summary").json()["open"] == 1
 
         services = it_client.get("/api/v1/service-status")
         assert services.status_code == 200

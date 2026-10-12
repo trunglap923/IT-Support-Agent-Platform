@@ -40,6 +40,14 @@ export interface TicketDraftResponse {
   created: boolean;
 }
 
+export interface TicketSummary {
+  total: number;
+  open: number;
+  in_progress: number;
+  resolved: number;
+  high_unresolved: number;
+}
+
 export type TicketFilters = Partial<
   Record<"ticket_status" | "issue_type" | "severity", string>
 >;
@@ -64,6 +72,10 @@ export function listMyTicketsPage(
 
 export async function listMyTickets(signal?: AbortSignal): Promise<Ticket[]> {
   return (await listMyTicketsPage(null, signal)).items;
+}
+
+export function getMyTicketSummary(signal?: AbortSignal): Promise<TicketSummary> {
+  return request("/api/v1/tickets/mine/summary", { signal });
 }
 
 export function getTicket(ticketId: string, signal?: AbortSignal): Promise<Ticket> {

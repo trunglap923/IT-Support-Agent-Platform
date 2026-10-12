@@ -1,21 +1,32 @@
+import { lazy, Suspense, type ComponentType } from "react";
 import { createBrowserRouter } from "react-router-dom";
 
 import { AppShell } from "./components/AppShell";
-import { ChatPage } from "./features/chat/ChatPage";
-import { DashboardPage } from "./features/DashboardPage";
-import { LoginPage } from "./features/auth/LoginPage";
-import { DocumentsPage } from "./features/documents/DocumentsPage";
+import { LoadingState } from "./components/ProductUI";
 import { RequireAuth } from "./features/auth/RequireAuth";
-import { TicketsPage } from "./features/tickets/TicketsPage";
-import { TicketDetailPage } from "./features/tickets/TicketDetailPage";
-import { OperationsPage } from "./features/services/OperationsPage";
-import { MemoryPage } from "./features/memory/MemoryPage";
-import { NotFoundPage } from "./features/NotFoundPage";
+
+const ChatPage = lazy(async () => ({ default: (await import("./features/chat/ChatPage")).ChatPage }));
+const DashboardPage = lazy(async () => ({ default: (await import("./features/DashboardPage")).DashboardPage }));
+const LoginPage = lazy(async () => ({ default: (await import("./features/auth/LoginPage")).LoginPage }));
+const DocumentsPage = lazy(async () => ({ default: (await import("./features/documents/DocumentsPage")).DocumentsPage }));
+const TicketsPage = lazy(async () => ({ default: (await import("./features/tickets/TicketsPage")).TicketsPage }));
+const TicketDetailPage = lazy(async () => ({ default: (await import("./features/tickets/TicketDetailPage")).TicketDetailPage }));
+const OperationsPage = lazy(async () => ({ default: (await import("./features/services/OperationsPage")).OperationsPage }));
+const MemoryPage = lazy(async () => ({ default: (await import("./features/memory/MemoryPage")).MemoryPage }));
+const NotFoundPage = lazy(async () => ({ default: (await import("./features/NotFoundPage")).NotFoundPage }));
+
+function routeElement(Page: ComponentType) {
+  return (
+    <Suspense fallback={<div className="route-loading"><LoadingState label="Đang tải màn hình…" /></div>}>
+      <Page />
+    </Suspense>
+  );
+}
 
 export const router = createBrowserRouter([
   {
     path: "/login",
-    element: <LoginPage />,
+    element: routeElement(LoginPage),
   },
   {
     path: "/",
@@ -25,15 +36,15 @@ export const router = createBrowserRouter([
       </RequireAuth>
     ),
     children: [
-      { index: true, element: <DashboardPage /> },
-      { path: "chat", element: <ChatPage /> },
-      { path: "tickets", element: <TicketsPage /> },
-      { path: "tickets/:ticketId", element: <TicketDetailPage /> },
-      { path: "operations", element: <OperationsPage /> },
-      { path: "admin/documents", element: <DocumentsPage /> },
-      { path: "settings/memory", element: <MemoryPage /> },
-      { path: "*", element: <NotFoundPage /> },
+      { index: true, element: routeElement(DashboardPage) },
+      { path: "chat", element: routeElement(ChatPage) },
+      { path: "tickets", element: routeElement(TicketsPage) },
+      { path: "tickets/:ticketId", element: routeElement(TicketDetailPage) },
+      { path: "operations", element: routeElement(OperationsPage) },
+      { path: "admin/documents", element: routeElement(DocumentsPage) },
+      { path: "settings/memory", element: routeElement(MemoryPage) },
+      { path: "*", element: routeElement(NotFoundPage) },
     ],
   },
-  { path: "*", element: <NotFoundPage /> },
+  { path: "*", element: routeElement(NotFoundPage) },
 ]);

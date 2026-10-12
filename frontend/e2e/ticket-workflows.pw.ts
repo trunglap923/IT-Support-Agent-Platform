@@ -33,6 +33,9 @@ test("employee creates, approves and rejects ticket drafts", async ({ page }) =>
   let draftCounter = 0;
 
   await page.route("**/api/v1/tickets/mine**", (route) => json(route, cursorPage([])));
+  await page.route("**/api/v1/tickets/mine/summary", (route) => json(route, {
+    total: 0, open: 0, in_progress: 0, resolved: 0, high_unresolved: 0,
+  }));
   await page.route("**/api/v1/approvals?approval_status=pending**", (route) =>
     json(route, cursorPage(pending)),
   );
@@ -130,6 +133,9 @@ test("retrying an unchanged ticket draft reuses its client request id", async ({
   const requestIds: string[] = [];
 
   await page.route("**/api/v1/tickets/mine**", (route) => json(route, cursorPage([])));
+  await page.route("**/api/v1/tickets/mine/summary", (route) => json(route, {
+    total: 0, open: 0, in_progress: 0, resolved: 0, high_unresolved: 0,
+  }));
   await page.route("**/api/v1/approvals?approval_status=pending**", (route) =>
     json(route, cursorPage([])),
   );
@@ -206,6 +212,9 @@ test("approval UI blocks double decisions and expired drafts", async ({ page }) 
   );
 
   await page.route("**/api/v1/tickets/mine**", (route) => json(route, cursorPage([])));
+  await page.route("**/api/v1/tickets/mine/summary", (route) => json(route, {
+    total: 0, open: 0, in_progress: 0, resolved: 0, high_unresolved: 0,
+  }));
   await page.route("**/api/v1/approvals?approval_status=pending**", (route) =>
     json(route, cursorPage([activeApproval, expiredApproval])),
   );
@@ -247,6 +256,13 @@ test("IT resolves and reopens tickets", async ({ page }) => {
     updated_at: "2026-09-16T00:00:00Z",
   };
   await page.route("**/api/v1/tickets/queue**", (route) => json(route, cursorPage([ticket])));
+  await page.route("**/api/v1/tickets/queue/summary", (route) => json(route, {
+    total: 1,
+    open: ticket.status === "open" ? 1 : 0,
+    in_progress: ticket.status === "in_progress" ? 1 : 0,
+    resolved: ticket.status === "resolved" ? 1 : 0,
+    high_unresolved: 0,
+  }));
   await page.route("**/api/v1/service-status", (route) => json(route, [service]));
   await page.route("**/api/v1/tickets/*/transition", async (route) => {
     const body = route.request().postDataJSON();
@@ -278,6 +294,9 @@ test("admin updates simulated service state", async ({ page }) => {
     updated_at: "2026-09-16T00:00:00Z",
   };
   await page.route("**/api/v1/tickets/queue**", (route) => json(route, cursorPage([])));
+  await page.route("**/api/v1/tickets/queue/summary", (route) => json(route, {
+    total: 0, open: 0, in_progress: 0, resolved: 0, high_unresolved: 0,
+  }));
   await page.route("**/api/v1/service-status", (route) => json(route, [service]));
   await page.route("**/api/v1/service-status/vpn", async (route) => {
     service = { ...service, ...route.request().postDataJSON() };

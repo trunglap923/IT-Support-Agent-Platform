@@ -2,18 +2,80 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime
 from typing import cast
 from uuid import UUID
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.elements import ColumnElement
 
 from app.auth.principal import Principal
 from app.db.models import Ticket, TicketIssueType, TicketSeverity, TicketStatus, UserRole
 
 
+@dataclass(frozen=True, slots=True)
+class TicketSummary:
+    total: int
+    open: int
+    in_progress: int
+    resolved: int
+    high_unresolved: int
+
+
 class TicketReadService:
+    async def summarize_owned(
+        self,
+        session: AsyncSession,
+        *,
+        principal: Principal,
+    ) -> TicketSummary:
+        return await self._summarize(
+            session,
+            scope=Ticket.owner_id == principal.user_id,
+        )
+
+    async def summarize_visible(
+        self,
+        session: AsyncSession,
+        *,
+        principal: Principal,
+    ) -> TicketSummary:
+        scope = None
+        if principal.role is UserRole.EMPLOYEE:
+            scope = Ticket.owner_id == principal.user_id
+        elif principal.role is UserRole.IT:
+            scope = Ticket.department_id == principal.department_id
+        return await self._summarize(session, scope=scope)
+
+    async def _summarize(
+        self,
+        session: AsyncSession,
+        *,
+        scope: ColumnElement[bool] | None,
+    ) -> TicketSummary:
+        statement = select(
+            func.count(Ticket.id),
+            func.count(Ticket.id).filter(Ticket.status == TicketStatus.OPEN.value),
+            func.count(Ticket.id).filter(Ticket.status == TicketStatus.IN_PROGRESS.value),
+            func.count(Ticket.id).filter(Ticket.status == TicketStatus.RESOLVED.value),
+            func.count(Ticket.id).filter(
+                Ticket.severity == TicketSeverity.HIGH.value,
+                Ticket.status != TicketStatus.RESOLVED.value,
+            ),
+        )
+        if scope is not None:
+            statement = statement.where(scope)
+        row = (await session.execute(statement)).one()
+        return TicketSummary(
+            total=int(row[0]),
+            open=int(row[1]),
+            in_progress=int(row[2]),
+            resolved=int(row[3]),
+            high_unresolved=int(row[4]),
+        )
+
     async def list_owned(
         self,
         session: AsyncSession,

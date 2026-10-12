@@ -4,12 +4,13 @@ import { Activity, AlertTriangle, Container, GitBranch, Search, ShieldCheck, Tic
 
 import {
   listServiceStates,
+  getTicketQueueSummary,
   listTicketQueuePage,
   transitionTicket,
   updateServiceState,
   type ServiceState,
 } from "../../api/operations";
-import type { Ticket } from "../../api/tickets";
+import type { Ticket, TicketSummary } from "../../api/tickets";
 import { AccessDenied, EmptyState, LoadingState, MetricCard, PageHeader, StatusBadge } from "../../components/ProductUI";
 import { formatIssueType, formatRelativeTime } from "../../utils/format";
 import { useAuth } from "../auth/useAuth";
@@ -18,6 +19,9 @@ export function OperationsPage() {
   const { csrfToken, user } = useAuth();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [services, setServices] = useState<ServiceState[]>([]);
+  const [summary, setSummary] = useState<TicketSummary>({
+    total: 0, open: 0, in_progress: 0, resolved: 0, high_unresolved: 0,
+  });
   const [resolutionNotes, setResolutionNotes] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(user?.role !== "employee");
   const [error, setError] = useState<string | null>(null);
@@ -40,11 +44,13 @@ export function OperationsPage() {
         ...(issueTypeFilter !== "all" ? { issue_type: issueTypeFilter } : {}),
       }),
       listServiceStates(controller.signal),
+      getTicketQueueSummary(controller.signal),
     ])
-      .then(([ticketPage, serviceItems]) => {
+      .then(([ticketPage, serviceItems, ticketSummary]) => {
         setTickets(ticketPage.items);
         setTicketCursor(ticketPage.next_cursor);
         setServices(serviceItems);
+        setSummary(ticketSummary);
       })
       .catch((caught: unknown) => {
         if (!(caught instanceof DOMException && caught.name === "AbortError")) {
@@ -100,6 +106,7 @@ export function OperationsPage() {
         resolutionNotes[ticket.id],
       );
       setTickets((current) => current.map((item) => item.id === updated.id ? updated : item));
+      setSummary(await getTicketQueueSummary());
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Không thể cập nhật ticket.");
     }
@@ -132,10 +139,10 @@ export function OperationsPage() {
       {error ? <div className="alert-banner error" role="alert">{error}</div> : null}
 
       <section className="metric-grid" aria-label="Tổng quan hàng đợi">
-        <MetricCard icon={TicketCheck} label="Tổng ticket" value={tickets.length} detail="Trong phạm vi xử lý" />
-        <MetricCard icon={Activity} label="Đang xử lý" value={tickets.filter((ticket) => ticket.status === "in_progress").length} tone="amber" detail="Cần tiếp tục theo dõi" />
-        <MetricCard icon={AlertTriangle} label="Mức độ cao" value={tickets.filter((ticket) => ticket.severity === "high" && ticket.status !== "resolved").length} tone="red" detail="Cần chú ý sớm" />
-        <MetricCard icon={UserRound} label="Chưa xử lý" value={tickets.filter((ticket) => ticket.status === "open").length} detail="Có thể bắt đầu xử lý" />
+        <MetricCard icon={TicketCheck} label="Tổng ticket" value={summary.total} detail="Trong phạm vi xử lý" />
+        <MetricCard icon={Activity} label="Đang xử lý" value={summary.in_progress} tone="amber" detail="Cần tiếp tục theo dõi" />
+        <MetricCard icon={AlertTriangle} label="Mức độ cao" value={summary.high_unresolved} tone="red" detail="Cần chú ý sớm" />
+        <MetricCard icon={UserRound} label="Chưa xử lý" value={summary.open} detail="Có thể bắt đầu xử lý" />
       </section>
 
       <section className="panel operations-services">
@@ -168,7 +175,7 @@ export function OperationsPage() {
       </section>
 
       <section className="panel operations-queue">
-        <header className="panel-header"><div><h2>Ticket trong phạm vi</h2><p>{filteredTickets.length} kết quả · {tickets.length} ticket được phép xử lý</p></div></header>
+        <header className="panel-header"><div><h2>Ticket trong phạm vi</h2><p>{filteredTickets.length} kết quả đang hiển thị · {summary.total} ticket được phép xử lý</p></div></header>
         <div className="filter-bar">
           <label className="search-field"><Search aria-hidden="true" size={16} /><span className="sr-only">Tìm ticket trong hàng đợi</span><input onChange={(event) => setQuery(event.target.value)} placeholder="Tìm theo mã, tiêu đề, người yêu cầu…" type="search" value={query} /></label>
           <label><span className="sr-only">Lọc trạng thái</span><select aria-label="Lọc trạng thái hàng đợi" onChange={(event) => setStatusFilter(event.target.value)} value={statusFilter}><option value="all">Mọi trạng thái</option><option value="open">Open</option><option value="in_progress">In progress</option><option value="resolved">Resolved</option></select></label>

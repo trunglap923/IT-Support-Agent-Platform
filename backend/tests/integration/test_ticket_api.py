@@ -113,6 +113,13 @@ def test_manual_ticket_draft_approval_and_personal_list(
         assert detail.json()["display_key"] == ticket["display_key"]
         assert client.get("/api/v1/tickets/mine?issue_type=docker").json()["items"] == []
         assert len(client.get("/api/v1/tickets/mine?issue_type=vpn").json()["items"]) == 1
+        assert client.get("/api/v1/tickets/mine/summary").json() == {
+            "total": 1,
+            "open": 1,
+            "in_progress": 0,
+            "resolved": 0,
+            "high_unresolved": 0,
+        }
 
 
 def test_manual_ticket_draft_rejects_device_owned_by_another_user(

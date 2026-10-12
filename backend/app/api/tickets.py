@@ -80,6 +80,16 @@ class TicketDraftResponse(BaseModel):
     created: bool
 
 
+class TicketSummaryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    total: int
+    open: int
+    in_progress: int
+    resolved: int
+    high_unresolved: int
+
+
 async def _ticket_responses(session: AsyncSession, tickets: list[Ticket]) -> list[TicketResponse]:
     owner_ids = {ticket.owner_id for ticket in tickets}
     names: dict[UUID, str] = {}
@@ -123,6 +133,15 @@ async def list_my_tickets(
     )
 
 
+@router.get("/mine/summary", response_model=TicketSummaryResponse)
+async def summarize_my_tickets(
+    principal: CurrentPrincipal,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> TicketSummaryResponse:
+    summary = await TicketReadService().summarize_owned(session, principal=principal)
+    return TicketSummaryResponse.model_validate(summary)
+
+
 @router.get(
     "/queue",
     response_model=CursorPage[TicketResponse],
@@ -152,6 +171,19 @@ async def list_ticket_queue(
         items=await _ticket_responses(session, items),
         next_cursor=next_cursor,
     )
+
+
+@router.get(
+    "/queue/summary",
+    response_model=TicketSummaryResponse,
+    dependencies=[Depends(require_roles(UserRole.IT, UserRole.ADMIN))],
+)
+async def summarize_ticket_queue(
+    principal: CurrentPrincipal,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> TicketSummaryResponse:
+    summary = await TicketReadService().summarize_visible(session, principal=principal)
+    return TicketSummaryResponse.model_validate(summary)
 
 
 @router.get("/{ticket_id}", response_model=TicketResponse)

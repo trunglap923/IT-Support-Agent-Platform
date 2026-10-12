@@ -50,9 +50,26 @@ function cursorPage(items: unknown[]) {
   return { items, next_cursor: null };
 }
 
+const consoleErrors = new WeakMap<Page, string[]>();
+
+test.beforeEach(async ({ page }) => {
+  const errors: string[] = [];
+  consoleErrors.set(page, errors);
+  page.on("console", (message) => {
+    if (message.type() === "error") errors.push(message.text());
+  });
+});
+
+test.afterEach(async ({ page }) => {
+  expect(consoleErrors.get(page) ?? []).toEqual([]);
+});
+
 async function mockWorkspace(page: Page, actor = user) {
   await page.route("**/api/v1/auth/me", (route) => json(route, { user: actor, csrf_token: "csrf-visual" }));
   await page.route("**/api/v1/tickets/mine**", (route) => json(route, cursorPage(tickets)));
+  await page.route("**/api/v1/tickets/mine/summary", (route) => json(route, {
+    total: 2, open: 1, in_progress: 1, resolved: 0, high_unresolved: 1,
+  }));
   await page.route("**/api/v1/approvals?approval_status=pending**", (route) => json(route, cursorPage([])));
   await page.route("**/api/v1/memory/devices", (route) => json(route, []));
   await page.route("**/api/v1/health/live", (route) => json(route, {
@@ -228,10 +245,6 @@ test("mobile navigation and dashboard do not overflow", async ({ page }, testInf
 
 test("chat stays readable on desktop and mobile", async ({ page }, testInfo) => {
   await mockChat(page);
-  const consoleErrors: string[] = [];
-  page.on("console", (message) => {
-    if (message.type() === "error") consoleErrors.push(message.text());
-  });
 
   await page.setViewportSize({ width: 1440, height: 960 });
   await page.goto("/chat");
@@ -277,15 +290,10 @@ test("chat stays readable on desktop and mobile", async ({ page }, testInfo) => 
     .length);
   expect(unnamedButtons).toBe(0);
   await page.screenshot({ path: testInfo.outputPath("chat-mobile.png"), fullPage: true });
-  expect(consoleErrors).toEqual([]);
 });
 
 test("streaming answer stays readable on desktop and mobile", async ({ page }, testInfo) => {
   await mockStreamingChat(page);
-  const consoleErrors: string[] = [];
-  page.on("console", (message) => {
-    if (message.type() === "error") consoleErrors.push(message.text());
-  });
 
   await page.setViewportSize({ width: 1440, height: 960 });
   await page.goto("/chat");
@@ -301,10 +309,9 @@ test("streaming answer stays readable on desktop and mobile", async ({ page }, t
   await expect(page.getByLabel("Câu trả lời đang được tạo")).toBeVisible();
   await expectNoHorizontalOverflow(page);
   await page.screenshot({ path: testInfo.outputPath("chat-streaming-mobile.png"), fullPage: true });
-  expect(consoleErrors).toEqual([]);
 });
 
-test("ticket workspace keeps the create drawer usable", async ({ page }) => {
+test("ticket workspace keeps the create drawer usable", async ({ page }, testInfo) => {
   await mockWorkspace(page);
 
   await page.setViewportSize({ width: 1440, height: 960 });
@@ -313,7 +320,7 @@ test("ticket workspace keeps the create drawer usable", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Tạo ticket hỗ trợ" })).toBeVisible();
   await expect(page.getByText("IT-2048")).toBeVisible();
   await expectNoHorizontalOverflow(page);
-  await page.screenshot({ path: "../docs/assets/ui-modernization/phase-4/tickets-desktop.png", fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath("tickets-desktop.png"), fullPage: true });
 
   await page.getByRole("button", { name: "Đóng panel tạo ticket" }).click();
   await page.setViewportSize({ width: 390, height: 844 });
@@ -321,17 +328,17 @@ test("ticket workspace keeps the create drawer usable", async ({ page }) => {
   await page.waitForTimeout(250);
   await expect(page.getByRole("heading", { name: "Tạo ticket hỗ trợ" })).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
-  await page.screenshot({ path: "../docs/assets/ui-modernization/phase-4/tickets-mobile.png", fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath("tickets-mobile.png"), fullPage: true });
 
   await page.getByRole("button", { name: "Tạo ticket", exact: true }).click();
   await expect(page.getByLabel("Tiêu đề")).toBeFocused();
   await expect(page.getByRole("button", { name: "Đóng bảng tạo ticket" })).toBeVisible();
-  await page.screenshot({ path: "../docs/assets/ui-modernization/phase-4/ticket-drawer-mobile.png", fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath("ticket-drawer-mobile.png"), fullPage: true });
   await page.keyboard.press("Escape");
   await expect(page.getByRole("button", { name: "Tạo ticket", exact: true })).toBeFocused();
 });
 
-test("ticket detail is readable on desktop and mobile", async ({ page }) => {
+test("ticket detail is readable on desktop and mobile", async ({ page }, testInfo) => {
   await mockWorkspace(page);
   await page.route(`**/api/v1/tickets/${tickets[0].id}`, (route) => json(route, tickets[0]));
   await page.setViewportSize({ width: 1440, height: 960 });
@@ -339,19 +346,22 @@ test("ticket detail is readable on desktop and mobile", async ({ page }) => {
   await expect(page.getByRole("heading", { name: tickets[0].title })).toBeVisible();
   await expect(page.getByText("Người yêu cầu")).toBeVisible();
   await expectNoHorizontalOverflow(page);
-  await page.screenshot({ path: "../docs/assets/ui-modernization/phase-4/ticket-detail-desktop.png", fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath("ticket-detail-desktop.png"), fullPage: true });
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(250);
   await expectNoHorizontalOverflow(page);
   await expect(page.locator(".app-sidebar")).not.toHaveClass(/open/);
   await expect(page.locator(".app-sidebar")).toHaveCSS("transform", /matrix\(1, 0, 0, 1, -/);
-  await page.screenshot({ path: "../docs/assets/ui-modernization/phase-4/ticket-detail-mobile.png", fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath("ticket-detail-mobile.png"), fullPage: true });
 });
 
-test("operations tables remain usable on desktop and mobile", async ({ page }) => {
+test("operations tables remain usable on desktop and mobile", async ({ page }, testInfo) => {
   await mockWorkspace(page, itUser);
   await page.route("**/api/v1/tickets/queue**", (route) => json(route, cursorPage(tickets)));
+  await page.route("**/api/v1/tickets/queue/summary", (route) => json(route, {
+    total: 2, open: 1, in_progress: 1, resolved: 0, high_unresolved: 1,
+  }));
   await page.route("**/api/v1/service-status", (route) => json(route, [
     {
       service_id: "vpn",
@@ -374,12 +384,12 @@ test("operations tables remain usable on desktop and mobile", async ({ page }) =
   await expect(page.getByRole("heading", { name: "Hàng đợi IT" })).toBeVisible();
   await expect(page.getByText("IT-2048 · open · high")).toBeVisible();
   await expectNoHorizontalOverflow(page);
-  await page.screenshot({ path: "../docs/assets/ui-modernization/phase-4/operations-desktop.png", fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath("operations-desktop.png"), fullPage: true });
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(250);
   await expectNoHorizontalOverflow(page);
-  await page.screenshot({ path: "../docs/assets/ui-modernization/phase-4/operations-mobile.png", fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath("operations-mobile.png"), fullPage: true });
 });
 
 test("document library remains usable on desktop and mobile", async ({ page }, testInfo) => {
@@ -498,4 +508,10 @@ test("login remains focused and usable on desktop and mobile", async ({ page }, 
   await page.waitForTimeout(250);
   await expectNoHorizontalOverflow(page);
   await page.screenshot({ path: testInfo.outputPath("login-mobile.png"), fullPage: true });
+  consoleErrors.set(
+    page,
+    (consoleErrors.get(page) ?? []).filter(
+      (message) => !message.includes("status of 401 (Unauthorized)"),
+    ),
+  );
 });

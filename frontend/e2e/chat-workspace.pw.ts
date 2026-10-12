@@ -81,6 +81,14 @@ test("chat shows grouped history, message actions, device and ticket context", a
     }
     return json(route, { items: currentMessages, next_cursor: null });
   });
+  await page.route("**/api/v1/runs/66666666-6666-6666-6666-666666666666", (route) => json(route, {
+    id: "66666666-6666-6666-6666-666666666666",
+    conversation_id: conversationId,
+    status: "completed",
+    outcome: "answered",
+    version: 2,
+    error_code: null,
+  }));
   await page.route("**/api/v1/runs/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", (route) => json(route, {
     id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", conversation_id: conversationId,
     status: "running", outcome: null, version: 1, error_code: null,

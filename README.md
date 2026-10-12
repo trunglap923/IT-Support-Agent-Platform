@@ -24,9 +24,9 @@ The repository contains the complete web application, API, workers, database mig
 
 | Desktop workspace | Mobile workspace |
 | --- | --- |
-| ![Desktop chat workspace showing the conversation, sources, device context, and ticket actions](docs/assets/chat-workspace-desktop.png) | ![Mobile chat workspace with responsive navigation and conversation controls](docs/assets/chat-workspace-mobile.png) |
+| ![Desktop chat workspace showing the conversation, sources, device context, and ticket actions](docs/assets/ui-modernization/phase-6/chat-desktop.png) | ![Mobile chat workspace with responsive navigation and a fixed composer](docs/assets/ui-modernization/phase-6/chat-mobile.png) |
 
-The main workspace keeps the conversation in focus while exposing the sources, device context, ticket history, approvals, and suggested actions needed by a support operator.
+The main workspace keeps the conversation in focus while exposing the sources, device context, ticket history, approvals, and suggested actions needed by a support operator. On tablet, supporting context moves into a keyboard accessible drawer; on mobile, the message list scrolls independently above a persistent composer.
 
 ## Key capabilities
 
@@ -334,6 +334,7 @@ reports/        Generated evaluation evidence and release quality reports
 | [Command reference](infra/commands.md) | Reproducible commands, environment boundaries, and paid opt ins |
 | [Backup and restore](infra/backup-and-restore.md) | PostgreSQL and document storage recovery drill |
 | [Troubleshooting](docs/troubleshooting.md) | Common local, ingestion, worker, and tracing issues |
+| [UI modernization acceptance](docs/ui-modernization-phase-6.md) | Responsive, accessibility, performance, and browser evidence |
 | [Evaluation summary](reports/evaluation-summary.md) | Evaluation suites, results, and interpretation |
 | [Release checklist](reports/release-checklist.md) | Current quality gates and unresolved release evidence |
 

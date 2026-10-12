@@ -1,4 +1,4 @@
-import type { Ticket, TicketFilters } from "./tickets";
+import type { Ticket, TicketFilters, TicketSummary } from "./tickets";
 import { requestJson } from "./client";
 import type { CursorPage } from "./pagination";
 import { paginatedUrl } from "./pagination";
@@ -34,6 +34,10 @@ export function listTicketQueuePage(
 
 export async function listTicketQueue(signal?: AbortSignal): Promise<Ticket[]> {
   return (await listTicketQueuePage(null, signal)).items;
+}
+
+export function getTicketQueueSummary(signal?: AbortSignal): Promise<TicketSummary> {
+  return request("/api/v1/tickets/queue/summary", { signal });
 }
 
 export function transitionTicket(

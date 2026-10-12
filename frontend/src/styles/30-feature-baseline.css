@@ -173,7 +173,7 @@
 .form-error { margin: 6px 0 0; color: var(--danger); font-size: var(--font-xs); }
 .login-footnote { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); }
 .login-footnote small { color: var(--text-subtle); font-size: var(--font-xs); text-align: right; }
-.route-loading { display: grid; min-height: 100vh; place-items: center; color: var(--text-muted); }
+.route-loading { display: grid; min-height: calc(100vh - var(--topbar-height) - 48px); place-items: center; color: var(--text-muted); }
 .route-fallback, .placeholder-card { max-width: 680px; margin: 10vh auto; border: 1px solid var(--border); border-radius: 8px; padding: 24px; background: var(--surface); }
 .route-fallback button { border: 0; border-radius: 6px; padding: 8px 12px; color: var(--text-on-accent); background: var(--accent); }
 .run-monitor-page { display: grid; grid-template-columns: .8fr 1.2fr; gap: 16px; }

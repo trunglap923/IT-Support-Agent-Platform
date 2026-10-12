@@ -57,6 +57,14 @@ test("retrying an unchanged chat message reuses its client request id", async ({
       enqueue_error: null,
     }, 202);
   });
+  await page.route("**/api/v1/runs/66666666-6666-6666-6666-666666666666", (route) => json(route, {
+    id: "66666666-6666-6666-6666-666666666666",
+    conversation_id: "55555555-5555-5555-5555-555555555555",
+    status: "queued",
+    outcome: null,
+    version: 1,
+    error_code: null,
+  }));
 
   await page.goto("/chat");
   const composer = page.getByLabel("Tin nhắn");
