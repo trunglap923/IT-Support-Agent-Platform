@@ -68,7 +68,7 @@ def source_url_for_chunk(chunk_id: UUID) -> str:
     return f"/api/v1/sources/{source_id_for_chunk(chunk_id)}/download"
 
 
-def _excerpt(content: str, *, limit: int = 2_000) -> str:
+def _excerpt(content: str, *, limit: int = 500) -> str:
     compact = " ".join(content.split())
     if len(compact) <= limit:
         return compact
@@ -183,7 +183,7 @@ def _select_hits(
             available_bytes = max(0, (context_token_budget - used_tokens - metadata_cost) * 3)
             if available_bytes < 24:
                 continue
-            excerpt = _excerpt(hit.content, limit=min(2_000, available_bytes // 3))
+            excerpt = _excerpt(hit.content, limit=min(500, available_bytes // 3))
             cost = _estimated_tokens(metadata + " " + excerpt)
         if used_tokens + cost > context_token_budget:
             continue

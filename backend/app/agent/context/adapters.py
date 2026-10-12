@@ -12,7 +12,7 @@ from app.agent.context.contracts import ContextCandidate, ContextScope
 from app.agent.context.schemas import SupportContext
 from app.agent.working_memory.contracts import WorkingMemorySnapshot
 
-_TOKEN = re.compile(r"[\w.-]+", re.UNICODE)
+_TOKEN = re.compile(r"[\w]+(?:[.-][\w]+)*", re.UNICODE)
 
 
 def _id(prefix: str, value: str) -> str:
@@ -125,7 +125,9 @@ def support_candidates(
                 source_reliability=0.75 if message.role == "user" else 0.55,
                 confidence=0.75,
                 temporal_validity=1,
-                task_utility=max(relevance, 0.35 if recent_turn else 0),
+                # Recency may rank relevant history higher, but must not make an
+                # unrelated recent topic eligible on its own.
+                task_utility=relevance,
                 recency=(index + 1) / total,
                 token_cost=estimate_tokens(content),
                 sensitivity="confidential",

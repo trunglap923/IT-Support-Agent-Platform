@@ -158,15 +158,15 @@ def validate_output_citations(
     policy: AgentRequestPolicy,
     citation_store: dict[str, dict[str, Any]],
 ) -> SupportAgentOutput:
-    """Reject citations outside this run; transformation turns may reuse history text."""
+    """Reject stale citations on evidence answers; discard them on non-retrieval turns."""
 
     del query  # Request mode was resolved from the whole turn and authorized history.
     unknown = set(output.citations) - set(citation_store)
     if not unknown:
         return output
-    if not policy.requires_knowledge and policy.request_mode == "transform_previous":
-        # A formatting-only turn can reuse the immediately preceding answer as context, but
-        # citations are scoped to each run. Drop any old or invented IDs from this new turn.
+    if not policy.requires_knowledge:
+        # Non-retrieval answers may reuse conversation text, but citations are scoped to
+        # the current run. Drop old or invented IDs rather than failing the whole turn.
         return output.model_copy(
             update={
                 "citations": [

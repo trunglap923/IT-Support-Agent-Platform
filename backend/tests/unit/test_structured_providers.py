@@ -309,7 +309,8 @@ def test_openai_adapter_rejects_citation_outside_evidence() -> None:
         assert api.kwargs["store"] is False
         assert api.kwargs["max_output_tokens"] == 800
         assert api.kwargs["text_format"] is SupportReply
-        assert api.kwargs["instructions"] == SUPPORT_INSTRUCTIONS
+        assert api.kwargs["instructions"].startswith(SUPPORT_INSTRUCTIONS)
+        assert "set answer_basis='evidence'" in api.kwargs["instructions"]
 
     asyncio.run(scenario())
 

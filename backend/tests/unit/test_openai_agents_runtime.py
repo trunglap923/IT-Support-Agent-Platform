@@ -101,7 +101,7 @@ def test_formatting_follow_up_keeps_the_previous_answer_in_context() -> None:
         query="Liệt kê thành gạch đầu dòng đi",
     )
 
-    items = build_agents_input(support, support.query)
+    items = build_agents_input(support, support.query, transform_previous=True)
     contents = [cast(dict[str, Any], item)["content"] for item in items]
 
     assert "Duy trì nhiều bản sao lưu dự phòng." in contents
@@ -237,7 +237,7 @@ def test_request_policy_keeps_operational_reads_narrow() -> None:
     assert service.requires_knowledge is False
     assert service.allowed_tools == frozenset({"check_service_status"})
     assert ticket.requires_knowledge is False
-    assert ticket.allowed_tools == frozenset({"create_ticket", "get_conversation_device"})
+    assert ticket.allowed_tools == frozenset({"create_ticket"})
 
 
 def test_request_policy_treats_self_introduction_as_social_without_hiding_it_request() -> None:
